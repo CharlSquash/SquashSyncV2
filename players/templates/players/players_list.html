@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Players List - SquashSync{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header">
+        <h1>{{ page_title }}</h1>
+    </div>
+
+    <form method="get" class="mb-4">
+        <div class="row g-2">
+            <div class="col-md-5">
+                <input type="text" name="q" class="form-control" placeholder="Search by name..." value="{{ search_query|default_if_none:'' }}">
+            </div>
+            <div class="col-md-5">
+                <select name="school_group" class="form-select">
+                    <option value="">All School Groups</option>
+                    {% for group in school_groups %}
+                        <option value="{{ group.id }}" {% if group.id == selected_group_id %}selected{% endif %}>{{ group.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>School Group(s)</th>
+                    <th>Skill Level</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td>{{ player.full_name }}</td>
+                    <td>{{ player.school_groups.all|join:", " }}</td>
+                    <td>{{ player.get_skill_level_display }}</td>
+                    <td>
+                        <a href="{% url 'players:player_profile' player.id %}" class="btn btn-sm btn-outline-primary">View Profile</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">No players found matching your criteria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

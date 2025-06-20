@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ player.full_name }} - Player Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                {% if player.photo %}
+                    <img src="{{ player.photo.url }}" class="card-img-top" alt="{{ player.full_name }}">
+                {% else %}
+                    <img src="{% static 'images/default_avatar.png' %}" class="card-img-top" alt="Default Avatar">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ player.full_name }}</h5>
+                    <p class="card-text">
+                        <strong>Grade:</strong> {{ player.get_grade_display|default:"N/A" }}<br>
+                        <strong>Skill Level:</strong> {{ player.get_skill_level_display|default:"N/A" }}<br>
+                        <strong>Groups:</strong> {{ player.school_groups.all|join:", " }}
+                    </p>
+                    <a href="#" class="btn btn-primary">Edit Player</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="assessments-tab" data-bs-toggle="tab" data-bs-target="#assessments" type="button" role="tab">Assessments</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab">Attendance</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="matches-tab" data-bs-toggle="tab" data-bs-target="#matches" type="button" role="tab">Matches</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="myTabContent">
+                <div class="tab-pane fade show active" id="assessments" role="tabpanel">
+                    <div class="list-group mt-3">
+                        {% for assessment in assessments %}
+                        <div class="list-group-item">
+                            <h5 class="mb-1">Session on {{ assessment.session.session_date|date:"d M Y" }}</h5>
+                            <p class="mb-1">{{ assessment.coach_notes|default:"No notes." }}</p>
+                            <small>Assessed by: {{ assessment.submitted_by.username|default:"N/A" }}</small>
+                        </div>
+                        {% empty %}
+                        <p class="mt-3">No assessments found.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="attendance" role="tabpanel">
+                    <ul class="list-group mt-3">
+                        {% for session in sessions_attended %}
+                            <li class="list-group-item">
+                                <a href="{% url 'scheduling:session_detail' session.id %}">
+                                    {{ session.session_date|date:"d M Y" }} - {{ session.school_group.name|default:"General Session" }}
+                                </a>
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item">No attendance records found.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="tab-pane fade" id="matches" role="tabpanel">
+                    <ul class="list-group mt-3">
+                        {% for match in match_history %}
+                            <li class="list-group-item">
+                                vs {{ match.opponent_name }} ({{ match.date|date:"d M Y" }}) - Score: {{ match.player_score_str }}
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item">No match results recorded.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

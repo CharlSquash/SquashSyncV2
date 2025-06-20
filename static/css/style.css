@@ -1,0 +1,995 @@
+/* planning/static/planning/style.css */
+
+/* --- Define Color Variables (Merged Light/Dark Mode) --- */
+/* Default Light Mode Variables */
+:root {
+    --body-bg: #f4f7f6; /* Kept user's light body bg */
+    --container-bg: #ffffff;
+    --container-light-bg: #f8f9fa; /* For alternating rows, filter boxes */
+    --text-color: #333; /* Kept user's text color */
+    --heading-color: #004085; /* Kept user's heading color */
+    --subheading-color: #343a40; /* Kept user's subheading color */
+    --link-color: #007bff; /* Kept user's link color */
+    --link-hover-color: #0056b3; /* Kept user's link hover color */
+    --border-color: #ced4da; /* Kept user's border color */
+    --border-light: #e9ecef; /* Kept user's light border */
+    --border-accent: #17a2b8; /* Kept user's accent */
+    --input-bg: #ffffff; /* Added input bg */
+    /* Court/Activity specific */
+    --court-bg: #f8f9fa; /* Kept user's court bg */
+    --court-border: #e9ecef; /* Kept user's court border */
+    --court-header-color: #495057; /* Kept user's court header */
+    --activity-bg: #e9ecef; /* Kept user's activity bg */
+    --activity-border: #ced4da; /* Kept user's activity border */
+    --activity-text: #333; /* Kept user's activity text */
+    /* Action button colors */
+    --action-edit-bg: #cfe2ff; /* Kept user's edit bg */
+    --action-edit-text: #004085; /* Kept user's edit text */
+    --action-edit-border: #b8daff; /* Kept user's edit border */
+    --action-edit-hover: #b8daff; /* Kept user's edit hover */
+    --action-del-bg: #f8d7da; /* Kept user's del bg */
+    --action-del-text: #721c24; /* Kept user's del text */
+    --action-del-border: #f5c6cb; /* Kept user's del border */
+    --action-del-hover: #f1c1c1; /* Kept user's del hover */
+    --action-add-bg: #d4edda; /* Kept user's add bg */
+    --action-add-text: #155724; /* Kept user's add text */
+    --action-add-border: #c3e6cb; /* Kept user's add border */
+    --action-add-hover: #b1dbc7; /* Kept user's add hover */
+    /* Sim/Live specific */
+    --simulated-bg: #f8d7da; /* Kept user's sim bg */
+    --simulated-border: #f5c6cb; /* Kept user's sim border */
+    --simulated-text: #721c24; /* Kept user's sim text */
+    --live-current-border: #007bff; /* Kept user's live current */
+    --live-next-border: #ffc107;  /* Kept user's live next */
+    --live-next-bg: #fffcf1; /* Kept user's live next bg */
+    --live-next-heading: #c79100; /* Kept user's live next heading */
+}
+
+/* Dark Mode Variable Overrides - Applied to HTML tag */
+/* Replaced user's body.dark-mode with html.dark-mode and merged variables */
+html.dark-mode {
+    --body-bg: #1a1a1a; /* Very dark gray */
+    --container-bg: #2a2a2e; /* Darker gray */
+    --container-light-bg: #3a3a3a; /* Even lighter dark for alternates */
+    --text-color: #e1e1e6; /* Light gray text */
+    --heading-color: #71b1ff; /* Brighter blue */
+    --subheading-color: #adb5bd; /* Lighter gray */
+    --link-color: #61a1ff; /* Lighter link blue */
+    --link-hover-color: #81b1ff;
+    --border-color: #495057; /* Darker border */
+    --border-light: #343a40;
+    --border-accent: #20c997; /* Brighter teal */
+    --input-bg: #3a3a3a; /* Added dark input bg */
+    /* Court/Activity specific */
+    --court-bg: #313438;
+    --court-border: #414549;
+    --court-header-color: #adb5bd;
+    --activity-bg: #3a3f44;
+    --activity-border: #51565a;
+    --activity-text: #e1e1e6;
+    /* Action button colors */
+    --action-edit-bg: #31571b;
+    --action-edit-text: #a1c1fd;
+    --action-edit-border: #4175d1;
+    --action-edit-hover: #4175d1;
+    --action-del-bg: #5a2a2e;
+    --action-del-text: #f1a1b1;
+    --action-del-border: #8a3141;
+    --action-del-hover: #8a3141;
+    --action-add-bg: #21471a;
+    --action-add-text: #91e1c8;
+    --action-add-border: #31661a;
+    --action-add-hover: #31661a;
+    /* Sim/Live specific */
+    --simulated-bg: #5a2a2e;
+    --simulated-border: #8a3141;
+    --simulated-text: #f1a1b1;
+    --live-current-border: #58a6ff; /* Lighter blue */
+    --live-next-border: #ffca2c;  /* Brighter Amber */
+    --live-next-bg: #3a3121;
+    --live-next-heading: #ffca2c;
+}
+
+
+/* --- General Styles using Variables --- */
+body {
+    background-color: var(--body-bg);
+    color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 20px; /* Keep user's padding */
+    line-height: 1.6; /* Keep user's line-height */
+
+    /* --- ADD GLOBAL BACKGROUND IMAGE --- */
+    background-image: url("images/global_background.jpg"); /* !!! RELATIVE PATH within static/planning/ !!! */
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed; /* Keep background fixed */
+    /* --- END GLOBAL BACKGROUND IMAGE --- */
+
+    /* Apply smooth transitions globally */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+/* Optional: Different background for dark mode */
+/*
+html.dark-mode body {
+    background-image: url("images/global_background_dark.jpg");
+}
+*/
+
+/* Apply smooth transitions to all elements */
+body * {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Toggle Button Style */
+#theme-toggle {
+    background: none;
+    border: none;
+    color: var(--heading-color); /* Match heading color */
+    font-size: 1.4em; /* Make icon larger */
+    cursor: pointer;
+    padding: 5px;
+    margin-left: 15px; /* Space from nav links */
+    vertical-align: middle; /* Align with nav text */
+    transition: color 0.3s ease; /* Add transition */
+}
+#theme-toggle:hover {
+     color: var(--link-hover-color); /* Use link hover color */
+}
+
+
+/* --- REST OF USER'S ORIGINAL STYLES (using variables now) --- */
+
+.container {
+    background-color: var(--container-bg);
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 30px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 5px;
+}
+h1, h2, h4 {
+    border-bottom: 1px solid var(--border-light);
+    color: var(--heading-color);
+    padding-bottom: 8px;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+h3 {
+    color: var(--subheading-color);
+    border-bottom: 1px dashed var(--border-light);
+    padding-bottom: 8px;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-size: 1.3em;
+}
+h5 {
+    color: var(--subheading-color);
+    border-bottom: none;
+    margin-bottom: 10px;
+    font-size: 1em;
+}
+hr {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    margin: 30px 0;
+}
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+a:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline;
+}
+ul {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 5px;
+}
+li {
+    margin-bottom: 5px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+th, td {
+    padding: 8px 5px;
+    border-bottom: 1px dotted var(--border-light);
+    font-size: 0.95em;
+    vertical-align: top;
+    text-align: left;
+}
+th {
+    font-weight: bold;
+    color: var(--subheading-color);
+    border-bottom-width: 2px;
+    border-bottom-style: solid;
+}
+tr:last-child td {
+    border-bottom: none;
+}
+.notes-cell {
+    font-size: 0.9em;
+    color: #555; /* Keep specific grey or use var(--subheading-color) */
+}
+html.dark-mode .notes-cell { /* Use html.dark-mode */
+    color: #bbb; /* Keep specific light grey */
+}
+
+/* header for homepage*/
+.homepage-header {
+    background-image: url("images/banner_squashsync.png"); /* Adjust filename if needed */
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    /* background-color: var(--heading-color, #004085); */ /* Fallback color (optional), COMMENTED OUT */
+
+    color: white; /* Ensure text color works with image */
+    padding: 50px 20px; /* Using ONE padding value (adjust px as needed) */
+    text-align: center;
+    margin-bottom: 30px;
+
+    /* Optional: Add styles for text readability if needed */
+    /* text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5); */
+
+    /* Ensure text appears above potential overlays if using them */
+    /* position: relative; */
+}
+
+.homepage-header h1 { /* Keep H1 styles associated */
+    margin: 0;
+    font-size: 2.5em; /* Adjust if needed over image */
+    border: none;
+    color: white; /* Ensure heading is white */
+     /* Optional: Add text shadow for readability */
+    /* text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6); */
+
+    /* Needed only if using ::before pseudo-element for overlay */
+    /* position: relative;  */
+    /* z-index: 2; */
+}
+
+/* Also ensure any other direct children of .homepage-header have relative positioning and z-index: 2 if using ::before overlay */
+/* .homepage-header > p { position: relative; z-index: 2; } */
+
+
+/* --- Session Info --- */
+.session-info p {
+    margin-bottom: 8px;
+    font-size: 1.05em;
+}
+
+/* --- Attendance & Grouping Sections --- */
+.attendance-section, .grouping-section {
+    background-color: var(--container-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px var(--block-shadow);
+    padding: 20px;
+    margin-bottom: 25px;
+    border-radius: 5px;
+}
+.attendance-layout-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    margin-top: 15px;
+    align-items: flex-start;
+}
+.current-attendees-display, .attendance-update-form {
+    flex: 1;
+    min-width: 280px;
+}
+.current-attendees-display strong {
+    margin-bottom: 5px;
+    display: block;
+}
+.attendance-update-form p {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+.attendance-form ul {
+    border: 1px solid var(--border-color);
+    background-color: var(--body-bg);
+    list-style: none;
+    padding: 10px;
+    margin: 10px 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.attendance-form li {
+    margin-bottom: 5px;
+}
+.attendance-form label {
+    margin-left: 5px;
+    font-weight: normal;
+}
+.attendee-list li, .group-list li {
+    font-size: 0.95em;
+    padding: 2px 0;
+}
+.block-player-groups {
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.block-player-groups > div { /* Court column within drag/drop area */
+    background-color: var(--court-bg);
+    border: 1px solid var(--court-border);
+    flex: 1;
+    min-width: 180px;
+    padding: 8px;
+    border-radius: 4px;
+}
+.block-player-groups strong {
+    color: var(--court-header-color);
+    font-size: 0.95em;
+}
+.block-player-groups ul {
+    margin-top: 5px;
+}
+.block-player-groups li {
+    font-size: 0.9em;
+}
+
+/* --- Timeline Container --- */
+.timeline-container {
+    width: 100%;
+    margin-top: 20px;
+}
+
+/* --- Time Block --- */
+.time-block {
+    border: 1px solid var(--block-border);
+    background-color: var(--block-bg);
+    box-shadow: 0 1px 3px var(--block-shadow);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 25px;
+}
+.time-block h4 {
+    color: var(--block-header-color);
+    border-bottom: 1px dotted var(--border-light);
+    font-size: 1.1em;
+    margin: 0 0 15px 0;
+    padding-bottom: 8px;
+}
+
+/* --- Courts within a Block --- */
+.courts-container {
+    border-top: 1px solid var(--border-light);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+    margin-top: 15px;
+    padding-top: 20px;
+}
+.court-column { /* Styling for the activity list court column */
+    border-left: 3px solid var(--border-accent);
+    flex: 1;
+    min-width: 250px;
+    margin-bottom: 10px;
+    padding-left: 15px;
+}
+.court-column strong {
+    color: var(--court-header-color);
+    font-size: 1.05em;
+    display: block;
+    margin-bottom: 8px;
+}
+.court-column ul {
+    margin-top: 8px;
+    padding-left: 5px;
+}
+
+/* --- Activity Item & Actions --- */
+.activity-item {
+    background-color: var(--activity-bg);
+    border: 1px solid var(--activity-border);
+    color: var(--activity-text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    font-size: 0.95em;
+    border-radius: 4px;
+}
+.activity-item span:first-child {
+    margin-right: 10px;
+}
+.activity-actions a {
+    border: 1px solid var(--border-color);
+    font-size: 0.85em;
+    margin-left: 8px;
+    padding: 3px 6px;
+    text-decoration: none;
+    border-radius: 3px;
+    white-space: nowrap;
+    transition: background-color 0.2s ease;
+}
+.edit-link {
+    background-color: var(--action-edit-bg);
+    color: var(--action-edit-text);
+    border-color: var(--action-edit-border);
+}
+.edit-link:hover {
+    background-color: var(--action-edit-hover);
+}
+.delete-link {
+    background-color: var(--action-del-bg);
+    color: var(--action-del-text);
+    border-color: var(--action-del-border);
+}
+.delete-link:hover {
+    background-color: var(--action-del-hover);
+}
+
+/* --- Add Link --- */
+.add-link {
+    background-color: var(--action-add-bg);
+    color: var(--action-add-text);
+    border: 1px solid var(--action-add-border);
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 0.9em;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+.add-link:hover {
+    background-color: var(--action-add-hover);
+}
+
+/* --- Back Link --- */
+.back-link { /* General back link style if needed */
+    font-weight: bold;
+    margin-top: 25px;
+    display: inline-block;
+    font-size: 1.1em;
+}
+
+/* --- Live View Specific --- */
+.live-block {
+    background-color: var(--block-bg);
+    border: 2px solid var(--live-current-border);
+    box-shadow: 0 4px 8px var(--block-shadow);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+.live-block.next {
+    border-color: var(--live-next-border);
+    background-color: var(--live-next-bg);
+}
+.live-block.current h2 {
+    color: var(--heading-color);
+}
+.live-block.next h2 {
+    color: var(--live-next-heading);
+}
+.live-block h2 {
+    font-size: 1.8em;
+    border: none;
+    margin: 0 0 15px 0;
+}
+.live-courts-container {
+    display: flex;
+    gap: 25px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+.live-court-column {
+    background-color: var(--court-bg);
+    border: 1px solid var(--court-border);
+    padding: 15px;
+    border-radius: 5px;
+    flex: 1;
+    min-width: 280px;
+}
+.live-court-column h4 {
+    color: var(--court-header-color);
+    font-size: 1.3em;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 5px;
+    margin: 0 0 10px 0;
+}
+.player-list, .activity-list { /* Used in live view */
+    padding-left: 5px;
+    margin-bottom: 15px;
+}
+.player-list li, .activity-list li {
+    font-size: 1.1em;
+    margin-bottom: 8px;
+}
+.activity-list li { /* Used in live view */
+    background-color: var(--activity-bg);
+    border: 1px solid var(--activity-border);
+    color: var(--activity-text);
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+.no-data-msg { /* Added for consistency */
+    font-style: italic;
+    color: var(--subheading-color);
+}
+.time-info {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: var(--subheading-color);
+}
+.simulated-note {
+    background-color: var(--simulated-bg);
+    border: 1px solid var(--simulated-border);
+    color: var(--simulated-text);
+    font-weight: bold;
+    padding: 5px;
+    border-radius: 3px;
+    display:inline-block;
+    margin-left: 10px;
+}
+.sim-form {
+    background-color: var(--court-bg);
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.sim-form label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+.sim-form input[type="datetime-local"] {
+    border: 1px solid var(--border-color);
+    background-color: var(--container-bg);
+    color: var(--text-color);
+    padding: 5px;
+    border-radius: 3px;
+}
+.sim-form button {
+    padding: 5px 10px;
+    font-size: 0.9em;
+    background-color: #6c757d; /* Grey button */
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.sim-form button:hover {
+    background-color: #5a6268;
+}
+.sim-form a {
+    font-size: 0.9em;
+}
+html.dark-mode input[type="datetime-local"]::-webkit-calendar-picker-indicator { /* Use html.dark-mode */
+    filter: invert(1);
+}
+
+/* --- Player Profile Specific --- */
+.profile-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+/* This is the rule that styles the player photo */
+.profile-photo img {
+    width: 150px; /* Fixed size */
+    height: 150px; /* Fixed size */
+    border-radius: 50%; /* Makes it circular */
+    border: 3px solid var(--border-color);
+    object-fit: cover; /* Crops image to cover the area */
+}
+.profile-details {
+    flex: 1;
+}
+.profile-details h1 {
+    margin-top: 0;
+}
+.profile-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: var(--container-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.profile-section h3 {
+    margin-top: 0;
+    color: var(--subheading-color);
+    border-bottom: 1px solid var(--border-light);
+    font-size: 1.3em;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+}
+.profile-section h4 {
+    margin-top: 20px;
+    color: var(--subheading-color);
+    border-bottom: 1px dashed var(--border-light);
+    font-size: 1.1em;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+.add-data-link { /* Used on profile page */
+    display: inline-block;
+    margin: 10px 5px 5px 0; /* Adjusted margin */
+    font-size: 0.9em;
+    background-color: var(--action-add-bg);
+    color: var(--action-add-text);
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    border: 1px solid var(--action-add-border);
+}
+.add-data-link:hover {
+    background-color: var(--action-add-hover);
+}
+/* .back-link style already defined */
+
+
+/* --- Responsive --- */
+@media (max-width: 600px) { /* Changed breakpoint */
+    .courts-container, .block-player-groups, .live-courts-container {
+        flex-direction: column; /* Stack columns vertically */
+        gap: 15px;
+    }
+    .court-column { /* Used in session detail activity list */
+        border-left: none; /* Remove left border when stacked */
+        border-top: 2px solid var(--border-accent); /* Add top border instead */
+        padding-left: 0; /* Remove left padding */
+        padding-top: 15px;
+        min-width: 100%; /* Allow taking full width */
+    }
+    /* Adjust body/container padding on small screens */
+    body {
+        padding: 10px;
+    }
+    .container {
+        padding: 15px;
+    }
+    .profile-header { /* Stack photo and details on mobile */
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+}
+
+/* Ensure main header uses variables */
+.main-header {
+     background-color: var(--container-light-bg);
+     padding: 10px 20px;
+     border-bottom: 1px solid var(--border-color);
+     margin-bottom: 20px;
+}
+.main-header a {
+     color: var(--link-color);
+}
+.main-header strong a {
+     color: var(--heading-color);
+}
+
+/* Ensure footer uses variables */
+.main-footer {
+     margin-top: 40px;
+     padding: 20px;
+     text-align: center;
+     font-size: 0.9em;
+     color: var(--subheading-color);
+     border-top: 1px solid var(--border-light);
+}
+
+/* Ensure content wrapper uses variables */
+.content-wrapper {
+    padding: 25px;
+    background-color: var(--container-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-top: 20px;
+}
+
+/* === STYLES FOR MY AVAILABILITY PAGE === */
+
+.content-wrapper {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px 25px;
+    background-color: var(--container-bg, white);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.content-wrapper h1 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    border-bottom: 2px solid var(--heading-color, #004085);
+    padding-bottom: 10px;
+    color: var(--heading-color, #004085);
+    font-size: 1.6em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-actions {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px dashed var(--border-light);
+    text-align: right;
+}
+
+.btn-outline-primary {
+    display: inline-block;
+    padding: 8px 15px;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--link-color);
+    background-color: transparent;
+    border: 2px solid var(--link-color);
+    border-radius: 5px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--link-color);
+    color: var(--container-bg, #fff);
+    text-decoration: none;
+}
+
+.color-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 10px;
+    padding: 10px;
+    font-size: 0.85em;
+    background-color: var(--container-light-bg);
+    border-radius: 4px;
+}
+
+.color-key-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.color-key-swatch {
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.2);
+}
+
+.helptext {
+    font-size: 0.9em;
+    color: var(--subheading-color);
+    margin-bottom: 20px;
+    padding: 10px;
+    border-radius: 4px;
+    border-left: 3px solid var(--link-color);
+}
+
+.week-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: var(--container-light-bg);
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.week-navigation h4 {
+    margin: 0;
+    font-size: 1.1em;
+    color: var(--heading-color);
+    border: none;
+}
+
+.day-accordion-item {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.day-accordion-item summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background-color: var(--container-light-bg);
+    font-size: 1.2em;
+    font-weight: 500;
+    color: var(--heading-color);
+    cursor: pointer;
+    list-style: none;
+}
+
+.day-accordion-item summary::-webkit-details-marker {
+    display: none;
+}
+
+.day-accordion-item summary .arrow::before {
+    content: '►';
+    font-size: 0.8em;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+}
+
+.day-accordion-item[open] > summary .arrow::before {
+    transform: rotate(90deg);
+}
+
+.day-accordion-item .sessions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    padding: 15px;
+    background-color: var(--container-bg);
+}
+
+.availability-item {
+    padding: 10px;
+    padding-top: 15px;
+    border-radius: 5px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.2s ease;
+    font-size: 0.9em;
+    line-height: 1.3;
+    font-weight: 500;
+    position: relative;
+}
+
+.availability-item strong {
+    display: block;
+    font-size: 1.1em;
+    margin-bottom: 3px;
+}
+
+.availability-item .assigned-indicator {
+    font-size: 0.8em;
+    font-style: italic;
+    opacity: 0.8;
+    display: block;
+    margin-top: 4px;
+}
+
+.description-trigger {
+    position: absolute;
+    top: 5px;
+    right: 7px;
+    font-size: 1.1em;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: help;
+    transition: color 0.2s ease;
+    z-index: 5;
+}
+.description-trigger:hover {
+    color: rgba(255, 255, 255, 1);
+}
+
+html.dark-mode .availability-item.status-no-change .description-trigger,
+html.dark-mode .availability-item.status-no-change .description-trigger:hover {
+    color: #fff;
+}
+
+html.dark-mode .availability-item.status-available .description-trigger,
+html.dark-mode .availability-item.status-unavailable .description-trigger,
+html.dark-mode .availability-item.status-emergency .description-trigger,
+html.dark-mode .availability-item.status-available .description-trigger:hover,
+html.dark-mode .availability-item.status-unavailable .description-trigger:hover,
+html.dark-mode .availability-item.status-emergency .description-trigger:hover {
+    color: #000;
+}
+
+.availability-item.status-no-change { background-color: #6c757d; border-color: #565e64; color: white; }
+.availability-item.status-available { background-color: #198754; border-color: #146c43; color: white; }
+.availability-item.status-unavailable { background-color: #dc3545; border-color: #b02a37; color: white; }
+.availability-item.status-emergency { background-color: #0d6efd; border-color: #0a58ca; color: white; }
+
+html.dark-mode .availability-item.status-no-change { background-color: #5a6268; border-color: #495057; }
+html.dark-mode .availability-item.status-available { background-color: #20c997; border-color: #1baa80; color: #000; }
+html.dark-mode .availability-item.status-unavailable { background-color: #f1aeb5; border-color: #d99da7; color: #000; }
+html.dark-mode .availability-item.status-emergency { background-color: #6ea8fe; border-color: #428efc; color: #000; }
+
+.custom-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 1050;
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.custom-modal-content {
+    background-color: var(--container-bg);
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.custom-modal-content h4 {
+    margin-top: 0;
+    color: var(--heading-color);
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.custom-modal-content p {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.custom-modal-content .form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.custom-modal-content .form-group textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+}
+
+.custom-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--subheading-color);
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+.custom-modal-close:hover {
+    color: var(--text-color);
+}
+
+.custom-modal-actions {
+    margin-top: 15px;
+    text-align: right;
+}
+
+.custom-modal-actions .btn {
+    margin-left: 0.5rem;
+}
+
+.main-submit-button-container {
+    margin-top: 25px;
+    text-align: center;
+}

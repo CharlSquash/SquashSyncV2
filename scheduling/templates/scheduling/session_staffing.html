@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - SquashSync{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>{{ page_title }}</h1>
+    </div>
+    <p>Assign coaches to sessions for the next two weeks. Changes are saved automatically when you move to the next session's form.</p>
+
+    {% if sessions %}
+        {% for session in sessions %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <strong>{{ session.session_date|date:"l, d F Y" }} at {{ session.session_start_time|time:"H:i" }}</strong> - 
+                    <a href="{% url 'scheduling:session_detail' session.id %}">
+                        {{ session.school_group.name|default:"General Session" }}
+                    </a>
+                    {% if session.is_cancelled %}
+                        <span class="badge bg-danger">CANCELLED</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'scheduling:session_staffing' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="session_id" value="{{ session.id }}">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="coaches_{{ session.id }}" class="form-label">Assign Coaches</label>
+                                <select multiple class="form-select" name="coaches_{{ session.id }}" id="coaches_{{ session.id }}" size="5">
+                                    {% for coach in all_coaches %}
+                                        <option value="{{ coach.id }}" {% if coach in session.coaches_attending.all %}selected{% endif %}>
+                                            {{ coach.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 align-self-end">
+                                <button type="submit" class="btn btn-primary w-100">Save Coaches for this Session</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">No upcoming sessions found in the next two weeks.</div>
+    {% endif %}
+</div>
+{% endblock %}

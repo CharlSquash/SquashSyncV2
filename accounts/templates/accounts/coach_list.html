@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"Coaches" }} - SquashSync{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-person-badge me-2"></i>{{ page_title }}</h1>
+        <a href="{% url 'admin:accounts_coach_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add New Coach
+        </a>
+    </div>
+
+    {% if coaches %}
+        <div class="list-group coach-list">
+            {% for coach in coaches %}
+                <a href="{% url 'accounts:coach_profile_detail' coach.id %}" class="list-group-item list-group-item-action">
+                    <div class="coach-photo">
+                        {% if coach.profile_photo %}
+                            <img src="{{ coach.profile_photo.url }}" alt="Photo of {{ coach.name }}">
+                        {% else %}
+                            <img src="{% static 'images/default_avatar.png' %}" alt="Default avatar">
+                        {% endif %}
+                    </div>
+                    <div class="coach-info">
+                        <h5 class="mb-1">{{ coach.name|default:"Unnamed Coach" }}</h5>
+                        <div class="coach-meta text-muted">
+                            {% if coach.user %}
+                                <i class="bi bi-person-circle"></i> {{ coach.user.username }} | 
+                            {% endif %}
+                            <i class="bi bi-envelope"></i> {{ coach.email|default:"N/A" }}
+                        </div>
+                    </div>
+                    <span class="action-icon ms-auto">
+                        <i class="bi bi-chevron-right"></i>
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-secondary mt-3">No active coaches found.</div>
+    {% endif %}
+</div>
+{% endblock %}

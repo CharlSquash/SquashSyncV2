@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"Set My Bulk Availability" }}{% endblock %}
+
+{% block extra_head %}
+    <!-- This page uses the same styles as my_availability.css, which are in the main style.css file -->
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <h1><i class="bi bi-calendar2-week"></i> {{ page_title }}</h1>
+
+    <div class="color-key">
+        <strong>Key:</strong>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #198754;"></div> Available</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #dc3545;"></div> Unavailable</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #0d6efd;"></div> Emergency Only</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #6c757d;"></div> No Preference</span>
+    </div>
+
+    <p class="helptext">
+        <small>Tap a block to cycle its status. Your preference will be applied to all sessions generated from that rule for the selected month.</small>
+    </p>
+
+    <form method="GET" action="{% url 'scheduling:set_bulk_availability' %}" class="month-year-selector-form">
+        <div class="form-group">
+            <label for="{{ month_year_form.month.id_for_label }}">{{ month_year_form.month.label }}:</label>
+            {{ month_year_form.month }}
+        </div>
+        <div class="form-group">
+            <label for="{{ month_year_form.year.id_for_label }}">{{ month_year_form.year.label }}:</label>
+            {{ month_year_form.year }}
+        </div>
+        <button type="submit" class="btn btn-sm btn-secondary">View Schedules</button>
+    </form>
+    <hr>
+
+    <form method="POST" action="{% url 'scheduling:set_bulk_availability' %}">
+        {% csrf_token %}
+        <input type="hidden" name="month" value="{{ selected_month }}">
+        <input type="hidden" name="year" value="{{ selected_year }}">
+
+        <h2>Availability for Recurring Schedules in: {{ selected_month_display }} {{ selected_year }}</h2>
+
+        {% for day_name, classes in grouped_classes.items %}
+            {% if classes %}
+                <details class="day-accordion-item" open>
+                    <summary>
+                        <span>{{ day_name }}</span>
+                        <span class="arrow"></span>
+                    </summary>
+                    <div class="sessions-grid">
+                        {% for rule in classes %}
+                            <div class="availability-item status-no-change" 
+                                 data-rule-id="{{ rule.id }}" 
+                                 data-status="NO_CHANGE"
+                                 role="button">
+                                
+                                <strong>{{ rule.start_time|time:"H:i" }}</strong>
+                                <span>{{ rule.school_group.name }}</span>
+                            </div>
+                            <input type="hidden" name="availability_rule_{{ rule.id }}" id="input_rule_{{ rule.id }}" value="NO_CHANGE">
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
+        {% endfor %}
+        
+        <div class="main-submit-button-container">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check2-square"></i> Apply My Availability for {{ selected_month_display }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const availabilityItems = document.querySelectorAll('.availability-item');
+    const states = [
+        { value: 'AVAILABLE',   cssClass: 'status-available' },
+        { value: 'UNAVAILABLE', cssClass: 'status-unavailable' },
+        { value: 'EMERGENCY',   cssClass: 'status-emergency' },
+        { value: 'NO_CHANGE',   cssClass: 'status-no-change' }
+    ];
+
+    function cycleStatus(item) {
+        const currentStatus = item.dataset.status;
+        const currentIndex = states.findIndex(s => s.value === currentStatus);
+        const nextIndex = (currentIndex + 1) % states.length;
+        const nextState = states[nextIndex];
+
+        item.dataset.status = nextState.value;
+        item.className = `availability-item ${nextState.cssClass}`;
+
+        const hiddenInput = document.getElementById(`input_rule_${item.dataset.ruleId}`);
+        if (hiddenInput) {
+            hiddenInput.value = nextState.value;
+        }
+    }
+
+    availabilityItems.forEach(item => {
+        item.addEventListener('click', function() {
+            cycleStatus(this);
+        });
+    });
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - SquashSync{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header mb-4">
+        <h1>{{ page_title }}</h1>
+        <p class="lead">Here are recent sessions that require your feedback.</p>
+    </div>
+
+    {% if pending_list %}
+        <div class="list-group">
+            {% for item in pending_list %}
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ item.session.school_group.name|default:"General Session" }}</h5>
+                        <small>{{ item.session.session_date|date:"l, d M Y" }} at {{ item.session.session_start_time|time:"H:i" }}</small>
+                    </div>
+                    <p class="mb-1">Venue: {{ item.session.venue.name|default:"N/A" }}</p>
+
+                    <div class="mt-2">
+                        <strong>Required Actions:</strong>
+                        <ul class="list-inline">
+                            {% if item.player_assess_needed %}
+                                <li class="list-inline-item">
+                                    <a href="{% url 'assessments:assess_player_session' item.session.id %}" class="btn btn-sm btn-primary">Submit Player Assessments</a>
+                                </li>
+                            {% endif %}
+                            {% if item.group_assess_needed %}
+                                <li class="list-inline-item">
+                                    <a href="{% url 'assessments:add_edit_group_assessment' item.session.id %}" class="btn btn-sm btn-info">Submit Group Assessment</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-success">
+            <h4 class="alert-heading">All Caught Up!</h4>
+            <p>You have no pending assessments from sessions in the last two weeks. Great job!</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

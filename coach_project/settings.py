@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-p7iiq&puhy6#xxm@+t$6)1jay^xwvkyj39$i3*+(%p^efqs23!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.3.6']
 
 
 # Application definition
@@ -37,6 +37,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'accounts',
+    'players',
+    'scheduling',
+    'live_session',
+    'assessments',
+    'finance',
+    'core',
+
+    'rest_framework',
+    'crispy_forms',
+    "crispy_bootstrap5",
 ]
 
 MIDDLEWARE = [
@@ -54,10 +66,12 @@ ROOT_URLCONF = 'coach_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # This line is the most important one to check
+        'DIRS': [BASE_DIR / 'templates'], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -115,6 +129,29 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+STATIC_ROOT = BASE_DIR / 'staticfiles_collected'
+
+# --- Media Files ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT= BASE_DIR / 'mediafiles'
+
+# --- Crispy Forms ---
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
+
+# Internationalization
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'Africa/Johannesburg' # Update this from 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+# --- Auth Redirects ---
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/' # Let's keep it simple for now
+LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

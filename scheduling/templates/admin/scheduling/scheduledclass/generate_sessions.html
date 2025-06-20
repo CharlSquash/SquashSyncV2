@@ -1,0 +1,34 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post">
+        {% csrf_token %}
+        <h2>Generate Sessions</h2>
+        <p>You have selected {{ queryset.count }} scheduled class rule(s) to generate sessions from.</p>
+        <p>Please select the date range for which you want to generate sessions.</p>
+
+        <fieldset class="module aligned">
+            {% for field in form %}
+                <div class="form-row">
+                    {{ field.errors }}
+                    {{ field.label_tag }} {{ field }}
+                    {% if field.help_text %}
+                        <div class="help">{{ field.help_text|safe }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </fieldset>
+
+        {% for obj in queryset %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}">
+        {% endfor %}
+        <input type="hidden" name="action" value="generate_sessions_action">
+
+        <div class="submit-row">
+            <input type="submit" name="generate" value="Generate Sessions">
+        </div>
+    </form>
+</div>
+{% endblock %}

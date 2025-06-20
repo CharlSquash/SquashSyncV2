@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{{ page_title }}</h1>
+    <p>Viewing profile for: <strong>{{ coach.name }}</strong></p>
+
+    <div class="card mt-4">
+        <div class="card-header">Recent Sessions</div>
+        <ul class="list-group list-group-flush">
+            {% for session in sessions_attended %}
+                <li class="list-group-item">
+                    <a href="{% url 'scheduling:session_detail' session.id %}">
+                        {{ session.session_date|date:"d M Y" }} - {{ session.school_group.name|default:"General Session" }}
+                    </a>
+                </li>
+            {% empty %}
+                <li class="list-group-item">No recent sessions found.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

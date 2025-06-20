@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"My Availability" }} - SquashSync{% endblock %}
+
+{% block extra_head %}
+    <!-- All styling for this page should be moved to your main style.css file -->
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <h1><i class="bi bi-calendar-check-fill"></i> {{ page_title }}</h1>
+    
+    <div class="page-actions">
+        <!-- We will create this 'set_bulk_availability' URL in a future step -->
+        <a href="{% url 'scheduling:set_bulk_availability' %}" class="btn-outline-primary">
+            <i class="bi bi-calendar2-week"></i> Set Monthly Bulk Availability
+        </a>
+    </div>
+
+    <div class="color-key">
+        <strong>Key:</strong>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #198754;"></div> Available</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #dc3545;"></div> Unavailable</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #0d6efd;"></div> Emergency Only</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #6c757d;"></div> No Preference</span>
+    </div>
+    <p class="helptext"><small>Tap a block to cycle availability. Tap the <i class="bi bi-info-circle-fill"></i> icon for group info. A reason is required if marking 'Unavailable' for an assigned session.</small></p>
+
+    <div class="week-navigation">
+        <a href="?week={{ prev_week_offset }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Previous Week</a>
+        <h4>{{ week_start|date:"d M Y" }} to {{ week_end|date:"d M Y" }}</h4>
+        <a href="?week={{ next_week_offset }}" class="btn btn-sm btn-secondary">Next Week <i class="bi bi-arrow-right"></i></a>
+    </div>
+
+    <form method="POST" id="my-availability-form">
+        {% csrf_token %}
+        
+        {% for day in display_week %}
+            {% if day.sessions %}
+                <details class="day-accordion-item" open>
+                    <summary>
+                        <span>{{ day.day_name }}, {{ day.date|date:"j F" }}</span>
+                        <span class="arrow"></span>
+                    </summary>
+                    <div class="sessions-grid">
+                        {% for item in day.sessions %}
+                            <div class="availability-item status-{{ item.current_status|lower }}" 
+                                 data-session-id="{{ item.session_obj.id }}" 
+                                 data-status="{{ item.current_status }}"
+                                 data-is-assigned="{{ item.is_assigned|yesno:'true,false' }}"
+                                 data-group-description="{{ item.group_description|escapejs }}"
+                                 data-group-name="{{ item.session_obj.school_group.name }}"
+                                 tabindex="0" 
+                                 role="button" 
+                                 aria-label="Set availability for {{ item.session_obj.school_group.name }} at {{ item.session_obj.session_start_time|time:'H:i' }}">
+                                
+                                <i class="bi bi-info-circle-fill description-trigger" title="View group description"></i>
+                                
+                                <strong>{{ item.session_obj.session_start_time|time:"H:i" }}</strong>
+                                <span>{{ item.session_obj.school_group.name }}</span>
+                                {% if item.is_assigned %}
+                                    <span class="assigned-indicator">(Assigned)</span>
+                                {% endif %}
+                            </div>
+                            <input type="hidden" name="availability_session_{{ item.session_obj.id }}" id="input_session_{{ item.session_obj.id }}" value="{{ item.current_status }}">
+                            <input type="hidden" name="notes_session_{{ item.session_obj.id }}" id="notes_session_{{ item.session_obj.id }}" value="">
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
+        {% endfor %}
+        
+        <div class="main-submit-button-container">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check2-square"></i> Save My Availability
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Modals for interactivity -->
+<div id="descriptionModal" class="custom-modal-overlay">
+    <div class="custom-modal-content">
+        <button id="descriptionModalClose" class="custom-modal-close" aria-label="Close">&times;</button>
+        <h4 id="modalGroupName">Group Description</h4>
+        <p id="modalGroupDescription"></p>
+    </div>
+</div>
+
+<div id="reasonModal" class="custom-modal-overlay">
+    <div class="custom-modal-content">
+        <button id="reasonModalCancel" class="custom-modal-close" aria-label="Cancel">&times;</button>
+        <h4>Reason for Unavailability</h4>
+        <p>You are assigned to this session. Please provide a brief reason for marking yourself as unavailable.</p>
+        <div class="form-group">
+            <textarea id="cancellationReasonText" rows="3" class="form-control"></textarea>
+            <div id="reasonError" style="color: red; font-size: 0.8em; display: none; margin-top: 5px;">A reason is required.</div>
+        </div>
+        <div class="custom-modal-actions">
+            <button type="button" id="reasonModalSubmit" class="btn btn-danger">Confirm Unavailability</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const availabilityItems = document.querySelectorAll('.availability-item');
+    const descriptionModal = document.getElementById('descriptionModal');
+    const descriptionModalClose = document.getElementById('descriptionModalClose');
+    const modalGroupName = document.getElementById('modalGroupName');
+    const modalGroupDescription = document.getElementById('modalGroupDescription');
+    const reasonModal = document.getElementById('reasonModal');
+    const reasonModalCancel = document.getElementById('reasonModalCancel');
+    const reasonModalSubmit = document.getElementById('reasonModalSubmit');
+    const reasonTextarea = document.getElementById('cancellationReasonText');
+    const reasonError = document.getElementById('reasonError');
+    let activeItemForReason = null;
+
+    const states = [
+        { value: 'AVAILABLE',   cssClass: 'status-available' },
+        { value: 'UNAVAILABLE', cssClass: 'status-unavailable' },
+        { value: 'EMERGENCY',   cssClass: 'status-emergency' },
+        { value: 'NO_CHANGE',   cssClass: 'status-no-change' }
+    ];
+
+    function cycleStatus(item) {
+        const currentStatus = item.dataset.status;
+        const currentIndex = states.findIndex(s => s.value === currentStatus);
+        const nextIndex = (currentIndex + 1) % states.length;
+        const nextState = states[nextIndex];
+        const isAssigned = item.dataset.isAssigned === 'true';
+
+        if (isAssigned && nextState.value === 'UNAVAILABLE') {
+            activeItemForReason = item;
+            reasonTextarea.value = '';
+            reasonError.style.display = 'none';
+            if(reasonModal) reasonModal.style.display = 'flex';
+            return;
+        }
+        updateItemStatus(item, nextState);
+    }
+    
+    function updateItemStatus(item, newState, notes = '') {
+        item.dataset.status = newState.value;
+        item.className = `availability-item ${newState.cssClass}`;
+        document.getElementById(`input_session_${item.dataset.sessionId}`).value = newState.value;
+        const notesInput = document.getElementById(`notes_session_${item.dataset.sessionId}`);
+        notesInput.value = (newState.value === 'EMERGENCY') ? "Emergency only" : notes;
+    }
+
+    function showDescription(item) {
+        const description = item.dataset.groupDescription;
+        const groupName = item.dataset.groupName;
+        modalGroupName.textContent = `Description for: ${groupName}`;
+        modalGroupDescription.textContent = description || "No description provided.";
+        if(descriptionModal) descriptionModal.style.display = 'flex';
+    }
+
+    availabilityItems.forEach(item => {
+        item.addEventListener('click', function(event) {
+            if (event.target.classList.contains('description-trigger')) {
+                event.stopPropagation();
+                showDescription(this);
+            } else {
+                cycleStatus(this);
+            }
+        });
+    });
+
+    function closeModal(modal) {
+        if (modal) modal.style.display = 'none';
+    }
+
+    if (descriptionModalClose) descriptionModalClose.addEventListener('click', () => closeModal(descriptionModal));
+    if (reasonModalCancel) reasonModalCancel.addEventListener('click', () => closeModal(reasonModal));
+
+    if (reasonModalSubmit) {
+        reasonModalSubmit.addEventListener('click', function() {
+            const reason = reasonTextarea.value.trim();
+            if (reason === '') {
+                reasonError.style.display = 'block';
+                return;
+            }
+            if (activeItemForReason) {
+                const unavailableState = states.find(s => s.value === 'UNAVAILABLE');
+                updateItemStatus(activeItemForReason, unavailableState, reason);
+                closeModal(reasonModal);
+                activeItemForReason = null;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
