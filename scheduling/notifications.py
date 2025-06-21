@@ -9,7 +9,15 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
+
+import datetime
 from datetime import timedelta
+
+from .models import AttendanceTracking
+from players.models import Player
+
+
+
 
 # It's good practice to have your models imported directly
 from .models import Session, CoachAvailability
@@ -106,3 +114,42 @@ def decline_attendance(request, session_id, token):
     )
     messages.warning(request, f"You have declined attendance for the session on {session.session_date}.")
     return redirect('homepage')
+
+#PLayer attendance logic
+
+player_attendance_signer = TimestampSigner(salt='scheduling.player_attendance')
+
+def send_player_attendance_email(player, session):
+    """Sends an attendance reminder email to a player's parent."""
+    if not player.parent_email:
+        print(f"Cannot send email: Player {player.full_name} has no parent email.")
+        return False
+
+    tracking_record, _ = AttendanceTracking.objects.get_or_create(session=session, player=player)
+
+    token_attend = player_attendance_signer.sign(f"{tracking_record.id}:ATTENDING")
+    token_decline = player_attendance_signer.sign(f"{tracking_record.id}:NOT_ATTENDING")
+
+    site_url = getattr(settings, 'APP_SITE_URL', 'http://127.0.0.1:8000')
+    url_attend = site_url + reverse('scheduling:player_attendance_response', args=[token_attend])
+    url_decline = site_url + reverse('scheduling:player_attendance_response', args=[token_decline])
+
+    subject = f"Squash Session Reminder for {player.first_name} - {session.session_date.strftime('%A, %d %b')}"
+
+    context = {
+        'player': player,
+        'session': session,
+        'url_attend': url_attend,
+        'url_decline': url_decline,
+        'site_name': getattr(settings, 'SITE_NAME', 'SquashSync'),
+    }
+    
+    html_message = render_to_string('scheduling/emails/player_attendance_reminder.html', context)
+    
+    try:
+        send_mail(subject, '', settings.DEFAULT_FROM_EMAIL, [player.parent_email], html_message=html_message)
+        print(f"Sent player attendance reminder to parent of {player.full_name}.")
+        return True
+    except Exception as e:
+        print(f"Error sending player attendance reminder for {player.full_name}: {e}")
+        return False

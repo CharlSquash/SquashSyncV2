@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load scheduling_extras %}
 
 {% block title %}Plan: {{ session.school_group.name|default:"Session" }}{% endblock %}
 
@@ -18,35 +19,54 @@
     </div>
 </div>
 
-    <div class="row">
-        <div class="col-lg-5">
-            <div class="card mb-4">
-                <div class="card-header">Session Details</div>
-                <div class="card-body">
-                    <p><strong>Venue:</strong> {{ session.venue.name|default:"N/A" }}</p>
-                    <p><strong>Coaches:</strong> {{ session.coaches_attending.all|join:", " }}</p>
-                    {% if session.is_cancelled %}<p class="text-danger"><strong>Status: CANCELLED</strong></p>{% endif %}
-                </div>
+<div class="row">
+    <div class="col-lg-5">
+        <div class="card mb-4">
+            <div class="card-header">Session Details</div>
+            <div class="card-body">
+                <p><strong>Venue:</strong> {{ session.venue.name|default:"N/A" }}</p>
+                <p><strong>Coaches:</strong> {{ session.coaches_attending.all|join:", " }}</p>
+                {% if session.is_cancelled %}<p class="text-danger"><strong>Status: CANCELLED</strong></p>{% endif %}
             </div>
+        </div>
 
-            <div class="card mb-4">
-                <div class="card-header">Manage Attendance</div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        <div style="max-height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #444;">
-                            {{ attendance_form.attendees }}
+        <div class="card mb-4">
+        <div class="card-header">Manual Attendance Update</div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+            <p class="text-muted small">Update attendance based on out-of-band communication (e.g., WhatsApp).</p>
+            <ul class="list-group list-group-flush">
+                {% for player in players %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="player-name-span">{{ player.full_name }}</span>
+                        <div class="btn-group" role="group">
+                            {% with status=attendance_status_map|get_item:player.id|default:"PENDING" %}
+                                <input type="radio" class="btn-check" name="status_{{ player.id }}" id="attend_{{ player.id }}" value="ATTENDING" {% if status == 'ATTENDING' %}checked{% endif %}>
+                                <label class="btn btn-outline-success btn-sm" for="attend_{{ player.id }}" title="Attending"><i class="bi bi-check-circle"></i></label>
+                                
+                                <input type="radio" class="btn-check" name="status_{{ player.id }}" id="decline_{{ player.id }}" value="NOT_ATTENDING" {% if status == 'NOT_ATTENDING' %}checked{% endif %}>
+                                <label class="btn btn-outline-danger btn-sm" for="decline_{{ player.id }}" title="Not Attending"><i class="bi bi-x-circle"></i></label>
+
+                                <input type="radio" class="btn-check" name="status_{{ player.id }}" id="pending_{{ player.id }}" value="PENDING" {% if status == 'PENDING' %}checked{% endif %}>
+                                <label class="btn btn-outline-secondary btn-sm" for="pending_{{ player.id }}" title="Pending"><i class="bi bi-hourglass-split"></i></label>
+                            {% endwith %}
                         </div>
-                        <button type="submit" name="update_attendance" class="btn btn-primary mt-3">Update Attendance List</button>
-                    </form>
-                </div>
-            </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item">No players in this group.</li>
+                {% endfor %}
+            </ul>
         </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary">Save Attendance Changes</button>
+        </div>
+    </form>
+</div>
 
-        <div class="col-lg-7">
-            <h2 class="mt-lg-0 mt-4">Session Breakdown</h2>
-            <div class="alert alert-info">Time Blocks and Activity planning will be added here soon.</div>
-        </div>
+    <div class="col-lg-7">
+        <h2 class="mt-lg-0 mt-4">Session Breakdown</h2>
+        <div class="alert alert-info">Time Blocks and Activity planning will be added here soon.</div>
     </div>
 </div>
 {% endblock %}

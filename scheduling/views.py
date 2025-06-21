@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from collections import defaultdict
 
+from django.core.signing import BadSignature, SignatureExpired
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
@@ -21,7 +22,7 @@ from .utils import get_month_start_end # We will create this helper function nex
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
-from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass
+from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass, AttendanceTracking
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup
 from . import notifications
@@ -54,55 +55,90 @@ def homepage(request):
 
 @login_required
 def session_detail(request, session_id):
-    session = get_object_or_404(Session, pk=session_id)
+    session = get_object_or_404(
+        Session.objects.select_related('school_group').prefetch_related('player_attendances__player'), 
+        pk=session_id
+    )
 
-    # Handle the attendance form submission
-    if request.method == 'POST' and 'update_attendance' in request.POST:
-        attendance_form = AttendanceForm(request.POST, school_group=session.school_group)
-        if attendance_form.is_valid():
-            selected_players = attendance_form.cleaned_data['attendees']
-            session.attendees.set(selected_players)
-            messages.success(request, "Attendance updated successfully.")
-            return redirect('scheduling:session_detail', session_id=session.id)
-    else:
-        # For a GET request, initialize the form with current attendees
-        attendance_form = AttendanceForm(
-            initial={'attendees': session.attendees.all()},
-            school_group=session.school_group
-        )
+    if request.method == 'POST':
+        # Process the submitted attendance form
+        for key, value in request.POST.items():
+            if key.startswith('status_'):
+                player_id = int(key.split('_')[1])
+                new_status = value
+                
+                # Update or create the attendance record for the player
+                if new_status in AttendanceTracking.Status.values:
+                    AttendanceTracking.objects.update_or_create(
+                        session=session,
+                        player_id=player_id,
+                        defaults={'status': new_status}
+                    )
+        messages.success(request, "Attendance statuses have been updated.")
+        return redirect('scheduling:session_detail', session_id=session.id)
+
+    # For GET request, prepare data for the template
+    attendance_status_map = {
+        att.player_id: att.status for att in session.player_attendances.all()
+    }
+    
+    players = session.school_group.players.all().order_by('first_name') if session.school_group else []
 
     context = {
-        'page_title': "Session Plan",
         'session': session,
-        'attendance_form': attendance_form, # Add form to context
+        'players': players,
+        'attendance_status_map': attendance_status_map,
     }
     return render(request, 'scheduling/session_detail.html', context)
 
 @login_required
-def visual_attendance_view(request, session_id):
-    session = get_object_or_404(Session, pk=session_id)
+def visual_attendance(request, session_id):
+    session = get_object_or_404(Session.objects.select_related('school_group'), pk=session_id)
+    
+    if not session.school_group:
+        messages.error(request, "This session is not linked to a school group.")
+        return redirect('scheduling:session_list') # Or wherever is appropriate
+
+    players_in_group = session.school_group.players.all().order_by('first_name')
 
     if request.method == 'POST':
-        attendee_ids = request.POST.getlist('attendees')
-        session.attendees.set(attendee_ids)
-        messages.success(request, f"Attendance for {session.school_group.name} has been updated.")
+        # This part handles the submission from the coach
+        attending_player_ids = request.POST.getlist('attendees')
+        
+        for player in players_in_group:
+            status = 'ATTENDING' if str(player.id) in attending_player_ids else 'NOT_ATTENDING'
+            AttendanceTracking.objects.update_or_create(
+                session=session,
+                player=player,
+                defaults={'status': status}
+            )
+        
+        messages.success(request, "Final attendance has been recorded.")
         return redirect('scheduling:session_detail', session_id=session.id)
 
-    all_players_in_group = session.school_group.players.filter(is_active=True).order_by('first_name')
-    current_attendee_ids = set(session.attendees.values_list('id', flat=True))
+    # --- This is the key part for displaying the page initially ---
+    # Get IDs of players whose parents have already confirmed 'ATTENDING'
+    confirmed_attending_ids = set(
+        AttendanceTracking.objects.filter(
+            session=session,
+            status=AttendanceTracking.Status.ATTENDING
+        ).values_list('player_id', flat=True)
+    )
 
-    player_list_with_status = []
-    for player in all_players_in_group:
-        player_list_with_status.append({
+    # Build the list in the format your template expects
+    player_list = []
+    for player in players_in_group:
+        player_list.append({
             'player': player,
-            'is_attending': player.id in current_attendee_ids
+            # Pre-select the player if their ID is in the confirmed set
+            'is_attending': player.id in confirmed_attending_ids
         })
 
     context = {
         'session': session,
         'school_group': session.school_group,
-        'player_list': player_list_with_status,
-        'page_title': f"Update Attendance: {session.school_group.name}"
+        'player_list': player_list,
+        'page_title': "Take Attendance"
     }
     return render(request, 'scheduling/visual_attendance.html', context)
 
@@ -532,4 +568,53 @@ def decline_attendance(request, session_id, token):
         'message_type': 'warning',
         'message': f"Thank you, {user.first_name}. We have recorded that you are unavailable for the session on {session.session_date.strftime('%A, %d %B')}."
     }
+    return render(request, 'scheduling/confirmation_response.html', context)
+
+def player_attendance_response(request, token):
+    """ Handles a parent's attendance response from an email link. """
+    try:
+        # FIX 1: Use `timedelta` directly, not `datetime.timedelta`
+        payload = notifications.player_attendance_signer.unsign(token, max_age=timedelta(days=7))
+        record_id, new_status = payload.split(':')
+    except (BadSignature, SignatureExpired): # FIX 2: Use exceptions directly
+        context = {
+            'message_type': 'error',
+            'message': 'This attendance link is invalid or has expired. Please contact your coach.'
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+    except ValueError:
+        context = {
+            'message_type': 'error',
+            'message': 'This attendance link appears to be malformed.'
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+
+    try:
+        tracking_record = AttendanceTracking.objects.select_related('player', 'session').get(pk=record_id)
+        
+        if new_status in AttendanceTracking.Status.values:
+            tracking_record.status = new_status
+            tracking_record.save()
+            
+            player_name = tracking_record.player.first_name
+            session_date_str = tracking_record.session.session_date.strftime('%A, %d %B')
+            
+            if new_status == AttendanceTracking.Status.ATTENDING:
+                message = f"Thank you! {player_name}'s attendance for the session on {session_date_str} has been confirmed."
+                message_type = 'success'
+            else:
+                message = f"Thank you. We've recorded that {player_name} will not attend the session on {session_date_str}."
+                message_type = 'warning'
+        else:
+            message = "Invalid status provided in the link."
+            message_type = 'error'
+
+        context = {'message_type': message_type, 'message': message}
+
+    except AttendanceTracking.DoesNotExist:
+        context = {
+            'message_type': 'error',
+            'message': 'We could not find the corresponding attendance record. Please contact an administrator.'
+        }
+
     return render(request, 'scheduling/confirmation_response.html', context)

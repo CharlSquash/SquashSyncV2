@@ -71,6 +71,7 @@ class Player(models.Model):
         verbose_name="Parent Contact Number",
         help_text="Enter number including country code if outside SA (e.g., +44... or 082...)"
     )
+    parent_email = models.EmailField(max_length=254, blank=True, null=True, help_text="The primary email for parent communication.")
     notes = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     photo = models.ImageField(upload_to='player_photos/', null=True, blank=True)

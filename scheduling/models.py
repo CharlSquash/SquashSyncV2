@@ -5,6 +5,7 @@ from django.core.validators import MinValueValidator
 from django.utils import timezone
 from django.conf import settings
 
+
 # --- MODEL: Venue ---
 class Venue(models.Model):
     name = models.CharField(max_length=150, unique=True, help_text="Name of the venue (e.g., Midstream College Main Courts, Uitsig Court 1).")
@@ -230,3 +231,26 @@ class Event(models.Model):
         ordering = ['-event_date', 'name']
         verbose_name = "Event"
         verbose_name_plural = "Events"
+
+class AttendanceTracking(models.Model):
+    """ Tracks a player's attendance status for a specific session. """
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        ATTENDING = 'ATTENDING', 'Attending'
+        NOT_ATTENDING = 'NOT_ATTENDING', 'Not Attending'
+
+    session = models.ForeignKey('Session', on_delete=models.CASCADE, related_name="player_attendances")
+    player = models.ForeignKey('players.Player', on_delete=models.CASCADE, related_name="attendance_records")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+    recorded_at = models.DateTimeField(auto_now=True, help_text="Timestamp of the last update.")
+
+    class Meta:
+        unique_together = ('session', 'player')
+        verbose_name = "Player Attendance Tracking"
+
+    def __str__(self):
+        return f"{self.player.full_name} - {self.session.session_date} - {self.get_status_display()}"

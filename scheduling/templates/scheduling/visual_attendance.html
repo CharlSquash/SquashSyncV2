@@ -4,8 +4,9 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="page-header">
+    <div class="page-header text-center mb-4">
         <h1>{{ page_title }}</h1>
+        <p class="lead">{{ session.school_group.name }}</p>
         <p>{{ session.session_date|date:"l, d M Y" }} at {{ session.session_start_time|time:"H:i" }}</p>
     </div>
 
@@ -16,6 +17,10 @@
             <label class="player-card {% if item.is_attending %}selected{% endif %}">
                 {% if item.player.photo %}
                     <img src="{{ item.player.photo.url }}" alt="Photo of {{ item.player.full_name }}">
+                {% else %}
+                    <div class="photo-placeholder">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
                 {% endif %}
                 <span class="player-name">{{ item.player.full_name }}</span>
                 <input type="checkbox" class="visually-hidden" name="attendees" 
@@ -28,10 +33,83 @@
             {% endfor %}
         </div>
 
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary btn-lg">Save Attendance</button>
+        <div class="mt-4 text-center">
+            <button type="submit" class="btn btn-primary btn-lg px-5">Save Attendance</button>
             <a href="{% url 'scheduling:session_detail' session.id %}" class="btn btn-secondary btn-lg">Cancel</a>
         </div>
     </form>
 </div>
+
+<style>
+/* Basic styling for the visual attendance page */
+.attendance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+}
+.player-card {
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+.player-card:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+}
+.player-card.selected {
+    border-color: #28a745;
+    background-color: #d4edda;
+}
+.player-card img, .player-card .photo-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 10px;
+    display: block;
+    background-color: #e9ecef;
+}
+.photo-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.photo-placeholder .bi {
+    font-size: 2.5rem;
+    color: #adb5bd;
+}
+.player-name {
+    font-weight: 500;
+}
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+</style>
+
+<script>
+// JavaScript to toggle the 'selected' class when a card is clicked
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.player-card');
+    cards.forEach(card => {
+        card.addEventListener('click', function() {
+            const checkbox = this.querySelector('input[type="checkbox"]');
+            // Manually toggle the checkbox state because the click is on the label
+            checkbox.checked = !checkbox.checked;
+            // Toggle the visual class based on the new checkbox state
+            this.classList.toggle('selected', checkbox.checked);
+        });
+    });
+});
+</script>
+
 {% endblock %}

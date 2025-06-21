@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squash Session Reminder</title>
+    <style>
+        /* Basic styles for email client compatibility */
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'; }
+        .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+        .header { background-color: #1a202c; color: #ffffff; padding: 20px; text-align: center; }
+        .content { padding: 30px; line-height: 1.6; color: #4a5568; }
+        .footer { background-color: #f7fafc; padding: 20px; text-align: center; font-size: 12px; color: #718096; }
+        .button-container { text-align: center; margin: 30px 0; }
+        .button {
+            display: inline-block;
+            padding: 12px 25px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .button-attend {
+            background-color: #28a745;
+            color: #ffffff;
+        }
+        .button-decline {
+            background-color: #dc3545;
+            color: #ffffff;
+            margin-left: 15px;
+        }
+        .session-details {
+            background-color: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .session-details p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body style="background-color: #edf2f7; padding: 20px;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td>
+                <table align="center" border="0" cellpadding="0" cellspacing="0" class="container" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <h1 style="margin: 0; font-size: 24px;">SquashSync</h1>
+                            <p style="margin: 5px 0 0; font-size: 16px;">Session Reminder</p>
+                        </td>
+                    </tr>
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <h2 style="color: #2d3748; margin-top: 0;">Hi there,</h2>
+                            <p>This is a friendly reminder about {{ player.first_name }}'s upcoming squash session tomorrow. Please let us know if {{ player.first_name }} will be able to attend.</p>
+                            
+                            <div class="session-details">
+                                <p><strong>Group:</strong> {{ session.school_group.name }}</p>
+                                <p><strong>Date:</strong> {{ session.session_date|date:"l, j F Y" }}</p>
+                                <p><strong>Time:</strong> {{ session.session_start_time|time:"H:i" }}</p>
+                                {% if session.venue %}
+                                <p><strong>Venue:</strong> {{ session.venue.name }}</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="button-container">
+                                <!-- "Attending" Button -->
+                                <a href="{{ url_attend }}" class="button button-attend">Yes, {{ player.first_name }} will attend</a>
+                                
+                                <!-- "Not Attending" Button -->
+                                <a href="{{ url_decline }}" class="button button-decline">No, {{ player.first_name }} cannot attend</a>
+                            </div>
+
+                            <p>Responding helps our coaches plan the session more effectively. Thank you!</p>
+                            <p style="margin-top: 30px;">Best regards,<br>The SquashSync Team</p>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p>This is an automated message. Please do not reply directly to this email.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

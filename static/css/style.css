@@ -1102,3 +1102,11 @@ html.dark-mode .availability-item.status-emergency { background-color: #6ea8fe; 
 }
 .indicator-pending { background-color: #fff3cd; color: #664d03; border: 1px solid #ffecb5; }
 .indicator-declined { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+.player-name-span {
+    flex-grow: 1; /* Allows the name to take up available space */
+    margin-right: 1rem; /* Adds some space between the name and the buttons */
+    white-space: nowrap; /* Prevents long names from wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Adds '...' if the name is too long */
+}
