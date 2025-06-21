@@ -13,4 +13,7 @@ urlpatterns = [
     path('session/<int:session_id>/attendance/', views.visual_attendance_view, name='visual_attendance'),
 
     path('bulk-availability/', views.set_bulk_availability_view, name='set_bulk_availability'),
+
+    path('confirm/<int:session_id>/<str:token>/', views.confirm_attendance, name='confirm_attendance'),
+    path('decline/<int:session_id>/<str:token>/', views.decline_attendance, name='decline_attendance'),
 ]

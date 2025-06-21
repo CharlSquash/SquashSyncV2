@@ -7,12 +7,14 @@ from datetime import timedelta
 from collections import defaultdict
 
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Prefetch
+
+from django.contrib.auth import get_user_model
 
 import calendar
 from .utils import get_month_start_end # We will create this helper function next
@@ -22,9 +24,13 @@ from .forms import MonthYearFilterForm
 from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup
+from . import notifications
+from .notifications import verify_confirmation_token
 from accounts.models import Coach
 from assessments.models import SessionAssessment, GroupAssessment
 # --- End: Replacement block ---
+User = get_user_model()
+
 
 @login_required
 def homepage(request):
@@ -325,34 +331,205 @@ def set_bulk_availability_view(request):
     return render(request, 'scheduling/set_bulk_availability.html', context)
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def session_staffing(request):
-    if not request.user.is_superuser:
-        messages.error(request, "You do not have permission to view this page.")
-        return redirect('homepage')
-
+    # --- POST request logic remains the same ---
     if request.method == 'POST':
         session_id = request.POST.get('session_id')
-        coach_ids = request.POST.getlist(f'coaches_{session_id}')
-        session = get_object_or_404(Session, id=session_id)
-        session.coaches_attending.set(coach_ids)
-        messages.success(request, f"Coach assignment for session on {session.session_date} updated successfully.")
-        return redirect('scheduling:session_staffing')
+        assigned_coach_ids = request.POST.getlist(f'coaches_for_session_{session_id}')
+        try:
+            session = get_object_or_404(Session, pk=session_id)
+            session.coaches_attending.set(assigned_coach_ids)
+            messages.success(request, f"Assignments updated for session on {session.session_date.strftime('%d %b')}.")
+        except (ValueError, ObjectDoesNotExist):
+            messages.error(request, "Invalid session ID.")
+        return redirect(f"{reverse('scheduling:session_staffing')}?week={request.GET.get('week', '0')}")
 
-    two_weeks_from_now = timezone.now() + timedelta(weeks=2)
+    # --- Corrected GET request logic ---
+    now = timezone.now()
+    today = now.date()
+    
+    try:
+        week_offset = int(request.GET.get('week', '0'))
+    except (ValueError, TypeError):
+        week_offset = 0
 
-    # Fetch upcoming sessions
-    sessions = Session.objects.filter(
-        session_date__gte=timezone.now().date(),
-        session_date__lte=two_weeks_from_now.date()
-    ).select_related('school_group', 'venue').prefetch_related(
-        Prefetch('coach_availabilities', queryset=CoachAvailability.objects.select_related('coach'))
-    ).order_by('session_date', 'session_start_time')
+    start_of_this_week = today - timedelta(days=today.weekday())
+    target_week_start = start_of_this_week + timedelta(weeks=week_offset)
+    target_week_end = target_week_start + timedelta(days=6)
 
-    all_coaches = Coach.objects.filter(is_active=True)
+    all_active_coaches = list(Coach.objects.filter(is_active=True).select_related('user').order_by('name'))
+    
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    display_week = []
+
+    for i in range(7):
+        current_day = target_week_start + timedelta(days=i)
+        
+        sessions_for_day = Session.objects.filter(
+            session_date=current_day,
+            is_cancelled=False
+        ).select_related('school_group', 'venue').prefetch_related(
+            'coaches_attending__user',
+            # CHANGE 1: Use the correct related_name in the Prefetch object
+            Prefetch('coach_availabilities', queryset=CoachAvailability.objects.select_related('coach'))
+        ).order_by('session_start_time')
+        
+        processed_sessions = []
+        for session in sessions_for_day:
+            # CHANGE 2: Use the correct related_name to access the prefetched data
+            availability_map = {avail.coach_id: avail for avail in session.coach_availabilities.all()}
+            
+            assigned_coaches_status = []
+            has_pending = False
+            has_declined = False
+            
+            for coach in session.coaches_attending.all():
+                if coach.user:
+                    avail = availability_map.get(coach.user.id)
+                    
+                    if avail:
+                        if avail.is_available:
+                            status = "Confirmed"
+                        else:
+                            status = "Declined"
+                            has_declined = True
+                    else:
+                        status = "Pending"
+                        has_pending = True
+
+                    assigned_coaches_status.append({'coach': coach, 'status': status, 'notes': avail.notes if avail else ''})
+
+            available_coaches = []
+            for coach in all_active_coaches:
+                if coach not in session.coaches_attending.all() and coach.user:
+                    avail = availability_map.get(coach.user.id)
+                    if avail and avail.is_available:
+                        available_coaches.append({
+                            'coach': coach,
+                            'is_emergency': "emergency" in (avail.notes or "").lower()
+                        })
+            
+            processed_sessions.append({
+                'session_obj': session,
+                'assigned_coaches_with_status': assigned_coaches_status,
+                'available_coaches_for_assignment': sorted(available_coaches, key=lambda x: x['is_emergency']),
+                'has_pending_confirmations': has_pending,
+                'has_declined_coaches': has_declined,
+            })
+            
+        display_week.append({
+            'day_name': day_names[i],
+            'date': current_day,
+            'sessions': processed_sessions
+        })
 
     context = {
         'page_title': "Session Staffing",
-        'sessions': sessions,
-        'all_coaches': all_coaches,
+        'all_coaches_for_form': all_active_coaches,
+        'display_week': display_week,
+        'week_start': target_week_start,
+        'week_end': target_week_end,
+        'current_week_offset': week_offset,
+        'next_week_offset': week_offset + 1,
+        'prev_week_offset': week_offset - 1,
     }
     return render(request, 'scheduling/session_staffing.html', context)
+
+def confirm_attendance(request, session_id, token):
+    """
+    Handles attendance confirmation from an email link.
+    Does not require login; authentication is handled by the token.
+    """
+    payload = notifications.verify_confirmation_token(token)
+    
+    if not payload:
+        context = {
+            'message_type': 'error',
+            'message': 'This confirmation link is invalid or has expired. Please contact the administrator.'
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+
+    try:
+        user_id, token_session_id = payload.split(':')
+        user_id = int(user_id)
+        
+        # Security check: ensure the session_id in the token matches the one in the URL
+        if int(token_session_id) != session_id:
+             raise ValueError("Token-URL mismatch.")
+
+    except (ValueError, IndexError):
+        context = {
+            'message_type': 'error',
+            'message': 'The confirmation link is malformed. Please use the link exactly as it was provided in the email.'
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+
+    # Fetch the user and session from the database using IDs from the token/URL
+    user = get_object_or_404(User, pk=user_id)
+    session = get_object_or_404(Session, pk=session_id)
+    
+    # Update the availability record
+    CoachAvailability.objects.update_or_create(
+        coach=user, 
+        session=session,
+        defaults={
+            'is_available': True, 
+            'last_action': 'CONFIRM', 
+            'status_updated_at': timezone.now()
+        }
+    )
+
+    # Render a clear response to the user
+    context = {
+        'message_type': 'success',
+        'message': f"Thank you, {user.first_name}! Your attendance for the session on {session.session_date.strftime('%A, %d %B')} is confirmed."
+    }
+    return render(request, 'scheduling/confirmation_response.html', context)
+
+
+def decline_attendance(request, session_id, token):
+    """
+    Handles attendance decline from an email link.
+    Does not require login; authentication is handled by the token.
+    """
+    payload = notifications.verify_confirmation_token(token)
+    
+    if not payload:
+        context = {
+            'message_type': 'error',
+            'message': 'This decline link is invalid or has expired.'
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+
+    try:
+        user_id, token_session_id = payload.split(':')
+        user_id = int(user_id)
+        if int(token_session_id) != session_id:
+            raise ValueError("Token-URL mismatch.")
+    except (ValueError, IndexError):
+        context = {
+            'message_type': 'error',
+            'message': 'The decline link is malformed.'
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+
+    user = get_object_or_404(User, pk=user_id)
+    session = get_object_or_404(Session, pk=session_id)
+    
+    CoachAvailability.objects.update_or_create(
+        coach=user, 
+        session=session,
+        defaults={
+            'is_available': False, 
+            'last_action': 'DECLINE', 
+            'status_updated_at': timezone.now(), 
+            'notes': 'Declined via email link.'
+        }
+    )
+
+    context = {
+        'message_type': 'warning',
+        'message': f"Thank you, {user.first_name}. We have recorded that you are unavailable for the session on {session.session_date.strftime('%A, %d %B')}."
+    }
+    return render(request, 'scheduling/confirmation_response.html', context)

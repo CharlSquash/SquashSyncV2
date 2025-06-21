@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Attendance Confirmation</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { background-color: #f4f4f4; }
+        .card { margin-top: 50px; max-width: 600px; margin-left: auto; margin-right: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h4>Confirmation Response</h4>
+            </div>
+            <div class="card-body">
+                {% if message_type == 'success' %}
+                    <div class="alert alert-success" role="alert">{{ message }}</div>
+                {% elif message_type == 'warning' %}
+                    <div class="alert alert-warning" role="alert">{{ message }}</div>
+                {% elif message_type == 'error' %}
+                    <div class="alert alert-danger" role="alert">{{ message }}</div>
+                {% else %}
+                     <div class="alert alert-info" role="alert">{{ message }}</div>
+                {% endif %}
+                </div>
+        </div>
+    </div>
+</body>
+</html>

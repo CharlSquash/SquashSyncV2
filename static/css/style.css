@@ -993,3 +993,112 @@ html.dark-mode .availability-item.status-emergency { background-color: #6ea8fe; 
     margin-top: 25px;
     text-align: center;
 }
+
+/* === STYLES FOR SESSION STAFFING PAGE === */
+
+.week-navigation {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px; background-color: var(--container-light-bg);
+    border-radius: 5px; margin-bottom: 20px;
+}
+.week-navigation h4 { margin: 0; font-size: 1.1em; border-bottom: none; }
+
+.session-staffing-item {
+    border: 1px solid var(--border-light); border-radius: 5px;
+    margin-top: 15px; background-color: var(--container-bg);
+}
+.session-staffing-item > summary {
+    padding: 15px; cursor: pointer; list-style: none;
+    display: flex; flex-wrap: wrap; justify-content: space-between;
+    align-items: center; gap: 10px;
+}
+.session-staffing-item > summary::-webkit-details-marker { display: none; }
+.session-staffing-item[open] > summary { border-bottom: 1px solid var(--border-light); }
+
+.session-summary-info h3 { font-size: 1.1em; color: var(--heading-color); margin: 0 0 5px 0; border: none; }
+.session-summary-info .session-meta { font-size: 0.85em; color: var(--subheading-color); margin: 0; }
+.session-details-body { padding: 20px; border-top: 1px solid var(--border-light); }
+.staffing-details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.staffing-column h4 { font-size: 1em; font-weight: bold; color: var(--subheading-color); margin-bottom: 8px; border-bottom: 1px solid var(--border-light); padding-bottom: 4px; }
+.staffing-column ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
+.staffing-column li { margin-bottom: 5px; padding: 4px 0; display: flex; align-items: center; gap: 8px; }
+
+.assignment-form label { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
+.availability-notes { font-size: 0.8em; color: var(--subheading-color); margin-left: 5px; font-style: italic; }
+.emergency-label { font-size: 0.8em; font-style: italic; color: var(--link-color); margin-left: 5px; }
+
+/* === STYLES FOR SESSION STAFFING PAGE ACCORDION === */
+.day-accordion-item {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+.day-accordion-item > summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background-color: var(--container-light-bg);
+    font-size: 1.2em;
+    font-weight: 500;
+    color: var(--heading-color);
+    cursor: pointer;
+    list-style: none;
+}
+.day-accordion-item > summary::-webkit-details-marker { display: none; }
+.day-accordion-item > summary .arrow::before {
+    content: '►';
+    font-size: 0.8em;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+}
+.day-accordion-item[open] > summary {
+    border-bottom: 1px solid var(--border-color);
+}
+.day-accordion-item[open] > summary .arrow::before {
+    transform: rotate(90deg);
+}
+.day-accordion-item .day-content {
+    padding: 10px 15px 15px 15px;
+}
+.session-staffing-item {
+    border: 1px solid var(--border-light);
+    border-radius: 5px;
+    margin-top: 15px;
+    background-color: var(--container-bg);
+}
+.session-staffing-item > summary {
+    padding: 15px;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+.session-staffing-item > summary::-webkit-details-marker { display: none; }
+.session-staffing-item[open] > summary {
+    border-bottom: 1px solid var(--border-light);
+}
+.view-plan-link {
+    font-size: 0.7em;
+    margin-left: 10px;
+    font-weight: normal;
+}
+.session-status-indicators {
+    display: flex;
+    gap: 10px;
+    font-size: 0.8em;
+}
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+.indicator-pending { background-color: #fff3cd; color: #664d03; border: 1px solid #ffecb5; }
+.indicator-declined { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }

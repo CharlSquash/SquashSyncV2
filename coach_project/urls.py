@@ -20,7 +20,7 @@ urlpatterns = [
     path('assessments/', include('assessments.urls')),
     path('finance/', include('finance.urls')),
 
-    path('live/', include('live_session.urls')),
+    
 
 
 ]

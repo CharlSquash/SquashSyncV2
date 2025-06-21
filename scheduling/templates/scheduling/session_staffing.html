@@ -1,51 +1,104 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}{{ page_title }} - SquashSync{% endblock %}
+{% block title %}{{ page_title|default:"Session Staffing" }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>{{ page_title }}</h1>
+<div class="content-wrapper">
+    <h1><i class="bi bi-person-check-fill"></i> {{ page_title }}</h1>
+    
+    <div class="week-navigation">
+        <a href="?week={{ prev_week_offset }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Previous Week</a>
+        <h4>{{ week_start|date:"d M Y" }} to {{ week_end|date:"d M Y" }}</h4>
+        <a href="?week={{ next_week_offset }}" class="btn btn-sm btn-secondary">Next Week <i class="bi bi-arrow-right"></i></a>
     </div>
-    <p>Assign coaches to sessions for the next two weeks. Changes are saved automatically when you move to the next session's form.</p>
+    <hr>
+    
+    {% for day in display_week %}
+        {% if day.sessions %}
+            <details class="day-accordion-item">
+                <summary>
+                    <span>{{ day.day_name }}, {{ day.date|date:"j F" }}</span>
+                    <span class="arrow"></span>
+                </summary>
+                <div class="day-content">
+                    {% for item in day.sessions %}
+                        <details class="session-staffing-item">
+                            <summary>
+                                <div class="session-summary-info">
+                                    <h3>
+                                        {{ item.session_obj.school_group.name|default:"General Session" }}
+                                        <a href="{% url 'scheduling:session_detail' item.session_obj.id %}" title="View Session Plan" class="view-plan-link">(View Plan)</a>
+                                    </h3>
+                                    <p class="session-meta">
+                                        <i class="bi bi-clock"></i> {{ item.session_obj.session_start_time|time:"H:i" }} ({{ item.session_obj.planned_duration_minutes }} min)
+                                        {% if item.session_obj.venue %}| <i class="bi bi-geo-alt-fill"></i> {{ item.session_obj.venue.name }}{% endif %}
+                                    </p>
+                                </div>
+                                <div class="session-status-indicators">
+                                    {% if item.has_pending_confirmations %}<span class="status-indicator indicator-pending" title="Pending responses"><i class="bi bi-hourglass-split"></i> Pending</span>{% endif %}
+                                    {% if item.has_declined_coaches %}<span class="status-indicator indicator-declined" title="Declined"><i class="bi bi-x-circle"></i> Declined</span>{% endif %}
+                                    {% if not item.assigned_coaches_with_status %}<span class="status-indicator indicator-declined" title="Unstaffed"><i class="bi bi-exclamation-triangle"></i> Unstaffed</span>{% endif %}
+                                </div>
+                            </summary>
+                            <div class="session-details-body">
+                                <div class="staffing-details-grid">
+                                    <div class="staffing-column">
+                                        <h4>Assigned Coaches</h4>
+                                        {% for assigned in item.assigned_coaches_with_status %}
+                                            <p>
+                                                <!-- THIS IS THE CORRECTED DISPLAY LOGIC -->
+                                                {% if assigned.status == 'Confirmed' %}<i class="bi bi-check-circle-fill text-success" title="Confirmed"></i>
+                                                {% elif assigned.status == 'Declined' %}<i class="bi bi-x-circle-fill text-danger" title="Declined"></i>
+                                                {% else %}<i class="bi bi-hourglass-split text-muted" title="Pending Confirmation"></i>
+                                                {% endif %}
+                                                {{ assigned.coach.name }} 
+                                                <span class="text-muted">({{ assigned.status }})</span>
+                                                {% if assigned.notes %}<span class="availability-notes"> - {{ assigned.notes }}</span>{% endif %}
+                                            </p>
+                                        {% empty %}
+                                            <p class="text-muted">None assigned.</p>
+                                        {% endfor %}
+                                    </div>
 
-    {% if sessions %}
-        {% for session in sessions %}
-            <div class="card mb-3">
-                <div class="card-header">
-                    <strong>{{ session.session_date|date:"l, d F Y" }} at {{ session.session_start_time|time:"H:i" }}</strong> - 
-                    <a href="{% url 'scheduling:session_detail' session.id %}">
-                        {{ session.school_group.name|default:"General Session" }}
-                    </a>
-                    {% if session.is_cancelled %}
-                        <span class="badge bg-danger">CANCELLED</span>
-                    {% endif %}
-                </div>
-                <div class="card-body">
-                    <form method="post" action="{% url 'scheduling:session_staffing' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="session_id" value="{{ session.id }}">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <label for="coaches_{{ session.id }}" class="form-label">Assign Coaches</label>
-                                <select multiple class="form-select" name="coaches_{{ session.id }}" id="coaches_{{ session.id }}" size="5">
-                                    {% for coach in all_coaches %}
-                                        <option value="{{ coach.id }}" {% if coach in session.coaches_attending.all %}selected{% endif %}>
-                                            {{ coach.name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
+                                    <div class="staffing-column">
+                                        <h4>Available Coaches</h4>
+                                        {% for avail in item.available_coaches_for_assignment %}
+                                            <p>
+                                                {% if avail.is_emergency %}<i class="bi bi-hand-thumbs-up-fill text-primary" title="Emergency Only"></i>
+                                                {% else %}<i class="bi bi-hand-thumbs-up-fill text-success" title="Available"></i>
+                                                {% endif %}
+                                                {{ avail.coach.name }}
+                                                {% if avail.is_emergency %}<span class="emergency-label">(emergency)</span>{% endif %}
+                                            </p>
+                                        {% empty %}
+                                            <p class="text-muted">No other coaches have marked themselves available.</p>
+                                        {% endfor %}
+                                    </div>
+
+                                    <div class="staffing-column">
+                                        <h4>Assign / Update</h4>
+                                        <form method="post" class="assignment-form">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="session_id" value="{{ item.session_obj.id }}">
+                                            {% for coach in all_coaches_for_form %}
+                                                <label>
+                                                    <input type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}"
+                                                        {% for assigned in item.assigned_coaches_with_status %}{% if assigned.coach.id == coach.id %}checked{% endif %}{% endfor %}
+                                                    >
+                                                    <span>{{ coach.name }}</span>
+                                                </label>
+                                            {% endfor %}
+                                            <button type="submit" class="btn btn-primary btn-sm mt-2">Update Assignments</button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md-4 align-self-end">
-                                <button type="submit" class="btn btn-primary w-100">Save Coaches for this Session</button>
-                            </div>
-                        </div>
-                    </form>
+                        </details>
+                    {% endfor %}
                 </div>
-            </div>
-        {% endfor %}
-    {% else %}
-        <div class="alert alert-info">No upcoming sessions found in the next two weeks.</div>
-    {% endif %}
+            </details>
+        {% endif %}
+    {% endfor %}
 </div>
 {% endblock %}

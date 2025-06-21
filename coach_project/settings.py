@@ -27,6 +27,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.3.6']
 
+APP_SITE_URL = 'http://127.0.0.1:8000'
+
 
 # Application definition
 
@@ -157,3 +159,15 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# NEW settings.py (for local development)
+
+# Use the console backend to print emails to the terminal during development
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# You can comment these out or leave them for when you deploy to production
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')

@@ -180,13 +180,18 @@ class ManualCourtAssignment(models.Model):
 
 # --- MODEL: CoachAvailability ---
 class CoachAvailability(models.Model):
-    # This correctly points to the main User model
     coach = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='session_availabilities', limit_choices_to={'is_staff': True})
     session = models.ForeignKey('Session', on_delete=models.CASCADE, related_name='coach_availabilities')
     is_available = models.BooleanField(null=True, help_text="True=Available, False=Unavailable, Null=Pending")
     notes = models.TextField(blank=True, help_text="Optional notes (e.g., reason for unavailability).")
     timestamp = models.DateTimeField(auto_now=True)
     
+    # --- ADD THESE TWO FIELDS BACK ---
+    ACTION_CHOICES = [('CONFIRM', 'Confirmed'), ('DECLINE', 'Declined')]
+    last_action = models.CharField(max_length=10, choices=ACTION_CHOICES, null=True, blank=True, help_text="The last explicit action taken by the coach.")
+    status_updated_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp of when the status was explicitly confirmed or declined.")
+    # --- END OF ADDED FIELDS ---
+
     class Meta:
         unique_together = ('coach', 'session')
         ordering = ['session__session_date', 'session__session_start_time', 'coach__username']
