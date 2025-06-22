@@ -45,9 +45,9 @@
                         <th>Session Date</th>
                         <th>Session</th>
                         <th>Coach</th>
-                        <th>Assessments Submitted?</th>
-                        <th>Payment Confirmed?</th>
-                        <th>Actions</th>
+                        <th class="text-center">Assessments Submitted?</th>
+                        <th class="text-center">Payment Confirmed?</th>
+                        <th class="text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -56,9 +56,19 @@
                             <td>{{ record.session.session_date|date:"Y-m-d" }}</td>
                             <td>
                                 {{ record.session.school_group.name|default:"General Session" }}
-                                <small class="text-muted">({{ record.session.start_time|time:"H:i" }})</small>
+                                <small class="text-muted">({{ record.session.session_start_time|time:"H:i" }})</small>
                             </td>
-                            <td>{{ record.coach.user.get_full_name|default:"Unknown" }}</td>
+                            <td>
+                                <!--
+                                  FIX: Use the 'default' filter. This will try to display the full name,
+                                  but if it's empty, it will fall back to showing the username.
+                                -->
+                                {% if record.coach and record.coach.user %}
+                                    {{ record.coach.user.get_full_name|default:record.coach.user.username }}
+                                {% else %}
+                                    <span class="text-danger">Invalid Coach Record</span>
+                                {% endif %}
+                            </td>
                             <td class="text-center">
                                 {% if record.assessments_submitted %}
                                     <i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>
@@ -73,7 +83,7 @@
                                     <i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>
                                 {% endif %}
                             </td>
-                            <td class="actions">
+                            <td class="actions text-center">
                                 {% if not record.confirmed_for_payment %}
                                 <form method="post" action="{% url 'finance:completion_report' %}" class="d-inline">
                                     {% csrf_token %}

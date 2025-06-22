@@ -7,7 +7,6 @@ from datetime import date, timedelta
 import calendar
 
 from .models import CoachSessionCompletion
-# We need to import the Session model to query it
 from scheduling.models import Session
 
 def is_superuser(user):
@@ -66,13 +65,13 @@ def completion_report(request):
     start_date = date(target_year, target_month, 1)
     end_date = date(target_year, target_month, num_days)
 
-    # FIX: Corrected `session__start_time` to `session__session_start_time` in the order_by clause.
     completion_records = CoachSessionCompletion.objects.filter(
         session__session_date__gte=start_date, 
         session__session_date__lte=end_date
     ).select_related(
         'coach__user', 'session__school_group'
     ).order_by(
+        # FIX: Correctly order by the user's name, not the coach's name field
         'session__session_date', 'session__session_start_time', 'coach__user__first_name'
     )
 
