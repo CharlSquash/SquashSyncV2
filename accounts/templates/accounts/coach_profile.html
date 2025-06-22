@@ -1,25 +1,174 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title|default:"Coach Profile" }} - SquashSync{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1>{{ page_title }}</h1>
-    <p>Viewing profile for: <strong>{{ coach.name }}</strong></p>
+    {% if coach %}
+        <div class="profile-main-card card shadow-sm">
+            <div class="card-body">
+                <div class="profile-header">
+                    <div class="profile-photo-lg">
+                        {% if coach.photo %}
+                            <img src="{{ coach.photo.url }}" alt="Photo of {{ coach.user.get_full_name }}">
+                        {% else %}
+                            <div class="no-photo"><i class="bi bi-person-fill"></i></div>
+                        {% endif %}
+                    </div>
+                    <div class="profile-info">
+                        <h1>{{ coach.user.get_full_name|default:"Coach Profile" }}</h1>
+                        <p class="coach-username text-muted">@{{ coach.user.username }}</p>
+                        
+                        <div class="contact-details">
+                            <p><i class="bi bi-envelope-fill"></i> {{ coach.user.email|default:"No email provided" }}</p>
+                            <p><i class="bi bi-telephone-fill"></i> {{ coach.phone_number|default:"No phone provided" }}</p>
+                            {% if coach.whatsapp_phone_number %}
+                            <p><i class="bi bi-whatsapp"></i> {{ coach.whatsapp_phone_number }}
+                                {% if coach.whatsapp_opt_in %}(Opted-in){% else %}(Not opted-in){% endif %}
+                            </p>
+                            {% endif %}
+                        </div>
+                        
+                        <p><strong>Status:</strong>
+                            {% if coach.is_active %}
+                                <span class="status-active">Active</span>
+                            {% else %}
+                                <span class="status-inactive">Inactive</span>
+                            {% endif %}
+                        </p>
+                        
+                        {% if request.user.is_superuser or viewing_own_profile %}
+                            <p><strong>Hourly Rate:</strong> R{{ coach.hourly_rate|default:"N/A" }}</p>
+                        {% endif %}
+                    </div>
 
-    <div class="card mt-4">
-        <div class="card-header">Recent Sessions</div>
-        <ul class="list-group list-group-flush">
-            {% for session in sessions_attended %}
-                <li class="list-group-item">
-                    <a href="{% url 'scheduling:session_detail' session.id %}">
-                        {{ session.session_date|date:"d M Y" }} - {{ session.school_group.name|default:"General Session" }}
-                    </a>
-                </li>
-            {% empty %}
-                <li class="list-group-item">No recent sessions found.</li>
-            {% endfor %}
-        </ul>
-    </div>
+                    {% if request.user.is_superuser %}
+                        <div class="ms-auto">
+                            <a href="{% url 'admin:accounts_coach_change' coach.id %}" class="btn btn-sm btn-outline-secondary" title="Edit Coach in Admin">
+                                <i class="bi bi-pencil-square"></i> Edit
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <!-- Sessions and Assessments Column -->
+                <div class="card shadow-sm profile-section-card">
+                    <details>
+                        <summary>
+                            <span class="summary-title"><i class="bi bi-collection-play"></i>Recent Sessions Coached ({{ sessions_attended.count }})</span>
+                            <span class="summary-arrow"></span>
+                        </summary>
+                        <div class="details-content">
+                            <ul style="max-height: 300px; overflow-y: auto;">
+                                {% for session in sessions_attended %}
+                                    <li>
+                                        <a href="{% url 'scheduling:session_detail' session.id %}">
+                                            {{ session.session_date|date:"D, d M Y" }} - {{ session.start_time|time:"H:i" }}
+                                        </a><br>
+                                        <small class="text-muted">
+                                            {{ session.school_group.name|default:"General" }}
+                                            {% if session.venue %}| {{ session.venue.name }}{% endif %}
+                                        </small>
+                                    </li>
+                                {% empty %}
+                                    <li class="text-muted">No recent sessions recorded.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="card shadow-sm profile-section-card mt-3">
+                    <details>
+                        <summary>
+                            <span class="summary-title"><i class="bi bi-person-check"></i>Recent Player Assessments ({{ player_assessments_made.count }})</span>
+                            <span class="summary-arrow"></span>
+                        </summary>
+                        <div class="details-content">
+                            <ul style="max-height: 300px; overflow-y: auto;">
+                                {% for assessment in player_assessments_made %}
+                                    <li>
+                                        For <strong><a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.user.get_full_name }}</a></strong>
+                                        <br><small class="text-muted">Session: {{ assessment.session.session_date|date:"d M Y" }}</small>
+                                        {% if assessment.coach_notes %}
+                                            <p class="assessment-snippet mt-1">{{assessment.coach_notes|truncatewords:10}}</p>
+                                        {% endif %}
+                                    </li>
+                                {% empty %}
+                                    <li class="text-muted">No recent player assessments made.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+                 <div class="card shadow-sm profile-section-card mt-3">
+                    <details>
+                        <summary>
+                            <span class="summary-title"><i class="bi bi-journals"></i>Recent Group Assessments ({{ group_assessments_made.count }})</span>
+                            <span class="summary-arrow"></span>
+                        </summary>
+                        <div class="details-content">
+                            <ul style="max-height: 300px; overflow-y: auto;">
+                                {% for assessment in group_assessments_made %}
+                                    <li>
+                                        For <strong><a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{ assessment.session.school_group.name|default:"N/A" }}</a></strong>
+                                        <br><small class="text-muted">Session: {{ assessment.session.session_date|date:"d M Y" }}</small>
+                                        {% if assessment.general_notes %}
+                                            <p class="assessment-snippet mt-1">{{assessment.general_notes|truncatewords:10}}</p>
+                                        {% endif %}
+                                    </li>
+                                {% empty %}
+                                    <li class="text-muted">No group assessments made.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <!-- Qualifications and Other Info Column -->
+                 <div class="card shadow-sm profile-section-card">
+                    <details>
+                        <summary>
+                            <span class="summary-title"><i class="bi bi-award-fill"></i>Qualifications & Experience</span>
+                            <span class="summary-arrow"></span>
+                        </summary>
+                        <div class="details-content">
+                            <h5>WSF Level:</h5>
+                            <p>{{ coach.get_qualification_wsf_level_display|default:"Not specified" }}</p>
+                            <h5>SSA Level:</h5>
+                            <p>{{ coach.get_qualification_ssa_level_display|default:"Not specified" }}</p>
+                            <h5>Experience Notes:</h5>
+                            {% if coach.experience_notes %}
+                                <p style="white-space: pre-wrap;">{{ coach.experience_notes|linebreaksbr }}</p>
+                            {% else %}
+                                <p class="text-muted">No experience notes provided.</p>
+                            {% endif %}
+                        </div>
+                    </details>
+                </div>
+                 <div class="card shadow-sm profile-section-card mt-3">
+                    <details open>
+                        <summary>
+                            <span class="summary-title"><i class="bi bi-calendar2-week"></i>Availability Summary</span>
+                            <span class="summary-arrow"></span>
+                        </summary>
+                        <div class="details-content">
+                             <p class="text-muted"><em>This feature is coming soon!</em></p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="alert alert-warning">Coach profile not found or you do not have permission to view it.</div>
+    {% endif %}
 </div>
 {% endblock %}
