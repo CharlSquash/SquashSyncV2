@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}{{ page_title|default:"Coach Completion Report" }}{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <h1><i class="bi bi-clipboard2-check-fill me-2"></i>{{ page_title }}</h1>
+
+    <form method="GET" action="{% url 'finance:completion_report' %}" class="filter-form">
+        <div>
+            <label for="month_select">Month:</label>
+            <select name="month" id="month_select">
+                {% for month_opt in month_choices %}
+                    <option value="{{ month_opt.value }}" {% if month_opt.value == selected_month %}selected{% endif %}>
+                        {{ month_opt.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="year_select">Year:</label>
+            <select name="year" id="year_select">
+                {% for year_opt in year_choices %}
+                    <option value="{{ year_opt }}" {% if year_opt == selected_year %}selected{% endif %}>
+                        {{ year_opt }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">View Report</button>
+        </div>
+    </form>
+    
+    <p class="date-range-info">
+        Showing completion status for sessions between <strong>{{ start_date|date:"d M Y" }}</strong> and <strong>{{ end_date|date:"d M Y" }}</strong>.
+    </p>
+
+    {% if completion_records %}
+        <div class="table-responsive">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Session Date</th>
+                        <th>Session</th>
+                        <th>Coach</th>
+                        <th>Assessments Submitted?</th>
+                        <th>Payment Confirmed?</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in completion_records %}
+                        <tr>
+                            <td>{{ record.session.session_date|date:"Y-m-d" }}</td>
+                            <td>
+                                {{ record.session.school_group.name|default:"General Session" }}
+                                <small class="text-muted">({{ record.session.start_time|time:"H:i" }})</small>
+                            </td>
+                            <td>{{ record.coach.user.get_full_name|default:"Unknown" }}</td>
+                            <td class="text-center">
+                                {% if record.assessments_submitted %}
+                                    <i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if record.confirmed_for_payment %}
+                                    <i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>
+                                {% endif %}
+                            </td>
+                            <td class="actions">
+                                {% if not record.confirmed_for_payment %}
+                                <form method="post" action="{% url 'finance:completion_report' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="completion_id" value="{{ record.id }}">
+                                    <input type="hidden" name="action" value="confirm">
+                                    <input type="hidden" name="filter_month" value="{{ selected_month }}">
+                                    <input type="hidden" name="filter_year" value="{{ selected_year }}">
+                                    <button type="submit" class="btn btn-confirm btn-sm" title="Manually Confirm Payment">Confirm</button>
+                                </form>
+                                {% endif %}
+                                {% if record.confirmed_for_payment %}
+                                <form method="post" action="{% url 'finance:completion_report' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="completion_id" value="{{ record.id }}">
+                                    <input type="hidden" name="action" value="unconfirm">
+                                    <input type="hidden" name="filter_month" value="{{ selected_month }}">
+                                    <input type="hidden" name="filter_year" value="{{ selected_year }}">
+                                    <button type="submit" class="btn btn-unconfirm btn-sm" title="Remove Payment Confirmation">Un-confirm</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="no-records-msg">
+            <p>No coach completion records found for the selected date range.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

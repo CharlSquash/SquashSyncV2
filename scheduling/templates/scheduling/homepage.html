@@ -1,208 +1,151 @@
 {% extends "base.html" %}
 {% load static %}
-{% load scheduling_extras %}
 
 {% block title %}{{ page_title|default:"Dashboard" }} - SquashSync{% endblock %}
+
 {% block content %}
-<div class="container mt-3">
-    <div class="page-header">
-        <h1>{{ page_title }}</h1>
+<div class="container mt-4">
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <h1><i class="bi bi-speedometer2 me-2"></i>{{ page_title }}</h1>
+        <span class="text-muted d-none d-md-block">Welcome, {{ user.get_full_name|default:user.username }}!</span>
     </div>
 
+    <!-- Alerts Section -->
     {% if user.is_superuser %}
         {% if unstaffed_session_count > 0 %}
-            <div class="unstaffed-alert">
+            <div class="dashboard-alert alert-warning">
                 <i class="bi bi-exclamation-triangle-fill"></i>
-                <strong>Alert:</strong> There {% if unstaffed_session_count == 1 %}is 1 unstaffed session{% else %}are {{ unstaffed_session_count }} unstaffed sessions{% endif %} in the next two weeks.
-                <a href="{% url 'scheduling:session_staffing' %}">Go to Staffing Page</a>
+                <strong>Staffing Alert:</strong> There {% if unstaffed_session_count == 1 %}is 1 unstaffed session{% else %}are {{ unstaffed_session_count }} unstaffed sessions{% endif %} in the next two weeks.
+                <a href="{% url 'scheduling:session_staffing' %}" class="alert-link">Go to Staffing Page <i class="bi bi-arrow-right"></i></a>
             </div>
         {% endif %}
         {% if unconfirmed_staffing_alerts %}
-            <div class="staffing-problem-alert">
+            <div class="dashboard-alert alert-danger">
                 <i class="bi bi-person-fill-exclamation"></i>
-                <strong>Staffing Alert:</strong> The following upcoming sessions have unconfirmed or declined coaches:
-                <ul style="margin-top: 5px; padding-left: 20px;">
-                    {% for alert_item in unconfirmed_staffing_alerts %}
-                    <li style="padding: 3px 0; border-bottom: 1px solid var(--action-del-border); margin-top: 3px;">
-                        <a href="{% url 'scheduling:session_detail' alert_item.session.id %}">
-                            {{ alert_item.session.session_date|date:"D, d M" }} - {{ alert_item.session.session_start_time|time:"H:i" }}
-                            {% if alert_item.session.school_group %}({{ alert_item.session.school_group.name }}){% endif %}
-                        </a>
-                        <div style="font-size:0.85em; margin-left:10px;">
-                        Unconfirmed/Declined:
-                        {% for coach_status in alert_item.unconfirmed_coaches %}
-                            <strong>{{ coach_status.name }}</strong> ({{ coach_status.status }}){% if not forloop.last %}, {% endif %}
-                        {% endfor %}
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-                <p style="margin-top:10px;"><a href="{% url 'scheduling:session_staffing' %}">Go to Session Staffing page for details.</a></p>
+                <strong>Confirmation Alert:</strong> Upcoming sessions have unconfirmed or declined coaches.
+                <a href="{% url 'scheduling:session_staffing' %}" class="alert-link">Review on Staffing Page <i class="bi bi-arrow-right"></i></a>
             </div>
         {% endif %}
     {% endif %}
 
+    <!-- Dashboard Grid -->
     <div class="dashboard-grid">
+
+        <!-- Upcoming Sessions Card (For All Users) -->
         <div class="dashboard-card">
-            <h2><i class="bi bi-calendar-event"></i> Upcoming Sessions</h2>
-            {% if upcoming_sessions %}
-                <ul>
-                    {% for session in upcoming_sessions %}
-                    <li>
-                        <div class="list-item-content">
+            <div class="card-header">
+                <h3><i class="bi bi-calendar-event"></i> Upcoming Sessions</h3>
+            </div>
+            <div class="card-body">
+                {% if upcoming_sessions %}
+                    <ul class="dashboard-list">
+                        {% for session in upcoming_sessions %}
+                        <li>
                             <a href="{% url 'scheduling:session_detail' session.id %}">
-                                {{ session.session_date|date:"D, d M Y" }} - {{ session.session_start_time|time:"H:i" }}
-                                {% if session.school_group %}({{ session.school_group.name }}){% endif %}
+                                <strong>{{ session.session_date|date:"D, d M" }} @ {{ session.start_time|time:"H:i" }}</strong>
+                                {% if session.school_group %}<span>{{ session.school_group.name }}</span>{% endif %}
+                                {% if session.is_cancelled %}<span class="badge-cancelled">CANCELLED</span>{% endif %}
                             </a>
-                            <span class="session-time">
-                                {% if session.venue %}Venue: {{ session.venue.name }}{% endif %}
-                                {% if session.is_cancelled %}<strong style="color: var(--action-del-text);"> (CANCELLED)</strong>{% endif %}
-                            </span>
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p class="no-data">No upcoming sessions scheduled{% if not user.is_superuser %} for you{% endif %}.</p>
-            {% endif %}
-            <div class="card-link-button-bottom">
-                <a href="{% url 'scheduling:session_calendar' %}" class="card-link-button">View Full Calendar</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="no-data-message">No upcoming sessions scheduled.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'scheduling:session_calendar' %}" class="card-action-link">View Full Calendar <i class="bi bi-box-arrow-up-right"></i></a>
             </div>
         </div>
 
-        <div class="dashboard-card">
-            <h2><i class="bi bi-people-fill"></i> Manage Players</h2>
-            <p>View player profiles, track progress, and manage group assignments.</p>
-            <div class="card-link-button-bottom">
-                <a href="{% url 'players:players_list' %}" class="card-link-button">Go to Players List</a>
+        <!-- Coach-Specific Cards -->
+        {% if user.is_staff and not user.is_superuser %}
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3><i class="bi bi-pencil-square"></i> Pending Assessments</h3>
+                </div>
+                <div class="card-body">
+                     {% if recent_sessions_for_feedback %}
+                        <p>You have player and/or group assessments to complete for recent sessions.</p>
+                     {% else %}
+                        <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Great job! No pending assessments.</p>
+                     {% endif %}
+                </div>
+                 <div class="card-footer">
+                    <a href="{% url 'assessments:pending_assessments' %}" class="card-action-link">Go to My Assessments <i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
             </div>
-        </div>
+             <div class="dashboard-card">
+                <div class="card-header">
+                    <h3><i class="bi bi-calendar-check"></i> My Availability</h3>
+                </div>
+                <div class="card-body">
+                     <p>View your schedule and confirm your attendance for upcoming sessions.</p>
+                </div>
+                 <div class="card-footer">
+                    <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Update My Availability <i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+            </div>
+        {% endif %}
 
+
+        <!-- Superuser-Specific Cards -->
         {% if user.is_superuser %}
             <div class="dashboard-card">
-                <h2><i class="bi bi-card-checklist"></i> Recent Player Assessments (To Review)</h2>
-                {% if all_coach_assessments %}
-                    <ul>
-                        {% for assessment in all_coach_assessments %}
-                        <li>
-                            <div class="list-item-content">
-                                <strong><a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.full_name }}</a></strong>
-                                <div class="assessment-meta">
-                                    Session: <a href="{% url 'scheduling:session_detail' assessment.session.id %}">{{ assessment.session.session_date|date:"d M Y" }}</a>
-                                    {% if assessment.session.school_group %} ({{ assessment.session.school_group.name }}){% endif %}<br>
-                                    Assessed by:
-                                    {% if assessment.submitted_by %}{{ assessment.submitted_by.get_full_name|default:assessment.submitted_by.username }}{% else %} Unknown {% endif %}
-                                    {% if assessment.is_hidden %} <span class="badge bg-secondary">Hidden</span>{% endif %}
-                                </div>
-                                {% if assessment.coach_notes %}
-                                    <p class="assessment-notes">Notes: {{ assessment.coach_notes|truncatewords_html:15 }}</p>
-                                {% endif %}
-                            </div>
-                            <div class="list-item-actions">
-                                <form method="POST" action="{% url 'assessments:toggle_assessment_superuser_review_status' assessment.id %}" class="mark-reviewed-form">
-                                    {% csrf_token %}
-                                    <button type="submit" class="mark-reviewed-btn" title="Mark Player Assessment as Reviewed"><i class="bi bi-check-circle-fill"></i> Reviewed</button>
-                                </form>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="no-data">No unreviewed player assessments found.</p>
-                {% endif %}
-                 <div class="card-link-button-bottom">
-                    <a href="{% url 'admin:assessments_sessionassessment_changelist' %}" class="card-link-button">View All Player Assessments</a>
+                <div class="card-header">
+                    <h3><i class="bi bi-card-checklist"></i> Review Player Assessments</h3>
+                </div>
+                <div class="card-body">
+                    {% if all_coach_assessments %}
+                        <p>There are <strong>{{ all_coach_assessments.count }}</strong> new player assessment(s) waiting for your review.</p>
+                         <ul class="dashboard-list dashboard-list-condensed">
+                            {% for assessment in all_coach_assessments|slice:":3" %}
+                                <li>
+                                    <a href="{% url 'players:player_profile' assessment.player.id %}#assessment-{{assessment.id}}">
+                                        <strong>{{ assessment.player.user.get_full_name }}</strong>
+                                        <span>by {{ assessment.submitted_by.get_full_name|default:assessment.submitted_by.username }}</span>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                         </ul>
+                    {% else %}
+                        <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All player assessments are reviewed.</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                     <a href="{% url 'admin:assessments_sessionassessment_changelist' %}" class="card-action-link">Manage All <i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
             </div>
 
             <div class="dashboard-card">
-                <h2><i class="bi bi-journals"></i> Group Assessments (To Review)</h2>
-                {% if recent_group_assessments %}
-                    <ul>
-                        {% for group_assessment in recent_group_assessments %}
-                        <li class="group-assessment-item">
-                            <div class="list-item-content">
-                                <div class="session-info">
-                                    <strong><a href="{% url 'scheduling:session_detail' group_assessment.session.id %}">{{ group_assessment.session.school_group.name|default:"N/A Group" }}</a></strong>
-                                    <span class="meta-info">{{ group_assessment.session.session_date|date:"D, d M Y" }} at {{ group_assessment.session.session_start_time|time:"H:i" }}</span>
-                                </div>
-                                <div class="meta-info">Assessed by: <strong>{% if group_assessment.assessing_coach %}{{ group_assessment.assessing_coach.get_full_name|default:group_assessment.assessing_coach.username }}{% else %}Unknown{% endif %}</strong></div>
-                                {% if group_assessment.general_notes %}<p class="notes-preview">{{ group_assessment.general_notes|truncatewords_html:25 }}</p>{% endif %}
-                            </div>
-                            <div class="list-item-actions">
-                                <form method="POST" action="{% url 'assessments:toggle_group_assessment_review_status' group_assessment.id %}" class="mark-reviewed-form">
-                                    {% csrf_token %}
-                                    <button type="submit" class="mark-reviewed-btn" title="Mark Group Assessment as Reviewed"><i class="bi bi-check-circle-fill"></i> Reviewed</button>
-                                </form>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="no-data">No unreviewed group assessments found.</p>
-                {% endif %}
-                <div class="card-link-button-bottom">
-                    <a href="{% url 'admin:assessments_groupassessment_changelist' %}" class="card-link-button">View All Group Assessments</a>
+                <div class="card-header">
+                    <h3><i class="bi bi-journals"></i> Review Group Assessments</h3>
+                </div>
+                 <div class="card-body">
+                    {% if recent_group_assessments %}
+                        <p>There are <strong>{{ recent_group_assessments.count }}</strong> new group assessment(s) waiting for your review.</p>
+                    {% else %}
+                        <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All group assessments are reviewed.</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                     <a href="{% url 'admin:assessments_groupassessment_changelist' %}" class="card-action-link">Manage All <i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
             </div>
 
             <div class="dashboard-card">
-                <h2><i class="bi bi-gear-fill"></i> Admin & Management</h2>
-                <ul>
-                    <li><a href="{% url 'admin:index' %}">Full Admin Site</a></li>
-                    <li><a href="{% url 'scheduling:session_staffing' %}">Session Staffing</a></li>
-                    <li><a href="{% url 'admin:accounts_coach_changelist' %}">Manage Coaches (Admin)</a></li>
-                    <li><a href="{% url 'players:school_group_list' %}">Manage School Groups</a></li>
-                    <li><a href="{% url 'admin:finance_payslip_changelist' %}">Manage Payslips (Admin)</a></li>
-                </ul>
-            </div>
-
-        {% elif user.is_staff %}
-            {% if sessions_for_direct_confirmation %}
-            <div class="dashboard-card">
-                <h2><i class="bi bi-calendar-check"></i> Confirm for Tomorrow's Sessions</h2>
-                <ul>
-                    {% for item in sessions_for_direct_confirmation %}
-                    <li>
-                        <div class="list-item-content">
-                            <strong>{{ item.session.session_date|date:"D, d M" }} - {{ item.session.session_start_time|time:"H:i" }}</strong>
-                            <div class="confirmation-actions">
-                                <form method="POST" action="{% url 'scheduling:direct_confirm_attendance' item.session.id %}" style="display: inline;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-primary">Confirm</button>
-                                </form>
-                                <form method="POST" action="{% url 'scheduling:direct_decline_attendance' item.session.id %}" style="display: inline;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
-                                </form>
-                            </div>
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% endif %}
-
-            <div class="dashboard-card">
-                <h2><i class="bi bi-pencil-square"></i> My Assessment Reminders</h2>
-                {% if recent_sessions_for_feedback %}
-                    <ul>
-                        {% for session in recent_sessions_for_feedback %}
-                        <li class="border-bottom pb-2 mb-2">
-                            <div class="list-item-content">
-                                <a href="{% url 'assessments:pending_assessments' %}">
-                                    <strong>{{ session.session_date|date:"D, d M Y" }} - {{ session.session_start_time|time:"H:i" }}</strong>
-                                </a>
-                                <span class="session-time">Player and/or Group assessment pending.</span>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="no-data"><i class="bi bi-check2-all text-success"></i> Great job! No pending assessment reminders.</p>
-                {% endif %}
-                <div class="card-link-button-bottom">
-                    <a href="{% url 'assessments:pending_assessments' %}" class="card-link-button">View All My Pending Assessments</a>
+                <div class="card-header">
+                    <h3><i class="bi bi-gear-fill"></i> Quick Links</h3>
+                </div>
+                <div class="card-body">
+                     <ul class="dashboard-list dashboard-list-links">
+                         <li><a href="{% url 'scheduling:session_staffing' %}">Session Staffing</a></li>
+                         <li><a href="{% url 'players:players_list' %}">Manage Players</a></li>
+                         <li><a href="{% url 'accounts:coach_list' %}">Manage Coaches</a></li>
+                         <li><a href="{% url 'players:school_group_list' %}">Manage School Groups</a></li>
+                         <li><a href="{% url 'admin:finance_payslip_changelist' %}">Manage Payslips</a></li>
+                         <li><a href="{% url 'admin:index' %}">Full Admin Site</a></li>
+                     </ul>
                 </div>
             </div>
         {% endif %}

@@ -4,37 +4,43 @@
 {% block title %}{{ page_title }} - SquashSync{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="page-header mb-4">
+<div class="container mt-4" style="max-width: 800px;">
+    <div class="page-header">
         <h1>{{ page_title }}</h1>
-        <p class="lead">
-            For session: {{ session.school_group.name|default:"General Session" }} on {{ session.session_date|date:"l, d M Y" }}
-        </p>
+        <p class="text-muted">{{ sub_title }}</p>
     </div>
 
-    <form method="post">
-        {% csrf_token %}
-        {{ formset.management_form }}
-
-        <div class="row row-cols-1 row-cols-md-2 g-4">
-            {% for player, form in player_form_pairs %}
-                <div class="col">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h5 class="mb-0">{{ player.full_name }}</h5>
-                        </div>
-                        <div class="card-body">
-                            {{ form|crispy }}
-                        </div>
-                    </div>
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <h5 class="form-section-title">Rate player performance (1=Poor, 5=Excellent)</h5>
+                    {{ form.effort_rating|as_crispy_field }}
+                    {{ form.focus_rating|as_crispy_field }}
+                    {{ form.resilience_rating|as_crispy_field }}
+                    {{ form.composure_rating|as_crispy_field }}
+                    {{ form.decision_making_rating|as_crispy_field }}
                 </div>
-            {% endfor %}
-        </div>
+                
+                <hr class="my-4">
 
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary">Save All Assessments</button>
-            <a href="{% url 'assessments:pending_assessments' %}" class="btn btn-secondary">Cancel</a>
+                <div class="mt-4">
+                     <h5 class="form-section-title">Comments</h5>
+                    {{ form.coach_notes|as_crispy_field }}
+                </div>
+
+                <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                    <a href="{% url 'assessments:pending_assessments' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Pending List
+                    </a>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="bi bi-check-circle-fill me-1"></i> Save Assessment
+                    </button>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
 {% endblock %}

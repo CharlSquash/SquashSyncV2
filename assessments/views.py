@@ -1,141 +1,188 @@
-# assessments/views.py
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.forms import modelformset_factory
-from django.shortcuts import get_object_or_404, redirect
-from django.utils import timezone
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
 from django.contrib import messages
-from players.models import Player
+from django.utils import timezone
 from datetime import timedelta
-# Import models from their new app locations
-from scheduling.models import Session
-from .models import SessionAssessment, GroupAssessment
+from django.db.models import Prefetch
+from collections import defaultdict
+from django.http import Http404
+from django.contrib.auth.models import User
 
-from .forms import SessionAssessmentForm, GroupAssessmentForm 
+from accounts.models import Coach
+from scheduling.models import Session
+from players.models import Player
+from finance.models import CoachSessionCompletion
+from .models import SessionAssessment, GroupAssessment
+from .forms import SessionAssessmentForm, GroupAssessmentForm
+
+def is_coach(user):
+    return user.is_staff and not user.is_superuser
 
 @login_required
+@user_passes_test(is_coach, login_url='scheduling:homepage')
 def pending_assessments(request):
     """
-    Shows a coach the sessions they have coached but not yet submitted
-    player and/or group assessments for.
+    Displays a list of past sessions for a coach that are pending either 
+    player assessments or a group assessment, using a robust multi-query approach.
     """
-    coach_user = request.user
+    try:
+        coach = request.user.coach_profile
+    except Coach.DoesNotExist:
+        messages.error(request, "Your user account is not linked to a Coach profile.")
+        return redirect('scheduling:homepage')
 
-    # Look at sessions in the last 14 days that the coach was assigned to.
-    two_weeks_ago = timezone.now().date() - timedelta(days=14)
-    coached_sessions = Session.objects.filter(
-        coaches_attending__user=coach_user,
-        session_date__gte=two_weeks_ago,
+    date_limit_past = timezone.now().date() - timedelta(weeks=4)
+    today = timezone.now().date()
+
+    # --- Multi-Query Processing Approach ---
+    sessions_qs = Session.objects.filter(
+        coaches_attending=coach,
+        session_date__gte=date_limit_past,
+        session_date__lte=today,
         is_cancelled=False
-    ).prefetch_related('attendees')
+    ).select_related('school_group', 'venue').order_by('-session_date', '-session_start_time')
+    
+    session_ids = [s.id for s in sessions_qs]
+    player_assessments_done = set(
+        CoachSessionCompletion.objects.filter(
+            coach=coach, session_id__in=session_ids, assessments_submitted=True
+        ).values_list('session_id', flat=True)
+    )
+    group_assessments_done = set(
+        GroupAssessment.objects.filter(
+            assessing_coach=request.user, session_id__in=session_ids
+        ).values_list('session_id', flat=True)
+    )
+    session_attendees = Session.attendees.through.objects.filter(
+        session_id__in=session_ids
+    ).values_list('session_id', 'player_id')
+    player_pks_to_fetch = {player_pk for _, player_pk in session_attendees}
+    
+    # FIX: Removing the failing .select_related('user') call.
+    # We will rely on Django's default behavior to fetch the user when needed.
+    players_by_pk = {
+        p.pk: p for p in Player.objects.filter(pk__in=player_pks_to_fetch)
+    }
+    
+    attendees_by_session = defaultdict(list)
+    for session_id, player_pk in session_attendees:
+        if player_pk in players_by_pk:
+            attendees_by_session[session_id].append(players_by_pk[player_pk])
 
-    # Get IDs of sessions for which this coach has already submitted assessments
-    submitted_player_assessments = SessionAssessment.objects.filter(
-        submitted_by=coach_user
-    ).values_list('session__id', flat=True).distinct()
+    assessments_by_coach = SessionAssessment.objects.filter(
+        submitted_by=request.user, session_id__in=session_ids
+    )
+    assessments_by_session_id = defaultdict(list)
+    for assessment in assessments_by_coach:
+        assessments_by_session_id[assessment.session_id].append(assessment)
 
-    submitted_group_assessments = GroupAssessment.objects.filter(
-        assessing_coach=coach_user
-    ).values_list('session__id', flat=True).distinct()
-
-    pending_list = []
-    for session in coached_sessions:
-        # Check if player assessments are needed
-        player_assess_needed = False
-        if session.id not in submitted_player_assessments and session.attendees.exists():
-            player_assess_needed = True
-
-        # Check if group assessment is needed
-        group_assess_needed = False
-        if session.id not in submitted_group_assessments:
-            group_assess_needed = True
-
-        if player_assess_needed or group_assess_needed:
-            pending_list.append({
-                'session': session,
-                'player_assess_needed': player_assess_needed,
-                'group_assess_needed': group_assess_needed
-            })
-
+    pending_items_for_template = []
+    for session in sessions_qs:
+        is_player_assessment_done = session.id in player_assessments_done
+        is_group_assessment_done = session.id in group_assessments_done
+        if is_player_assessment_done and is_group_assessment_done:
+            continue
+        if session.end_datetime and session.end_datetime > timezone.now():
+            continue
+        players_in_session = attendees_by_session.get(session.id, [])
+        assessments_for_this_session = assessments_by_session_id.get(session.id, [])
+        assessed_player_pks = {a.player_id for a in assessments_for_this_session}
+        players_to_assess = [p for p in players_in_session if p.pk not in assessed_player_pks]
+        can_mark_complete = False
+        if not is_player_assessment_done and players_in_session:
+            if not players_to_assess or len(assessed_player_pks) > 0:
+                can_mark_complete = True
+        pending_items_for_template.append({
+            'session': session,
+            'players_to_assess': players_to_assess,
+            'player_assessments_pending': not is_player_assessment_done,
+            'group_assessment_pending': not is_group_assessment_done,
+            'can_mark_player_assessments_complete': can_mark_complete,
+        })
     context = {
-        'page_title': "My Pending Assessments",
-        'pending_list': pending_list,
+        'pending_items': pending_items_for_template,
+        'page_title': "My Pending Assessments"
     }
     return render(request, 'assessments/pending_assessments.html', context)
 
-@login_required
-def assess_player_session(request, session_id):
-    session = get_object_or_404(Session, pk=session_id)
-    # Get players who attended the session
-    players_to_assess = session.attendees.all()
 
-    # Create a formset - one form for each player
-    AssessmentFormSet = modelformset_factory(
-        SessionAssessment,
-        form=SessionAssessmentForm,
-        extra=len(players_to_assess)
-    )
+@login_required
+@require_POST
+@user_passes_test(is_coach, login_url='scheduling:homepage')
+def mark_my_assessments_complete(request, session_id):
+    session = get_object_or_404(Session, id=session_id)
+    coach = get_object_or_404(Coach, user=request.user)
+    completion, created = CoachSessionCompletion.objects.get_or_create(coach=coach, session=session)
+    if not completion.assessments_submitted:
+        completion.assessments_submitted = True
+        completion.save()
+        messages.success(request, f"Player assessments for session on {session.session_date.strftime('%d %b')} marked as complete.")
+    else:
+        messages.info(request, "Player assessments for this session were already marked as complete.")
+    return redirect('assessments:pending_assessments')
+
+@login_required
+@user_passes_test(is_coach, login_url='scheduling:homepage')
+def assess_player(request, session_id, player_id):
+    """
+    Displays a form for a coach to assess a single player for a given session.
+    """
+    session = get_object_or_404(Session, id=session_id)
+    
+    # FIX: Reverting to the simplest possible way to get the player.
+    # The template will use `player.full_name`, which handles accessing the user.
+    player = get_object_or_404(Player, pk=player_id)
+    
+    assessment_instance = SessionAssessment.objects.filter(
+        session=session, player=player, submitted_by=request.user
+    ).first()
 
     if request.method == 'POST':
-        formset = AssessmentFormSet(request.POST)
-        if formset.is_valid():
-            assessments = formset.save(commit=False)
-            for assessment, player in zip(assessments, players_to_assess):
-                assessment.session = session
-                assessment.player = player
-                assessment.submitted_by = request.user
-                assessment.save()
-
-            messages.success(request, f"Assessments for session on {session.session_date} have been saved.")
+        form = SessionAssessmentForm(request.POST, instance=assessment_instance)
+        if form.is_valid():
+            assessment = form.save(commit=False)
+            assessment.session = session
+            assessment.player = player
+            assessment.submitted_by = request.user
+            assessment.save()
+            messages.success(request, f"Assessment for {player.full_name} has been saved.")
             return redirect('assessments:pending_assessments')
     else:
-        # Pre-populate existing assessments for editing
-        initial_data = []
-        for player in players_to_assess:
-            assessment, created = SessionAssessment.objects.get_or_create(
-                session=session,
-                player=player,
-                submitted_by=request.user
-            )
-            initial_data.append({'instance': assessment})
-
-        formset = AssessmentFormSet(
-            queryset=SessionAssessment.objects.filter(session=session, player__in=players_to_assess, submitted_by=request.user),
-            initial=initial_data
-        )
-
-    # Pair up each form with its corresponding player
-    player_form_pairs = zip(players_to_assess, formset.forms)
+        form = SessionAssessmentForm(instance=assessment_instance)
 
     context = {
-        'page_title': 'Assess Player Performance',
+        'form': form,
         'session': session,
-        'player_form_pairs': player_form_pairs,
-        'formset': formset,
+        'player': player,
+        'page_title': f"Assess: {player.full_name}",
+        'sub_title': f"For session on {session.session_date.strftime('%d %b %Y')}"
     }
     return render(request, 'assessments/assess_player_form.html', context)
 
 @login_required
+@user_passes_test(is_coach, login_url='scheduling:homepage')
 def add_edit_group_assessment(request, session_id):
-    session = get_object_or_404(Session, pk=session_id)
-    # Try to get an existing assessment for this user and session, or None
-    assessment = GroupAssessment.objects.filter(session=session, assessing_coach=request.user).first()
-
+    session = get_object_or_404(Session, id=session_id)
+    if not session.coaches_attending.filter(user=request.user).exists():
+        messages.error(request, "You are not authorized to assess this session.")
+        return redirect('assessments:pending_assessments')
+    assessment_instance = GroupAssessment.objects.filter(session=session, assessing_coach=request.user).first()
     if request.method == 'POST':
-        form = GroupAssessmentForm(request.POST, instance=assessment)
+        form = GroupAssessmentForm(request.POST, instance=assessment_instance)
         if form.is_valid():
-            new_assessment = form.save(commit=False)
-            new_assessment.session = session
-            new_assessment.assessing_coach = request.user
-            new_assessment.save()
-            messages.success(request, "Group assessment has been saved.")
+            assessment = form.save(commit=False)
+            assessment.session = session
+            assessment.assessing_coach = request.user
+            assessment.school_group = session.school_group
+            assessment.save()
+            messages.success(request, "Group assessment has been saved successfully.")
             return redirect('assessments:pending_assessments')
     else:
-        form = GroupAssessmentForm(instance=assessment)
-
+        form = GroupAssessmentForm(instance=assessment_instance)
     context = {
-        'page_title': 'Group Session Assessment' if not assessment else 'Edit Group Session Assessment',
-        'form': form,
-        'session': session
+        'form': form, 'session': session,
+        'page_title': "Group & Session Assessment",
+        'sub_title': f"For session on {session.session_date.strftime('%d %b %Y')}"
     }
     return render(request, 'assessments/add_edit_group_assessment.html', context)

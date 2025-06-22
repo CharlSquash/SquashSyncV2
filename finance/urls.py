@@ -1,8 +1,11 @@
-# Example for one of the new urls.py files
 from django.urls import path
 from . import views
 
-app_name = 'finance' # Replace with 'players', 'scheduling', etc.
+app_name = 'finance'
+
 urlpatterns = [
-    # We will add our app-specific URLs here later.
+    # URL for the coach completion report
+    path('reports/completion/', views.completion_report, name='completion_report'),
+    
+    # Add other finance-related URLs here in the future
 ]

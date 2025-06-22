@@ -727,3 +727,440 @@ html.dark-mode .availability-item.status-emergency { background-color: #6ea8fe; 
         text-align: center;
     }
 }
+
+/*
+=================================
+Dashboard / Homepage Styles
+=================================
+*/
+
+.page-header {
+    border-bottom: 1px solid var(--border-light, #eee);
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-alert {
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+.dashboard-alert.alert-warning {
+    color: var(--alert-warning-text);
+    background-color: var(--alert-warning-bg);
+    border-color: var(--alert-warning-border);
+}
+.dashboard-alert.alert-danger {
+    color: var(--alert-danger-text);
+    background-color: var(--alert-danger-bg);
+    border-color: var(--alert-danger-border);
+}
+.dashboard-alert .alert-link {
+    margin-left: auto;
+    font-weight: bold;
+    text-decoration: none;
+    color: inherit;
+}
+.dashboard-alert .alert-link:hover {
+    text-decoration: underline;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.dashboard-card {
+    background-color: var(--container-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.dashboard-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.dashboard-card .card-header {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border-light);
+}
+.dashboard-card .card-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--heading-color);
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dashboard-card .card-body {
+    padding: 1.25rem;
+    flex-grow: 1;
+}
+.dashboard-card .card-body p {
+    margin-top: 0;
+    font-size: 0.95rem;
+}
+
+.dashboard-card .card-footer {
+    background-color: var(--container-light-bg);
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border-light);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    text-align: center;
+}
+.dashboard-card .card-action-link {
+    text-decoration: none;
+    font-weight: bold;
+    color: var(--link-color);
+    font-size: 0.9rem;
+}
+.dashboard-card .card-action-link:hover {
+    color: var(--link-hover-color);
+}
+.no-data-message {
+    color: var(--subheading-color);
+    font-style: italic;
+}
+
+.dashboard-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-light);
+}
+.dashboard-list li:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.dashboard-list li a {
+    text-decoration: none;
+    color: var(--text-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+.dashboard-list li a:hover strong {
+    color: var(--link-color);
+}
+.dashboard-list li a strong {
+    color: var(--heading-color);
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+.dashboard-list li a span {
+    font-size: 0.85rem;
+    color: var(--subheading-color);
+}
+.dashboard-list li .badge-cancelled {
+    color: var(--action-del-text);
+    background-color: var(--action-del-bg);
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.8em;
+}
+
+.dashboard-list.dashboard-list-condensed li {
+    padding: 0.4rem 0;
+}
+.dashboard-list.dashboard-list-links li {
+    border: none;
+    padding: 0.2rem 0;
+}
+.dashboard-list.dashboard-list-links li a {
+    font-weight: 500;
+}
+.dashboard-list.dashboard-list-links li a:hover {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+*
+=================================
+Pending Assessments Page Styles
+=================================
+*/
+
+.pending-session-card {
+    background-color: var(--container-bg, #fff);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    overflow: hidden; /* To contain the child elements */
+}
+
+.pending-session-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.pending-session-header h3 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    font-size: 1.2em;
+    color: var(--heading-color);
+    border-bottom: none;
+}
+
+.pending-session-header p {
+    font-size: 0.9em;
+    color: var(--subheading-color);
+    margin: 0;
+}
+
+.assessment-tasks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1px;
+    /* Use border-light for the grid lines for a softer look */
+    background-color: var(--border-light);
+}
+
+.assessment-task-item {
+    background-color: var(--container-bg);
+    padding: 1.25rem;
+}
+
+.assessment-task-item h4 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--subheading-color);
+    border-bottom: none;
+}
+
+.players-to-assess-list {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+.players-to-assess-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light, #eee);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+.players-to-assess-list li:last-child {
+    border-bottom: none;
+}
+
+/* --- Links & Buttons --- */
+.assess-link, .assess-link-secondary, .assess-link-small { 
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 0.9em;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 5px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.assess-link { 
+    background-color: var(--link-color);
+    color: #fff; /* Explicitly white for contrast */
+    border-color: var(--link-color);
+}
+.assess-link:hover {
+    background-color: var(--link-hover-color);
+    border-color: var(--link-hover-color);
+    color: #fff;
+    text-decoration: none;
+}
+
+.assess-link-secondary {
+    background-color: transparent;
+    color: var(--subheading-color);
+    border-color: var(--border-color);
+}
+.assess-link-secondary:hover {
+    background-color: var(--container-light-bg);
+    border-color: var(--subheading-color);
+    color: var(--subheading-color);
+    text-decoration: none;
+}
+
+.assess-link-small {
+    padding: 4px 10px;
+    font-size: 0.85em;
+    background-color: var(--container-light-bg);
+    color: var(--link-color);
+    border-color: var(--border-light);
+}
+.assess-link-small:hover {
+    background-color: var(--border-light);
+}
+
+.btn-mark-complete {
+    display: inline-block;
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 0.9em;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid transparent;
+    margin-top: 10px;
+    background-color: var(--action-add-bg); 
+    color: var(--action-add-text);
+    border-color: var(--action-add-border);
+    transition: all 0.2s ease;
+}
+.btn-mark-complete:hover {
+    background-color: var(--action-add-hover);
+}
+
+/* --- Messages --- */
+.no-pending-message {
+    padding: 20px;
+    text-align: center;
+    background-color: var(--container-light-bg, #f9f9f9);
+    border: 1px solid var(--border-color, #eee);
+    border-radius: 5px;
+    color: var(--subheading-color);
+}
+.no-pending-message i {
+    color: var(--action-add-text);
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 600px) {
+    .players-to-assess-list li {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .players-to-assess-list .player-name {
+        margin-bottom: 8px;
+    }
+    .assess-link-small { 
+        width: 100%; 
+    }
+}
+
+/* ... All your other styles ... */
+
+/*
+=================================
+Completion Report Page Styles
+=================================
+*/
+
+.filter-form {
+    background-color: var(--container-light-bg, #f8f9fa);
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-light, #eee);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+}
+.filter-form label {
+    margin-bottom: 0;
+    font-weight: bold;
+    color: var(--text-color);
+}
+.filter-form select {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background-color: var(--input-bg, white);
+    color: var(--text-color, #333);
+    font-size: 0.9em;
+    min-width: 120px;
+}
+.filter-form button {
+    padding: 7px 15px;
+    font-size: 0.9em;
+    background-color: var(--link-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.filter-form button:hover {
+    background-color: var(--link-hover-color);
+}
+
+.date-range-info {
+    font-size: 0.9em;
+    color: var(--subheading-color);
+    margin-bottom: 20px;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+.report-table th, .report-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border-light, #eee);
+    text-align: left;
+    vertical-align: middle;
+    font-size: 0.9em;
+}
+.report-table th {
+    background-color: var(--container-light-bg, #f8f9fa);
+    font-weight: bold;
+    color: var(--subheading-color);
+}
+.report-table tr:hover {
+    background-color: var(--activity-bg, #e9ecef);
+}
+.report-table .status-icon {
+    font-size: 1.2em;
+}
+.report-table .status-yes { color: #198754; }
+.report-table .status-no { color: #dc3545; }
+html.dark-mode .report-table .status-yes { color: #20c997; }
+html.dark-mode .report-table .status-no { color: #f1a1b1; }
+
+.report-table .actions .btn-sm {
+    padding: .2rem .5rem;
+    font-size: .75rem;
+}
+.btn-confirm { background-color: #198754; border-color: #198754; color: white; }
+.btn-confirm:hover { background-color: #157347; border-color: #146c43;}
+.btn-unconfirm { background-color: #ffc107; border-color: #ffc107; color: #333; }
+.btn-unconfirm:hover { background-color: #ffca2c; border-color: #ffc720;}
+
+html.dark-mode .btn-confirm { background-color: #20c997; border-color: #20c997; color: #000; }
+html.dark-mode .btn-confirm:hover { background-color: #1baa80; border-color: #199d77;}
+html.dark-mode .btn-unconfirm { background-color: #d39e00; border-color: #d39e00; color: #000; }
+html.dark-mode .btn-unconfirm:hover { background-color: #b88a00; border-color: #a97e00;}
+
+.no-records-msg {
+    color: var(--subheading-color, #666);
+    font-style: italic;
+    text-align: center;
+    padding: 40px 0;
+    background-color: var(--container-light-bg, #f8f9fa);
+    border: 1px dashed var(--border-light, #ccc);
+    border-radius: 5px;
+    margin-top: 20px;
+}
