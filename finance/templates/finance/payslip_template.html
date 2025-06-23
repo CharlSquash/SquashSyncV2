@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payslip for {{ payslip.coach_name }} - {{ payslip.period_month_year_display }}</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+            font-size: 10pt; /* Adjusted for typical PDF view */
+        }
+        .payslip-container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            max-width: 800px; /* Optional: constrain width */
+            margin: auto; /* Optional: center on page */
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 20pt;
+            color: #222;
+        }
+        .header .org-name {
+            font-size: 12pt;
+            color: #555;
+            margin-top: 5px;
+        }
+        .info-section {
+            margin-bottom: 20px;
+            display: flex; /* Using flex for side-by-side layout */
+            justify-content: space-between;
+            flex-wrap: wrap; /* Allow wrapping if needed */
+        }
+        .info-section .left-info, .info-section .right-info {
+            width: 48%; /* Adjust as needed if using flex */
+            min-width: 250px; /* Ensure readability if wrapped */
+            margin-bottom: 10px; /* Space if wrapped */
+        }
+        .info-section p, .summary-section p, .bonus-details-section p {
+            margin: 6px 0;
+            line-height: 1.5;
+        }
+        .info-section strong, .summary-section strong, .bonus-details-section strong {
+            color: #444;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 9pt;
+        }
+        th, td {
+            border: 1px solid #ccc; /* Lightened border */
+            padding: 7px; /* Slightly adjusted padding */
+            text-align: left;
+            vertical-align: top; /* Align content to top of cell */
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #333;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .currency::before { /* For currency symbol if needed consistently */
+            content: "R"; /* Or {{ CURRENCY_SYMBOL }} if passed in context */
+        }
+        .summary-section {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            text-align: right; /* Align summary to the right */
+        }
+        .summary-section p {
+            font-size: 11pt;
+        }
+        .bonus-details-section {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px dashed #eee; /* Dashed border for visual separation */
+        }
+        .bonus-details-section h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 10pt;
+            color: #444;
+        }
+        .bonus-details-section ul {
+            list-style-type: none;
+            padding-left: 0;
+            font-size: 9pt;
+        }
+        .bonus-details-section li {
+            margin-bottom: 4px;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 8pt;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="payslip-container">
+        <div class="header">
+            <h1>Payslip</h1>
+            <div class="org-name">Centurion Junior Squash</div> {# Or your organization's name #}
+        </div>
+
+        <div class="info-section">
+            <div class="left-info">
+                <p><strong>Coach:</strong> {{ payslip.coach_name }}</p>
+                <p><strong>Period:</strong> {{ payslip.period_month_year_display }}</p>
+            </div>
+            <div class="right-info text-right">
+                <p><strong>Hourly Rate:</strong> <span class="currency">{{ payslip.hourly_rate }}</span>/hr</p>
+                <p><strong>Generated On:</strong> {{ payslip.generation_date|date:"F j, Y" }}</p>
+            </div>
+        </div>
+
+        <h3>Session Details</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Group</th>
+                    <th class="text-center">Time</th>
+                    <th class="text-center">Duration</th>
+                    <th class="text-right">Base Pay</th>
+                    <th class="text-right">Bonus</th>
+                    <th class="text-right">Session Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for session_item in payslip.sessions %}
+                <tr>
+                    <td>{{ session_item.date|date:"Y-m-d" }}</td>
+                    <td>{{ session_item.school_group_name }}</td>
+                    <td class="text-center">{{ session_item.start_time }}</td>
+                    <td class="text-center">{{ session_item.duration_hours_str }}</td>
+                    <td class="text-right"><span class="currency">{{ session_item.base_pay_for_session }}</span></td>
+                    <td class="text-right">
+                        {% if session_item.bonus_for_session > 0 %}
+                            <span class="currency">{{ session_item.bonus_for_session }}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-right"><strong><span class="currency">{{ session_item.total_pay_for_session_line }}</span></strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">No confirmed sessions eligible for payment this period.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if payslip.sessions %}
+        <div class="summary-section">
+            <p><strong>Total Hours Worked:</strong> {{ payslip.total_hours_str }} ({{ payslip.total_hours_decimal }} decimal)</p>
+            <hr style="border: 0; border-top: 1px dotted #eee; margin: 5px 0;">
+            <p>Total Base Pay: <span class="currency">{{ payslip.total_base_pay }}</span></p>
+            {% if payslip.total_bonus_amount > 0 %}
+            <p>Bonus for specific sessions: <span class="currency">{{ payslip.total_bonus_amount }}</span></p>
+            {% endif %}
+            <hr style="border: 0; border-top: 1px solid #ccc; margin: 8px 0;">
+            <p style="font-size: 12pt;"><strong>Grand Total Pay: <span class="currency">{{ payslip.total_pay }}</span></strong></p>
+        </div>
+        {% endif %}
+
+        {% if payslip.bonus_details_list %}
+        <div class="bonus-details-section">
+            <h4>Bonuses Applied:</h4>
+            <ul>
+                {% for bonus_item in payslip.bonus_details_list %}
+                <li>
+                    {{ bonus_item.date|date:"d M Y" }} - {{ bonus_item.session_group_name }} ({{ bonus_item.session_time_str }}):
+                    <span class="currency">{{ bonus_item.amount }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>This is an automatically generated payslip. Please contact Maryna for any queries.</p>
+            <p>&copy; {{ payslip.generation_date|date:"Y" }} Centurion Junior Squash</p>
+        </div>
+    </div>
+</body>
+</html>

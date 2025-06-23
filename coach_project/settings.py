@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import datetime
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -165,9 +166,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Use the console backend to print emails to the terminal during development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+
 # You can comment these out or leave them for when you deploy to production
 # EMAIL_HOST = 'smtp.gmail.com'
 # EMAIL_PORT = 587
 # EMAIL_USE_TLS = True
 # EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 # EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+
+# CUSTOM SETTINGS FOR PAYSLIP BONUSES
+BONUS_SESSION_START_TIME = datetime.time(6, 0, 0) # 6:00 AM
+BONUS_SESSION_AMOUNT = 22.00
