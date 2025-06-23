@@ -34,6 +34,16 @@
                                         <i class="bi bi-clock"></i> {{ item.session_obj.session_start_time|time:"H:i" }} ({{ item.session_obj.planned_duration_minutes }} min)
                                         {% if item.session_obj.venue %}| <i class="bi bi-geo-alt-fill"></i> {{ item.session_obj.venue.name }}{% endif %}
                                     </p>
+                                    <div class="staffing-counts">
+                                        <span title="Confirmed Players">
+                                            <i class="bi bi-people-fill text-info"></i> 
+                                            {{ item.confirmed_players_count }}/{{ item.total_players }}
+                                        </span>
+                                        <span class="ms-3" title="Confirmed Coaches">
+                                            <i class="bi bi-person-check-fill text-success"></i>
+                                            {{ item.confirmed_coaches_count }}/{{ item.total_coaches_assigned }}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="session-status-indicators">
                                     {% if item.has_pending_confirmations %}<span class="status-indicator indicator-pending" title="Pending responses"><i class="bi bi-hourglass-split"></i> Pending</span>{% endif %}
@@ -47,7 +57,6 @@
                                         <h4>Assigned Coaches</h4>
                                         {% for assigned in item.assigned_coaches_with_status %}
                                             <p>
-                                                <!-- THIS IS THE CORRECTED DISPLAY LOGIC -->
                                                 {% if assigned.status == 'Confirmed' %}<i class="bi bi-check-circle-fill text-success" title="Confirmed"></i>
                                                 {% elif assigned.status == 'Declined' %}<i class="bi bi-x-circle-fill text-danger" title="Declined"></i>
                                                 {% else %}<i class="bi bi-hourglass-split text-muted" title="Pending Confirmation"></i>

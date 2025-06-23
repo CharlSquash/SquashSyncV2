@@ -377,7 +377,7 @@ def session_staffing(request):
             session = get_object_or_404(Session, pk=session_id)
             session.coaches_attending.set(assigned_coach_ids)
             messages.success(request, f"Assignments updated for session on {session.session_date.strftime('%d %b')}.")
-        except (ValueError, ObjectDoesNotExist):
+        except Exception:
             messages.error(request, "Invalid session ID.")
         return redirect(f"{reverse('scheduling:session_staffing')}?week={request.GET.get('week', '0')}")
 
@@ -407,51 +407,59 @@ def session_staffing(request):
             is_cancelled=False
         ).select_related('school_group', 'venue').prefetch_related(
             'coaches_attending__user',
-            # CHANGE 1: Use the correct related_name in the Prefetch object
             Prefetch('coach_availabilities', queryset=CoachAvailability.objects.select_related('coach'))
         ).order_by('session_start_time')
         
         processed_sessions = []
         for session in sessions_for_day:
-            # CHANGE 2: Use the correct related_name to access the prefetched data
-            availability_map = {avail.coach_id: avail for avail in session.coach_availabilities.all()}
+            availability_map = {avail.coach.id: avail for avail in session.coach_availabilities.all()}
             
             assigned_coaches_status = []
             has_pending = False
             has_declined = False
             
             for coach in session.coaches_attending.all():
-                if coach.user:
-                    avail = availability_map.get(coach.user.id)
-                    
-                    if avail:
-                        if avail.is_available:
-                            status = "Confirmed"
-                        else:
-                            status = "Declined"
-                            has_declined = True
-                    else:
-                        status = "Pending"
-                        has_pending = True
-
-                    assigned_coaches_status.append({'coach': coach, 'status': status, 'notes': avail.notes if avail else ''})
+                avail = availability_map.get(coach.id)
+                status = "Pending"
+                if avail:
+                    if avail.last_action == 'CONFIRM':
+                        status = "Confirmed"
+                    elif avail.last_action == 'DECLINE':
+                        status = "Declined"
+                        has_declined = True
+                else:
+                    has_pending = True
+                assigned_coaches_status.append({'coach': coach, 'status': status, 'notes': avail.notes if avail else ''})
 
             available_coaches = []
             for coach in all_active_coaches:
-                if coach not in session.coaches_attending.all() and coach.user:
-                    avail = availability_map.get(coach.user.id)
+                if coach not in session.coaches_attending.all():
+                    avail = availability_map.get(coach.id)
                     if avail and avail.is_available:
                         available_coaches.append({
                             'coach': coach,
                             'is_emergency': "emergency" in (avail.notes or "").lower()
                         })
             
+            # ==================== NEW LOGIC TO CALCULATE COUNTS (ADDITIVE CHANGE) ====================
+            total_players = session.school_group.players.filter(is_active=True).count() if session.school_group else 0
+            confirmed_players = AttendanceTracking.objects.filter(session=session, status='ATTENDING').count()
+            total_coaches = session.coaches_attending.count()
+            confirmed_coaches = sum(1 for c in assigned_coaches_status if c['status'] == "Confirmed")
+            # ================================== END OF NEW LOGIC ===================================
+
             processed_sessions.append({
                 'session_obj': session,
                 'assigned_coaches_with_status': assigned_coaches_status,
                 'available_coaches_for_assignment': sorted(available_coaches, key=lambda x: x['is_emergency']),
                 'has_pending_confirmations': has_pending,
                 'has_declined_coaches': has_declined,
+                # ==================== ADD NEW DATA TO CONTEXT (ADDITIVE CHANGE) ====================
+                'total_players': total_players,
+                'confirmed_players_count': confirmed_players,
+                'total_coaches_assigned': total_coaches,
+                'confirmed_coaches_count': confirmed_coaches,
+                # ================================= END OF NEW DATA =================================
             })
             
         display_week.append({
