@@ -1,28 +1,20 @@
 {% load static %}
 <!DOCTYPE html>
-<!-- The 'data-bs-theme' attribute will now be set by the anti-flash script below -->
 <html lang="en">
 <head>
-    <!-- ANTI-FLASH SCRIPT: This runs before anything else is rendered -->
     <script>
         (function() {
             function setTheme(theme) {
-                // Apply theme to the root <html> element
                 document.documentElement.setAttribute('data-bs-theme', theme);
-                // Also add a class for any custom CSS you might have
                 if (theme === 'dark') {
                     document.documentElement.classList.add('dark-mode');
                 } else {
                     document.documentElement.classList.remove('dark-mode');
                 }
-                // Store the preference
                 localStorage.setItem('theme', theme);
             }
-
-            // Check for a saved theme in localStorage, or use system preference
             const savedTheme = localStorage.getItem('theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
             if (savedTheme) {
                 setTheme(savedTheme);
             } else if (prefersDark) {
@@ -32,8 +24,6 @@
             }
         })();
     </script>
-    <!-- END ANTI-FLASH SCRIPT -->
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SquashSync{% endblock %}</title>
@@ -45,7 +35,6 @@
 <body>
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
         <div class="container-fluid">
-            <!-- FIX: Point to the non-namespaced 'homepage' URL -->
             <a class="navbar-brand" href="{% url 'homepage' %}">SquashSync</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -53,7 +42,6 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 {% if user.is_authenticated %}
                 <ul class="navbar-nav me-auto">
-                    <!-- FIX: Point to the non-namespaced 'homepage' URL -->
                     <li class="nav-item"><a class="nav-link" href="{% url 'homepage' %}">Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'scheduling:session_calendar' %}">Calendar</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'players:players_list' %}">Players</a></li>
@@ -67,21 +55,21 @@
                     {% if user.is_superuser %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'accounts:coach_list' %}">Coaches</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'players:school_group_list' %}">School Groups</a></li>
-                        
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Finance
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{% url 'finance:completion_report' %}">Coach Completion Report</a></li>
-                                <li><a class="dropdown-item" href="{% url 'admin:finance_payslip_changelist' %}">Manage Payslips</a></li>
-                            </ul>
-                        </li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'scheduling:session_staffing' %}">Staffing</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'finance:completion_report' %}">Completion Report</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admin:finance_payslip_changelist' %}">Payslips</a></li>
                     {% endif %}
                 </ul>
                 {% endif %}
                 
                 <ul class="navbar-nav ms-auto d-flex flex-row align-items-center">
+                    {% if user.is_superuser %}
+                    <li class="nav-item me-2">
+                        <a class="nav-link" href="{% url 'admin:index' %}" title="Full Admin Site" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                            <i class="bi bi-gear-fill fs-5"></i>
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item me-2">
                         <button id="theme-toggle" class="btn btn-link nav-link" type="button" aria-label="Toggle theme">
                             <i class="bi bi-sun-fill"></i>
@@ -95,10 +83,6 @@
                             <i class="bi bi-person-circle me-1"></i> {{ user.username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            {% if user.is_superuser %}
-                                <li><a class="dropdown-item" href="{% url 'admin:index' %}">Full Admin Site</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                            {% endif %}
                             <li>
                                 <form id="logout-form" action="{% url 'accounts:logout' %}" method="post" style="display: none;">
                                     {% csrf_token %}
@@ -133,38 +117,44 @@
     
     <script>
         (function() {
-            const themeToggleBtn = document.getElementById('theme-toggle');
-            const sunIcon = themeToggleBtn.querySelector('.bi-sun-fill');
-            const moonIcon = themeToggleBtn.querySelector('.bi-moon-stars-fill');
-            
-            function updateIcons(theme) {
-                if (theme === 'dark') {
-                    sunIcon.classList.add('d-none');
-                    moonIcon.classList.remove('d-none');
-                } else {
-                    sunIcon.classList.remove('d-none');
-                    moonIcon.classList.add('d-none');
-                }
-            }
-            
-            function toggleTheme() {
-                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                
-                document.documentElement.setAttribute('data-bs-theme', newTheme);
-                if (newTheme === 'dark') {
-                    document.documentElement.classList.add('dark-mode');
-                } else {
-                    document.documentElement.classList.remove('dark-mode');
-                }
-                
-                updateIcons(newTheme);
-                localStorage.setItem('theme', newTheme);
-            }
+            // Bootstrap tooltip initialization
+            const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+            const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 
-            themeToggleBtn.addEventListener('click', toggleTheme);
-            
-            updateIcons(document.documentElement.getAttribute('data-bs-theme'));
+            // Theme toggle logic
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            if (themeToggleBtn) {
+                const sunIcon = themeToggleBtn.querySelector('.bi-sun-fill');
+                const moonIcon = themeToggleBtn.querySelector('.bi-moon-stars-fill');
+                
+                function updateIcons(theme) {
+                    if (theme === 'dark') {
+                        sunIcon.classList.add('d-none');
+                        moonIcon.classList.remove('d-none');
+                    } else {
+                        sunIcon.classList.remove('d-none');
+                        moonIcon.classList.add('d-none');
+                    }
+                }
+                
+                function toggleTheme() {
+                    const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    
+                    document.documentElement.setAttribute('data-bs-theme', newTheme);
+                    if (newTheme === 'dark') {
+                        document.documentElement.classList.add('dark-mode');
+                    } else {
+                        document.documentElement.classList.remove('dark-mode');
+                    }
+                    
+                    updateIcons(newTheme);
+                    localStorage.setItem('theme', newTheme);
+                }
+
+                themeToggleBtn.addEventListener('click', toggleTheme);
+                updateIcons(document.documentElement.getAttribute('data-bs-theme'));
+            }
         })();
     </script>
     {% block scripts_extra %}{% endblock %}
