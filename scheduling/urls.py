@@ -9,6 +9,8 @@ urlpatterns = [
     path('staffing/', views.session_staffing, name='session_staffing'),
     path('session/<int:session_id>/', views.session_detail, name='session_detail'),
 
+    path('api/session/<int:session_id>/save_plan/', views.save_session_plan, name='save_session_plan'),
+
     path('my-availability/', views.my_availability, name='my_availability'),
     path('session/<int:session_id>/attendance/', views.visual_attendance, name='visual_attendance'),
 
@@ -18,4 +20,6 @@ urlpatterns = [
     path('decline/<int:session_id>/<str:token>/', views.decline_attendance, name='decline_attendance'),
 
     path('player-response/<str:token>/', views.player_attendance_response, name='player_attendance_response'),
+
+    path('api/session/<int:session_id>/update_attendance/', views.update_attendance_status, name='update_attendance_status'),
 ]

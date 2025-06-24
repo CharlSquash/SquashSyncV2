@@ -93,6 +93,12 @@ class Session(models.Model):
     is_cancelled = models.BooleanField(default=False, help_text="Mark as true if the session has been cancelled.")
     notes = models.TextField(blank=True, help_text="Optional objectives or notes for the session.")
 
+    plan = models.JSONField(
+        null=True, 
+        blank=True, 
+        help_text="Stores the detailed lesson plan including timeline, groups, and activities."
+    )
+
     @property
     def start_datetime(self):
         if self.session_date and self.session_start_time:

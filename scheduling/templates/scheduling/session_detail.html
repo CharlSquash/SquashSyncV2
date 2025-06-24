@@ -1,72 +1,210 @@
 {% extends "base.html" %}
-{% load scheduling_extras %}
+{% load static %}
 
-{% block title %}Plan: {{ session.school_group.name|default:"Session" }}{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* Base Planner Styles */
+    .planner-section { border: 1px solid var(--bs-border-color); border-radius: 0.5rem; margin-bottom: 1.5rem; }
+    .planner-header { background-color: var(--bs-secondary-bg); padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--bs-border-color); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .planner-header h4 { margin: 0; }
+    .planner-header .arrow { transition: transform 0.3s ease; }
+    .planner-content { padding: 1.25rem; display: none; }
+    .planner-section.is-open .planner-content { display: block; }
+    .planner-section.is-open .arrow { transform: rotate(180deg); }
+
+    /* Player & Group Dragging Styles */
+    .player-list, .group-container { min-height: 100px; background-color: var(--bs-tertiary-bg); border-radius: 0.375rem; padding: 0.5rem; }
+    .player-card { background-color: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 0.375rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; cursor: grab; display: flex; justify-content: space-between; align-items: center; }
+    .player-card.dragging { opacity: 0.5; background-color: var(--bs-primary-bg-subtle); }
+    .group-container.drag-over, .player-list.drag-over { border: 2px dashed var(--bs-primary); background-color: var(--bs-primary-bg-subtle); }
+    
+    /* --- NEW & UPDATED STYLES for Timeline and Activities --- */
+    .group-chip-palette {
+        border-bottom: 1px solid var(--bs-border-color);
+        padding-bottom: 1rem;
+    }
+    .group-chip {
+        background-color: var(--bs-info-bg-subtle);
+        border: 1px solid var(--bs-info-border-subtle);
+        color: var(--bs-info-text-emphasis);
+        padding: 0.375rem 0.75rem;
+        border-radius: 2rem;
+        font-weight: 500;
+        cursor: grab;
+    }
+    .group-chip.dragging {
+        opacity: 0.5;
+    }
+    .group-chip.is-assigned {
+        cursor: pointer; /* Make it clickable to open modal */
+        background-color: var(--bs-secondary-bg);
+        border-color: var(--bs-border-color);
+        color: var(--bs-body-color);
+        transition: background-color 0.2s ease-in-out;
+    }
+    .group-chip.is-assigned:hover {
+        background-color: var(--bs-primary-bg-subtle);
+        border-color: var(--bs-primary);
+    }
+
+    .timeline-block {
+        border-left: 3px solid var(--bs-primary-border-subtle);
+        padding: 1.5rem 0 1.5rem 1.5rem;
+        margin-left: 0.5rem;
+    }
+    .timeline-block-header h5 {
+        color: var(--bs-secondary-color);
+    }
+    .courts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .court-container {
+        border: 1px solid var(--bs-border-color);
+        background-color: var(--bs-tertiary-bg);
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+    }
+    .court-name {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--bs-secondary-color);
+    }
+    .court-container.drag-over {
+        border-style: dashed;
+        border-color: var(--bs-primary);
+        background-color: var(--bs-primary-bg-subtle);
+    }
+    .remove-court-btn {
+        --bs-btn-close-opacity: 0.3;
+        --bs-btn-close-hover-opacity: 0.7;
+    }
+    .add-court-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 100px;
+        border-style: dashed;
+    }
+
+    .activity-list {
+        list-style: none;
+        padding-left: 0;
+    }
+    .activity-item {
+        background-color: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: .375rem;
+        padding: .5rem .75rem;
+        margin-bottom: .5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+</style>
+{% endblock %}
+
 
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1>Session Plan: {{ session.school_group.name|default:"General Session" }}</h1>
-        <p class="lead">{{ session.session_date|date:"l, d M Y" }} at {{ session.session_start_time|time:"H:i" }}</p>
+<!-- The rest of the template remains exactly the same -->
+<div id="session-planner-app" 
+     class="container" 
+     data-session-id="{{ session.id }}" 
+     data-save-url="{% url 'scheduling:save_session_plan' session.id %}"
+     data-session-start-time="{{ session.session_start_time|time:'H:i' }}"
+     data-session-duration="{{ session.planned_duration_minutes }}">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">{{ page_title }}</h1>
+            <p class="text-muted">{{ session.session_date|date:"l, F j, Y" }} at {{ session.session_start_time|time:"H:i" }}</p>
+        </div>
+        <div>
+            <a href="{% url 'live_session:live_session_display' session.id %}" class="btn btn-success"><i class="bi bi-play-circle-fill"></i> Go Live</a>
+            <button id="save-plan-btn" class="btn btn-primary"><i class="bi bi-save-fill"></i> Save Plan</button>
+        </div>
     </div>
-    <div>
-        <a href="{% url 'live_session:live_session_display' session.id %}" class="btn btn-lg btn-success">
-            <i class="bi bi-play-circle-fill"></i> Go to Live Session
-        </a>
-        <a href="{% url 'scheduling:visual_attendance' session.id %}" class="btn btn-lg btn-info">
-            <i class="bi bi-check2-square"></i> Visual Attendance
-        </a>
-    </div>
-</div>
 
-<div class="row">
-    <div class="col-lg-5">
-        <div class="card mb-4">
-            <div class="card-header">Session Details</div>
-            <div class="card-body">
-                <p><strong>Venue:</strong> {{ session.venue.name|default:"N/A" }}</p>
-                <p><strong>Coaches:</strong> {{ session.coaches_attending.all|join:", " }}</p>
-                {% if session.is_cancelled %}<p class="text-danger"><strong>Status: CANCELLED</strong></p>{% endif %}
+    <!-- SECTION 1: ATTENDANCE & SETUP -->
+    <div id="setup-section" class="planner-section">
+        <div class="planner-header">
+            <h4><i class="bi bi-check2-circle"></i> 1. Attendance &amp; Setup</h4>
+            <i class="bi bi-chevron-down arrow"></i>
+        </div>
+        <div class="planner-content">
+            <h5>Player Attendance</h5>
+            <div id="attendance-list" class="mb-4"></div>
+            <hr>
+            <h5>Session Structure</h5>
+            <div id="structure-controls"></div>
+        </div>
+    </div>
+
+    <!-- SECTION 2: FORM PLAYER GROUPS -->
+    <div id="grouping-section" class="planner-section">
+        <div class="planner-header">
+            <h4><i class="bi bi-people-fill"></i> 2. Form Player Groups</h4>
+            <i class="bi bi-chevron-down arrow"></i>
+        </div>
+        <div class="planner-content">
+            <div class="row">
+                <div class="col-md-4">
+                    <h6>Confirmed Players</h6>
+                    <div id="unassigned-players" class="player-list"></div>
+                </div>
+                <div class="col-md-8">
+                    <h6>Session Groups</h6>
+                    <div id="session-groups-container" class="row"></div>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="card mb-4">
-        <div class="card-header">Manual Attendance Update</div>
-    <form method="post">
-        {% csrf_token %}
-        <div class="card-body" style="max-height: 500px; overflow-y: auto;">
-            <p class="text-muted small">Update attendance based on out-of-band communication (e.g., WhatsApp).</p>
-            <ul class="list-group list-group-flush">
-                {% for player in players %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span class="player-name-span">{{ player.full_name }}</span>
-                        <div class="btn-group" role="group">
-                            {% with status=attendance_status_map|get_item:player.id|default:"PENDING" %}
-                                <input type="radio" class="btn-check" name="status_{{ player.id }}" id="attend_{{ player.id }}" value="ATTENDING" {% if status == 'ATTENDING' %}checked{% endif %}>
-                                <label class="btn btn-outline-success btn-sm" for="attend_{{ player.id }}" title="Attending"><i class="bi bi-check-circle"></i></label>
-                                
-                                <input type="radio" class="btn-check" name="status_{{ player.id }}" id="decline_{{ player.id }}" value="NOT_ATTENDING" {% if status == 'NOT_ATTENDING' %}checked{% endif %}>
-                                <label class="btn btn-outline-danger btn-sm" for="decline_{{ player.id }}" title="Not Attending"><i class="bi bi-x-circle"></i></label>
-
-                                <input type="radio" class="btn-check" name="status_{{ player.id }}" id="pending_{{ player.id }}" value="PENDING" {% if status == 'PENDING' %}checked{% endif %}>
-                                <label class="btn btn-outline-secondary btn-sm" for="pending_{{ player.id }}" title="Pending"><i class="bi bi-hourglass-split"></i></label>
-                            {% endwith %}
-                        </div>
-                    </li>
-                {% empty %}
-                    <li class="list-group-item">No players in this group.</li>
-                {% endfor %}
-            </ul>
+    <!-- SECTION 3: BUILD THE PLAN TIMELINE -->
+    <div id="timeline-section" class="planner-section">
+        <div class="planner-header">
+            <h4><i class="bi bi-list-ol"></i> 3. Build the Plan</h4>
+            <i class="bi bi-chevron-down arrow"></i>
         </div>
-        <div class="card-footer">
-            <button type="submit" class="btn btn-primary">Save Attendance Changes</button>
+        <div class="planner-content">
+            <div id="timeline-container"></div>
         </div>
-    </form>
-</div>
+    </div>
 
-    <div class="col-lg-7">
-        <h2 class="mt-lg-0 mt-4">Session Breakdown</h2>
-        <div class="alert alert-info">Time Blocks and Activity planning will be added here soon.</div>
+    <!-- The Activity Modal -->
+    <div class="modal fade" id="activityModal" tabindex="-1" aria-labelledby="activityModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="activityModalLabel">Edit Activities</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="activity-list-container"></div>
+                <hr>
+                <div id="add-activity-form-container"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+            </div>
+        </div>
     </div>
 </div>
+
+{{ plan|json_script:"plan-data" }}
+{{ drills|json_script:"drills-data" }}
+{{ players_with_status|json_script:"players-data" }}
+{% endblock %}
+
+{% block scripts_extra %}
+    <script src="{% static 'js/session_planner.js' %}"></script>
 {% endblock %}

@@ -2,18 +2,21 @@
 
 # --- Start: Replace your existing imports with this block ---
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from collections import defaultdict
 
 from django.core.signing import BadSignature, SignatureExpired
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Prefetch
+from django.db import IntegrityError
+import time 
 
 from django.contrib.auth import get_user_model
 
@@ -22,7 +25,7 @@ from .utils import get_month_start_end # We will create this helper function nex
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
-from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass, AttendanceTracking
+from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup
 from . import notifications
@@ -31,6 +34,13 @@ from accounts.models import Coach
 from assessments.models import SessionAssessment, GroupAssessment
 # --- End: Replacement block ---
 User = get_user_model()
+
+def is_staff(user):
+    """
+    Check if the user is a coach (staff) or a superuser.
+    This will be used to protect the session detail page.
+    """
+    return user.is_staff
 
 
 @login_required
@@ -54,42 +64,146 @@ def homepage(request):
     return render(request, 'scheduling/homepage.html', context)
 
 @login_required
+@user_passes_test(is_staff)
 def session_detail(request, session_id):
     session = get_object_or_404(
-        Session.objects.select_related('school_group').prefetch_related('player_attendances__player'), 
+        Session.objects.select_related('school_group', 'venue'), 
         pk=session_id
     )
 
-    if request.method == 'POST':
-        # Process the submitted attendance form
-        for key, value in request.POST.items():
-            if key.startswith('status_'):
-                player_id = int(key.split('_')[1])
-                new_status = value
-                
-                # Update or create the attendance record for the player
-                if new_status in AttendanceTracking.Status.values:
-                    AttendanceTracking.objects.update_or_create(
-                        session=session,
-                        player_id=player_id,
-                        defaults={'status': new_status}
-                    )
-        messages.success(request, "Attendance statuses have been updated.")
-        return redirect('scheduling:session_detail', session_id=session.id)
-
-    # For GET request, prepare data for the template
-    attendance_status_map = {
-        att.player_id: att.status for att in session.player_attendances.all()
-    }
+    players = []
+    if session.school_group:
+        all_players_in_group = session.school_group.players.filter(is_active=True).order_by('last_name', 'first_name')
+        attendance_map = {
+            att.player_id: att.status 
+            for att in AttendanceTracking.objects.filter(session=session)
+        }
+        for player in all_players_in_group:
+            players.append({
+                'id': player.id,
+                'name': player.full_name,
+                'status': attendance_map.get(player.id, 'PENDING')
+            })
     
-    players = session.school_group.players.all().order_by('first_name') if session.school_group else []
+    drills = list(Drill.objects.all().values('id', 'name'))
+    
+    # --- NEW: Smart Default Plan Generation ---
+    plan_data = session.plan if isinstance(session.plan, dict) else None
+
+    if not plan_data:
+        # If no plan exists, generate a smart default with a warmup
+        
+        # 1. Define defaults
+        default_rotation_duration = 15
+        default_groups = [
+            {"id": "groupA", "name": "Group A", "player_ids": []},
+            {"id": "groupB", "name": "Group B", "player_ids": []},
+            {"id": "groupC", "name": "Group C", "player_ids": []},
+        ]
+        all_group_ids = [g['id'] for g in default_groups]
+
+        # 2. Calculate warmup duration
+        time_for_rotations = len(default_groups) * default_rotation_duration
+        warmup_duration = session.planned_duration_minutes - time_for_rotations
+
+        timeline = []
+        current_time_offset = 0
+
+        # 3. Create warmup block if there's enough time
+        if warmup_duration >= 5: # Only create a warmup if it's at least 5 mins
+            start_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=current_time_offset)).strftime('%H:%M')
+            end_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=warmup_duration)).strftime('%H:%M')
+            
+            timeline.append({
+                "startTime": start_str,
+                "endTime": end_str,
+                "courts": [{
+                    # FIX: Use Python's time.time() for a unique timestamp
+                    "id": f"court-warmup-{int(time.time())}",
+                    "name": "Warmup Court",
+                    "assignedGroupIds": all_group_ids, # Assign all groups
+                    "activities": []
+                }]
+            })
+            current_time_offset = warmup_duration
+
+        # 4. Create main rotation blocks for the remaining time
+        while current_time_offset < session.planned_duration_minutes:
+            start_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=current_time_offset)).strftime('%H:%M')
+            end_time = min(current_time_offset + default_rotation_duration, session.planned_duration_minutes)
+            end_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=end_time)).strftime('%H:%M')
+            
+            timeline.append({
+                "startTime": start_str,
+                "endTime": end_str,
+                "courts": [
+                    {"id": f"court1-{current_time_offset}", "name": "Court 1", "assignedGroupIds": [], "activities": []},
+                    {"id": f"court2-{current_time_offset}", "name": "Court 2", "assignedGroupIds": [], "activities": []},
+                ]
+            })
+            current_time_offset += default_rotation_duration
+
+        # 5. Assemble the final default plan
+        plan_data = {
+            "rotationDuration": default_rotation_duration,
+            "playerGroups": default_groups,
+            "timeline": timeline
+        }
+        
+    if session.school_group:
+        display_name = f"{session.school_group.name} Session"
+    else:
+        display_name = f"Custom Session on {session.session_date.strftime('%Y-%m-%d')}"
 
     context = {
         'session': session,
-        'players': players,
-        'attendance_status_map': attendance_status_map,
+        'players_with_status': players,
+        'drills': drills,
+        'plan': plan_data,
+        'page_title': f"Plan for {display_name}"
     }
+
     return render(request, 'scheduling/session_detail.html', context)
+
+
+@login_required
+@require_POST
+@user_passes_test(is_staff)
+def save_session_plan(request, session_id):
+    try:
+        session = get_object_or_404(Session, pk=session_id)
+        data = json.loads(request.body)
+        session.plan = data
+        session.save()
+        return JsonResponse({'status': 'success', 'message': 'Plan saved successfully!'})
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON data.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+@user_passes_test(is_staff)
+def update_attendance_status(request, session_id):
+    try:
+        data = json.loads(request.body)
+        player_id = data.get('player_id')
+        new_status = data.get('status')
+        if not all([player_id, new_status]):
+            return JsonResponse({'status': 'error', 'message': 'Missing player_id or status.'}, status=400)
+        if new_status not in ['PENDING', 'ATTENDING', 'DECLINED']:
+             return JsonResponse({'status': 'error', 'message': 'Invalid status provided.'}, status=400)
+        tracking_record, created = AttendanceTracking.objects.update_or_create(
+            session_id=session_id,
+            player_id=player_id,
+            defaults={'status': new_status} 
+        )
+        return JsonResponse({'status': 'success', 'message': f'Attendance for player {player_id} set to {new_status}.'})
+    except (json.JSONDecodeError, IntegrityError, Exception) as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+
 
 @login_required
 def visual_attendance(request, session_id):
@@ -626,3 +740,6 @@ def player_attendance_response(request, token):
         }
 
     return render(request, 'scheduling/confirmation_response.html', context)
+
+
+
