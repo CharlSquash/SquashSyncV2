@@ -16,111 +16,41 @@
 
     /* Player & Group Dragging Styles */
     .player-list, .group-container { min-height: 100px; background-color: var(--bs-tertiary-bg); border-radius: 0.375rem; padding: 0.5rem; }
-    .player-card { background-color: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 0.375rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; cursor: grab; display: flex; justify-content: space-between; align-items: center; }
-    .player-card.dragging { opacity: 0.5; background-color: var(--bs-primary-bg-subtle); }
-    .group-container.drag-over, .player-list.drag-over { border: 2px dashed var(--bs-primary); background-color: var(--bs-primary-bg-subtle); }
+    .player-card { background-color: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 0.375rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; cursor: grab; }
+    .player-card.dragging, .group-chip.dragging { opacity: 0.5; }
+    .group-container.drag-over, .player-list.drag-over, .court-container.drag-over { border: 2px dashed var(--bs-primary); background-color: var(--bs-primary-bg-subtle); }
     
-    /* --- NEW & UPDATED STYLES for Timeline and Activities --- */
-    .group-chip-palette {
-        border-bottom: 1px solid var(--bs-border-color);
-        padding-bottom: 1rem;
-    }
-    .group-chip {
-        background-color: var(--bs-info-bg-subtle);
-        border: 1px solid var(--bs-info-border-subtle);
-        color: var(--bs-info-text-emphasis);
-        padding: 0.375rem 0.75rem;
-        border-radius: 2rem;
-        font-weight: 500;
-        cursor: grab;
-    }
-    .group-chip.dragging {
-        opacity: 0.5;
-    }
-    .group-chip.is-assigned {
-        cursor: pointer; /* Make it clickable to open modal */
-        background-color: var(--bs-secondary-bg);
-        border-color: var(--bs-border-color);
-        color: var(--bs-body-color);
-        transition: background-color 0.2s ease-in-out;
-    }
-    .group-chip.is-assigned:hover {
-        background-color: var(--bs-primary-bg-subtle);
-        border-color: var(--bs-primary);
-    }
+    /* Timeline, Phase, and Activity Styles */
+    .group-chip-palette { border-bottom: 1px solid var(--bs-border-color); padding-bottom: 1rem; }
+    .group-chip { background-color: var(--bs-info-bg-subtle); border: 1px solid var(--bs-info-border-subtle); color: var(--bs-info-text-emphasis); padding: 0.375rem 0.75rem; border-radius: 2rem; font-weight: 500; cursor: grab; }
+    .group-chip.is-assigned { cursor: pointer; background-color: var(--bs-secondary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+    .group-chip.is-assigned:hover { background-color: var(--bs-primary-bg-subtle); border-color: var(--bs-primary); }
+    
+    .phase-block { border-left: 5px solid var(--bs-secondary); }
+    .phase-block.type-warmup { border-left-color: var(--bs-orange); }
+    .phase-block.type-rotation { border-left-color: var(--bs-purple); }
+    .phase-block.type-freeplay { border-left-color: var(--bs-success); }
+    .phase-block.type-fitness { border-left-color: var(--bs-danger); }
+    .phase-block .planner-header h4 { display: flex; align-items: center; gap: 0.5rem; }
+    .phase-block .bi-grip-vertical { cursor: move; color: var(--bs-secondary-color); }
 
-    .timeline-block {
-        border-left: 3px solid var(--bs-primary-border-subtle);
-        padding: 1.5rem 0 1.5rem 1.5rem;
-        margin-left: 0.5rem;
-    }
-    .timeline-block-header h5 {
-        color: var(--bs-secondary-color);
-    }
-    .courts-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-    .court-container {
-        border: 1px solid var(--bs-border-color);
-        background-color: var(--bs-tertiary-bg);
-        border-radius: 0.5rem;
-        padding: 0.75rem;
-        min-height: 100px;
-        display: flex;
-        flex-direction: column;
-    }
-    .court-name {
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        color: var(--bs-secondary-color);
-    }
-    .court-container.drag-over {
-        border-style: dashed;
-        border-color: var(--bs-primary);
-        background-color: var(--bs-primary-bg-subtle);
-    }
-    .remove-court-btn {
-        --bs-btn-close-opacity: 0.3;
-        --bs-btn-close-hover-opacity: 0.7;
-    }
-    .add-court-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        min-height: 100px;
-        border-style: dashed;
-    }
+    #add-phase-btn-container { padding: 0.5rem 0 0 1.25rem; }
+    .phase-option-btn { text-align: left; }
 
-    .activity-list {
-        list-style: none;
-        padding-left: 0;
-    }
-    .activity-item {
-        background-color: var(--bs-body-bg);
-        border: 1px solid var(--bs-border-color);
-        border-radius: .375rem;
-        padding: .5rem .75rem;
-        margin-bottom: .5rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
+    .courts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+    .court-container { border: 1px solid var(--bs-border-color); background-color: var(--bs-tertiary-bg); border-radius: 0.5rem; padding: 0.75rem; min-height: 100px; }
+    .court-name { font-weight: 600; color: var(--bs-secondary-color); }
+    .add-court-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 100px; border-style: dashed; }
 </style>
 {% endblock %}
 
 
 {% block content %}
-<!-- The rest of the template remains exactly the same -->
 <div id="session-planner-app" 
-     class="container" 
+     class="container-fluid" 
      data-session-id="{{ session.id }}" 
      data-save-url="{% url 'scheduling:save_session_plan' session.id %}"
-     data-session-start-time="{{ session.session_start_time|time:'H:i' }}"
-     data-session-duration="{{ session.planned_duration_minutes }}">
+     data-session-start-time="{{ session.session_start_time|time:'H:i' }}">
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -133,22 +63,16 @@
         </div>
     </div>
 
-    <!-- SECTION 1: ATTENDANCE & SETUP -->
     <div id="setup-section" class="planner-section">
         <div class="planner-header">
-            <h4><i class="bi bi-check2-circle"></i> 1. Attendance &amp; Setup</h4>
+            <h4><i class="bi bi-check2-circle"></i> 1. Attendance</h4>
             <i class="bi bi-chevron-down arrow"></i>
         </div>
         <div class="planner-content">
-            <h5>Player Attendance</h5>
-            <div id="attendance-list" class="mb-4"></div>
-            <hr>
-            <h5>Session Structure</h5>
-            <div id="structure-controls"></div>
-        </div>
+            <div id="attendance-list" class="mb-2"></div>
+            </div>
     </div>
 
-    <!-- SECTION 2: FORM PLAYER GROUPS -->
     <div id="grouping-section" class="planner-section">
         <div class="planner-header">
             <h4><i class="bi bi-people-fill"></i> 2. Form Player Groups</h4>
@@ -156,11 +80,11 @@
         </div>
         <div class="planner-content">
             <div class="row">
-                <div class="col-md-4">
-                    <h6>Confirmed Players</h6>
+                <div class="col-lg-3 col-md-4">
+                    <h6>Confirmed & Unassigned Players</h6>
                     <div id="unassigned-players" class="player-list"></div>
                 </div>
-                <div class="col-md-8">
+                <div class="col-lg-9 col-md-8">
                     <h6>Session Groups</h6>
                     <div id="session-groups-container" class="row"></div>
                 </div>
@@ -168,36 +92,40 @@
         </div>
     </div>
 
-    <!-- SECTION 3: BUILD THE PLAN TIMELINE -->
     <div id="timeline-section" class="planner-section">
         <div class="planner-header">
             <h4><i class="bi bi-list-ol"></i> 3. Build the Plan</h4>
             <i class="bi bi-chevron-down arrow"></i>
         </div>
         <div class="planner-content">
-            <div id="timeline-container"></div>
+            <div id="timeline-container">
+                </div>
         </div>
     </div>
+</div>
 
-    <!-- The Activity Modal -->
-    <div class="modal fade" id="activityModal" tabindex="-1" aria-labelledby="activityModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-            <div class="modal-header">
-                <h1 class="modal-title fs-5" id="activityModalLabel">Edit Activities</h1>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="activity-list-container"></div>
-                <hr>
-                <div id="add-activity-form-container"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-            </div>
+<div class="modal fade" id="addPhaseModal" tabindex="-1" aria-labelledby="addPhaseModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="addPhaseModalLabel">Add New Session Phase</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Choose the type of phase you want to add to the plan.</p>
+        <div class="d-grid gap-2">
+            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Warmup"><i class="bi bi-fire me-2 text-orange"></i> Warmup</button>
+            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Rotation"><i class="bi bi-arrow-repeat me-2 text-purple"></i> Rotation Drills</button>
+            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Freeplay"><i class="bi bi-joystick me-2 text-success"></i> Freeplay / Matchplay</button>
+            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Fitness"><i class="bi bi-heart-pulse-fill me-2 text-danger"></i> Fitness</button>
         </div>
+      </div>
     </div>
+  </div>
+</div>
+
+<div class="modal fade" id="activityModal" tabindex="-1" aria-labelledby="activityModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h1 class="modal-title fs-5" id="activityModalLabel">Edit Activities</h1><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div id="activity-list-container"></div><hr><div id="add-activity-form-container"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></div></div>
 </div>
 
 {{ plan|json_script:"plan-data" }}

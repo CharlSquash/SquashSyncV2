@@ -63,6 +63,47 @@ def homepage(request):
     # Render the homepage template from its new location
     return render(request, 'scheduling/homepage.html', context)
 
+def _get_default_plan(session):
+    """
+    Generates a default, phase-based session plan based on the session's duration.
+    """
+    duration = session.planned_duration_minutes
+    
+    # Base structure with default groups. These can be modified by the coach.
+    plan = {
+        "playerGroups": [
+            {"id": "groupA", "name": "Group A", "player_ids": []},
+            {"id": "groupB", "name": "Group B", "player_ids": []},
+            {"id": "groupC", "name": "Group C", "player_ids": []},
+        ],
+        "timeline": []
+    }
+
+    # Define default phase templates
+    # We use timestamps for unique IDs, which the frontend will use.
+    ts = int(time.time())
+    default_courts = [{"id": f"court_default_{ts}", "name": "All Courts", "assignedGroupIds": [], "activities": []}]
+
+    if duration >= 90:
+        phases = [
+            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": list(default_courts)},
+            {"id": f"phase_{ts}_2", "type": "Rotation", "name": "Rotation Drills", "duration": 45, "courts": [], "sub_blocks": []},
+            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Match Play", "duration": 20, "courts": list(default_courts)},
+            {"id": f"phase_{ts}_4", "type": "Fitness", "name": "Fitness", "duration": 15, "courts": list(default_courts)},
+        ]
+    elif duration >= 60:
+        phases = [
+            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": list(default_courts)},
+            {"id": f"phase_{ts}_2", "type": "Rotation", "name": "Rotation Drills", "duration": 40, "courts": [], "sub_blocks": []},
+            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Cooldown / Freeplay", "duration": 10, "courts": list(default_courts)},
+        ]
+    else:
+        # For shorter sessions or if no template matches, start blank.
+        phases = []
+        
+    plan["timeline"] = phases
+    return plan
+
 @login_required
 @user_passes_test(is_staff)
 def session_detail(request, session_id):
@@ -87,69 +128,13 @@ def session_detail(request, session_id):
     
     drills = list(Drill.objects.all().values('id', 'name'))
     
-    # --- NEW: Smart Default Plan Generation ---
-    plan_data = session.plan if isinstance(session.plan, dict) else None
+    # --- REVISED: Generate phase-based default plan ---
+    plan_data = session.plan if isinstance(session.plan, dict) and 'timeline' in session.plan else None
 
     if not plan_data:
-        # If no plan exists, generate a smart default with a warmup
-        
-        # 1. Define defaults
-        default_rotation_duration = 15
-        default_groups = [
-            {"id": "groupA", "name": "Group A", "player_ids": []},
-            {"id": "groupB", "name": "Group B", "player_ids": []},
-            {"id": "groupC", "name": "Group C", "player_ids": []},
-        ]
-        all_group_ids = [g['id'] for g in default_groups]
-
-        # 2. Calculate warmup duration
-        time_for_rotations = len(default_groups) * default_rotation_duration
-        warmup_duration = session.planned_duration_minutes - time_for_rotations
-
-        timeline = []
-        current_time_offset = 0
-
-        # 3. Create warmup block if there's enough time
-        if warmup_duration >= 5: # Only create a warmup if it's at least 5 mins
-            start_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=current_time_offset)).strftime('%H:%M')
-            end_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=warmup_duration)).strftime('%H:%M')
-            
-            timeline.append({
-                "startTime": start_str,
-                "endTime": end_str,
-                "courts": [{
-                    # FIX: Use Python's time.time() for a unique timestamp
-                    "id": f"court-warmup-{int(time.time())}",
-                    "name": "Warmup Court",
-                    "assignedGroupIds": all_group_ids, # Assign all groups
-                    "activities": []
-                }]
-            })
-            current_time_offset = warmup_duration
-
-        # 4. Create main rotation blocks for the remaining time
-        while current_time_offset < session.planned_duration_minutes:
-            start_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=current_time_offset)).strftime('%H:%M')
-            end_time = min(current_time_offset + default_rotation_duration, session.planned_duration_minutes)
-            end_str = (datetime.combine(session.session_date, session.session_start_time) + timedelta(minutes=end_time)).strftime('%H:%M')
-            
-            timeline.append({
-                "startTime": start_str,
-                "endTime": end_str,
-                "courts": [
-                    {"id": f"court1-{current_time_offset}", "name": "Court 1", "assignedGroupIds": [], "activities": []},
-                    {"id": f"court2-{current_time_offset}", "name": "Court 2", "assignedGroupIds": [], "activities": []},
-                ]
-            })
-            current_time_offset += default_rotation_duration
-
-        # 5. Assemble the final default plan
-        plan_data = {
-            "rotationDuration": default_rotation_duration,
-            "playerGroups": default_groups,
-            "timeline": timeline
-        }
-        
+        # If no plan exists, generate a smart default based on the new phase structure.
+        plan_data = _get_default_plan(session)
+    
     if session.school_group:
         display_name = f"{session.school_group.name} Session"
     else:
@@ -173,6 +158,9 @@ def save_session_plan(request, session_id):
     try:
         session = get_object_or_404(Session, pk=session_id)
         data = json.loads(request.body)
+        
+        # Basic validation can be added here if needed
+        # For now, we trust the frontend to send a valid structure
         session.plan = data
         session.save()
         return JsonResponse({'status': 'success', 'message': 'Plan saved successfully!'})
@@ -189,19 +177,23 @@ def update_attendance_status(request, session_id):
         data = json.loads(request.body)
         player_id = data.get('player_id')
         new_status = data.get('status')
+
         if not all([player_id, new_status]):
             return JsonResponse({'status': 'error', 'message': 'Missing player_id or status.'}, status=400)
+        
         if new_status not in ['PENDING', 'ATTENDING', 'DECLINED']:
-             return JsonResponse({'status': 'error', 'message': 'Invalid status provided.'}, status=400)
-        tracking_record, created = AttendanceTracking.objects.update_or_create(
+            return JsonResponse({'status': 'error', 'message': 'Invalid status provided.'}, status=400)
+
+        AttendanceTracking.objects.update_or_create(
             session_id=session_id,
             player_id=player_id,
-            defaults={'status': new_status} 
+            defaults={'status': new_status}
         )
         return JsonResponse({'status': 'success', 'message': f'Attendance for player {player_id} set to {new_status}.'})
     except (json.JSONDecodeError, IntegrityError, Exception) as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
+        # Log the error for debugging
+        # logger.error(f"Error updating attendance: {e}")
+        return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred.'}, status=500)
 
 
 
