@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!this.elements.unassignedPlayers || !this.elements.sessionGroupsContainer) return;
             this.elements.unassignedPlayers.innerHTML = '';
             const confirmedPlayers = this.players.filter(p => p.status === 'ATTENDING');
-            const assignedPlayerIds = new Set(this.plan.playerGroups.flatMap(g => g.player_ids));
+            const assignedPlayerIds = new Set((this.plan.playerGroups || []).flatMap(g => g.player_ids));
             
             confirmedPlayers.forEach(player => {
                 if (!assignedPlayerIds.has(player.id)) {
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             this.elements.sessionGroupsContainer.innerHTML = '';
-            this.plan.playerGroups.forEach(group => {
+            (this.plan.playerGroups || []).forEach(group => {
                 const groupCol = document.createElement('div');
                 groupCol.className = 'col-lg-4 col-md-6 mb-3';
                 groupCol.innerHTML = `
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(phaseEl);
                 cumulativeTime += phase.duration;
             });
-
+            
             container.innerHTML += `
                 <div id="add-phase-btn-container">
                     <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#addPhaseModal">
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderPhase(phase, startTimeOffset) {
             const phaseEl = document.createElement('div');
-            const isOpen = phase.isOpen === false ? '' : 'is-open'; // Default to open
+            const isOpen = phase.isOpen === false ? '' : 'is-open';
             phaseEl.className = `planner-section phase-block ${isOpen} type-${phase.type.toLowerCase()}`;
             phaseEl.dataset.phaseId = phase.id;
 
@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         getPhaseContentHTML(phase) {
-            const groupChipsHTML = this.plan.playerGroups
+            const groupChipsHTML = (this.plan.playerGroups || [])
                 .filter(g => g.player_ids.length > 0)
                 .map(g => this.createGroupChip(g, false, phase.id, null).outerHTML)
                 .join('');
@@ -201,6 +201,35 @@ document.addEventListener('DOMContentLoaded', () => {
                             return group ? this.createGroupChip(group, true, phase.id, court.id).outerHTML : '';
                         }).join('');
 
+                    let activitiesHTML = '';
+                    if (court.activities && court.activities.length > 0) {
+                        activitiesHTML = `
+                            <div class="court-activities-container">
+                                <ul class="court-activities-list list-unstyled mb-0">
+                                    ${court.activities.map(act => {
+                                        let activityDisplay;
+                                        // Check if it's a pre-defined drill with a YouTube link
+                                        if (act.drill_id) {
+                                            const drill = this.drills.find(d => d.id === act.drill_id);
+                                            if (drill && drill.youtube_link) {
+                                                activityDisplay = `<a href="${drill.youtube_link}" target="_blank" title="Watch on YouTube">${act.name} <i class="bi bi-box-arrow-up-right small"></i></a>`;
+                                            } else {
+                                                activityDisplay = `<span>${act.name}</span>`;
+                                            }
+                                        } else {
+                                            // It's a custom activity
+                                            activityDisplay = `<span>${act.name}</span>`;
+                                        }
+                                        return `
+                                            <li class="court-activity-item">
+                                                ${activityDisplay}
+                                                <span class="badge bg-light text-dark">${act.duration}m</span>
+                                            </li>`;
+                                    }).join('')}
+                                </ul>
+                            </div>`;
+                    }
+
                     courtsHTML += `
                         <div class="court-container" data-court-id="${court.id}" data-phase-id="${phase.id}">
                             <div class="d-flex justify-content-between align-items-center">
@@ -208,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <button class="btn-close btn-sm remove-court-btn" data-court-id="${court.id}" data-phase-id="${phase.id}" title="Remove Court"></button>
                             </div>
                             <div class="assigned-groups-container mt-2">${assignedGroupsHTML}</div>
+                            ${activitiesHTML} 
                         </div>`;
                 });
             }
@@ -248,10 +278,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return html;
         },
-
+        
         renderActivityModalContent() {
-            const { phase, court } = this.getActiveContext();
-            if (!phase || !court) return;
+            const { court } = this.getActiveContext();
+            if (!court) return;
 
             const groupNames = (court.assignedGroupIds || [])
                 .map(gid => this.plan.playerGroups.find(g => g.id === gid)?.name || '')
@@ -306,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateActivityNameInput();
             formContainer.querySelector('#activity-type').addEventListener('change', () => this.updateActivityNameInput());
         },
-
+        
         updateActivityNameInput() {
             const type = document.getElementById('activity-type')?.value;
             const container = document.getElementById('activity-name-container');
@@ -324,28 +354,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         calculateAndApplyRotations(phaseId) {
             const phase = this.plan.timeline.find(p => p.id === phaseId);
-            if (!phase || phase.type !== 'Rotation' || !phase.courts) return;
-
+            if (!phase || phase.type !== 'Rotation') return;
+        
             const assignedGroupIds = new Set((phase.courts || []).flatMap(c => c.assignedGroupIds || []));
             const groupsInRotation = this.plan.playerGroups.filter(g => assignedGroupIds.has(g.id));
-            const courtsInRotation = phase.courts;
-
+            const courtsInRotation = phase.courts || [];
+        
             if (groupsInRotation.length === 0 || courtsInRotation.length === 0) {
                 phase.sub_blocks = [];
                 phase.rotationDuration = 0;
                 return;
             }
-
+        
             const numRotations = Math.max(groupsInRotation.length, courtsInRotation.length);
             const rotationDuration = numRotations > 0 ? Math.floor(phase.duration / numRotations) : 0;
             phase.rotationDuration = rotationDuration;
-
+            
             let phaseStartTimeOffset = 0;
             for (const p of this.plan.timeline) {
                 if (p.id === phaseId) break;
                 phaseStartTimeOffset += p.duration;
             }
-
+        
             const newSubBlocks = [];
             let cumulativeTimeInPhase = 0;
             for (let i = 0; i < numRotations; i++) {
@@ -359,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         assignments[court.id] = group.id;
                     }
                 }
-
+        
                 newSubBlocks.push({
                     startTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase),
                     endTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase + rotationDuration),
@@ -407,7 +437,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.render();
         },
         addNewGroup() {
-            const newGroupLetter = String.fromCharCode(65 + this.plan.playerGroups.length);
+            const newGroupLetter = String.fromCharCode(65 + (this.plan.playerGroups || []).length);
+            if (!this.plan.playerGroups) this.plan.playerGroups = [];
             this.plan.playerGroups.push({ id: `group${Date.now()}`, name: `Group ${newGroupLetter}`, player_ids: [] });
             this.render();
         },
@@ -473,57 +504,61 @@ document.addEventListener('DOMContentLoaded', () => {
             if (court && court.activities) {
                 court.activities.splice(index, 1);
                 this.renderActivityModalContent();
+                this.render(); 
             }
         },
 
         // --- EVENT HANDLERS ---
-        handleAppClick(e) {
-            const target = e.target;
-            
-            // Priority 1: Handle specific button clicks first.
-            const button = target.closest('button');
-            if (button) {
-                 if (button.matches('.remove-activity-btn')) {
-                    this.removeActivity(parseInt(button.dataset.index, 10));
-                    return; // Stop processing
-                }
-                if (button.closest('.planner-header')) { // It's a button inside a header
-                    if (button.matches('.delete-phase-btn')) {
-                        if (confirm('Delete this phase?')) {
-                           this.deletePhase(button.dataset.phaseId);
-                        }
-                    }
-                    return; // Stop further processing for clicks in the header
-                }
-                 if (button.matches('.player-attendance-item button')) this.cyclePlayerStatus(parseInt(button.dataset.playerId));
-                else if (button.matches('.add-group-btn')) this.addNewGroup();
-                else if (button.matches('.remove-group-btn')) { if (confirm('Are you sure?')) this.removeGroup(button.dataset.groupId); }
-                else if (button.matches('.add-court-btn')) this.addCourtToPhase(button.dataset.phaseId);
-                else if (button.matches('.remove-court-btn')) this.removeCourtFromPhase(button.dataset.phaseId, button.dataset.courtId);
-                else if (button.id === 'save-plan-btn') this.savePlan();
-                return;
-            }
+        // Replace the existing handleAppClick function with this one
+handleAppClick(e) {
+    const target = e.target;
+    const button = target.closest('button');
 
-            // Priority 2: Handle click on an assigned group chip to open modal
-            const assignedChip = target.closest('.group-chip.is-assigned');
-            if (assignedChip) {
-                this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
-                return;
-            }
+    // --- Step 1: Handle all button clicks first. ---
+    // If any button is clicked, this block will run and then exit the function.
+    if (button) {
+        if (button.matches('.delete-phase-btn')) {
+            if (confirm('Delete this phase?')) this.deletePhase(button.dataset.phaseId);
+        } else if (button.matches('.remove-activity-btn')) {
+            this.removeActivity(parseInt(button.dataset.index, 10));
+        } else if (button.matches('.player-attendance-item button')) {
+            this.cyclePlayerStatus(parseInt(button.dataset.playerId));
+        } else if (button.matches('.add-group-btn')) {
+            this.addNewGroup();
+        } else if (button.matches('.remove-group-btn')) {
+            if (confirm('Are you sure?')) this.removeGroup(button.dataset.groupId);
+        } else if (button.matches('.add-court-btn')) {
+            this.addCourtToPhase(button.dataset.phaseId);
+        } else if (button.matches('.remove-court-btn')) {
+            this.removeCourtFromPhase(button.dataset.phaseId, button.dataset.courtId);
+        } else if (button.id === 'save-plan-btn') {
+            this.savePlan();
+        }
+        // IMPORTANT: Stop the function here if a button was handled.
+        return;
+    }
 
-            // Priority 3: Handle click on a header to toggle the accordion
-            const header = target.closest('.planner-header');
-            if (header) {
-                const section = header.parentElement;
-                if (section.matches('.planner-section')) {
-                    section.classList.toggle('is-open');
-                    if (section.matches('.phase-block')) {
-                        const phase = this.plan.timeline.find(p => p.id === section.dataset.phaseId);
-                        if (phase) phase.isOpen = section.classList.contains('is-open');
-                    }
-                }
+    // --- Step 2: Handle assigned group chip clicks for the activity modal ---
+    const assignedChip = target.closest('.group-chip.is-assigned');
+    if (assignedChip) {
+        this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
+        return;
+    }
+
+    // --- Step 3: If no button or chip was clicked, check for an accordion toggle. ---
+    const header = target.closest('.planner-header');
+    if (header) {
+        const section = header.parentElement;
+        if (section.matches('.planner-section')) {
+            section.classList.toggle('is-open');
+            // Persist the open/closed state for phases
+            if (section.matches('.phase-block')) {
+                const phase = this.plan.timeline.find(p => p.id === section.dataset.phaseId);
+                if (phase) phase.isOpen = section.classList.contains('is-open');
             }
-        },
+        }
+    }
+},
 
         handleAppChange(e) {
             const target = e.target;
@@ -540,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.calculateAndApplyRotations(phaseId);
             this.render();
         },
-
+        
         handleActivityFormSubmit(e) {
             e.preventDefault();
             if (e.target.id !== 'add-activity-form') return;
@@ -569,6 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
             court.activities.push({ name: name, drill_id: drillId, duration: duration });
 
             this.renderActivityModalContent();
+            this.render(); // Re-render the main timeline to show the new activity
         },
 
         handleDragStart(e) {
@@ -619,7 +655,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         court.assignedGroupIds.push(this.draggedElement.id);
                     }
                     this.calculateAndApplyRotations(phaseId);
-                    this.render();
                 }
             }
         },

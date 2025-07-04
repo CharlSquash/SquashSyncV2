@@ -38,9 +38,23 @@
     .phase-option-btn { text-align: left; }
 
     .courts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
-    .court-container { border: 1px solid var(--bs-border-color); background-color: var(--bs-tertiary-bg); border-radius: 0.5rem; padding: 0.75rem; min-height: 100px; }
+    .court-container { border: 1px solid var(--bs-border-color); background-color: var(--bs-tertiary-bg); border-radius: 0.5rem; padding: 0.75rem; min-height: 100px; display: flex; flex-direction: column; }
     .court-name { font-weight: 600; color: var(--bs-secondary-color); }
     .add-court-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 100px; border-style: dashed; }
+    
+    /* --- NEW ACTIVITY DISPLAY STYLES --- */
+    .court-activities-container {
+        border-top: 1px solid var(--bs-border-color-translucent);
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+    }
+    .court-activity-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.2rem 0.1rem;
+        font-size: 0.85em;
+    }
+
 </style>
 {% endblock %}
 
@@ -63,17 +77,17 @@
         </div>
     </div>
 
-    <div id="setup-section" class="planner-section">
+    <div id="setup-section" class="planner-section is-open">
         <div class="planner-header">
             <h4><i class="bi bi-check2-circle"></i> 1. Attendance</h4>
             <i class="bi bi-chevron-down arrow"></i>
         </div>
         <div class="planner-content">
             <div id="attendance-list" class="mb-2"></div>
-            </div>
+        </div>
     </div>
 
-    <div id="grouping-section" class="planner-section">
+    <div id="grouping-section" class="planner-section is-open">
         <div class="planner-header">
             <h4><i class="bi bi-people-fill"></i> 2. Form Player Groups</h4>
             <i class="bi bi-chevron-down arrow"></i>
@@ -92,7 +106,7 @@
         </div>
     </div>
 
-    <div id="timeline-section" class="planner-section">
+    <div id="timeline-section" class="planner-section is-open">
         <div class="planner-header">
             <h4><i class="bi bi-list-ol"></i> 3. Build the Plan</h4>
             <i class="bi bi-chevron-down arrow"></i>

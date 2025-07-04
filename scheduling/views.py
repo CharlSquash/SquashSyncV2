@@ -126,7 +126,7 @@ def session_detail(request, session_id):
                 'status': attendance_map.get(player.id, 'PENDING')
             })
     
-    drills = list(Drill.objects.all().values('id', 'name'))
+    drills = list(Drill.objects.all().values('id', 'name', 'youtube_link'))
     
     # --- REVISED: Generate phase-based default plan ---
     plan_data = session.plan if isinstance(session.plan, dict) and 'timeline' in session.plan else None
