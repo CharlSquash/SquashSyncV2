@@ -69,7 +69,6 @@ def _get_default_plan(session):
     """
     duration = session.planned_duration_minutes
     
-    # Base structure with default groups. These can be modified by the coach.
     plan = {
         "playerGroups": [
             {"id": "groupA", "name": "Group A", "player_ids": []},
@@ -79,26 +78,27 @@ def _get_default_plan(session):
         "timeline": []
     }
 
-    # Define default phase templates
-    # We use timestamps for unique IDs, which the frontend will use.
+    # *** NEW: Get a list of all default group IDs to pre-assign them ***
+    all_group_ids = [g['id'] for g in plan['playerGroups']]
     ts = int(time.time())
-    default_courts = [{"id": f"court_default_{ts}", "name": "All Courts", "assignedGroupIds": [], "activities": []}]
+    
+    # *** UPDATED: The default court for warmup now has a new name and is pre-populated ***
+    warmup_court = [{"id": f"court_warmup_{ts}", "name": "Court 1", "assignedGroupIds": all_group_ids, "activities": []}]
 
     if duration >= 90:
         phases = [
-            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": list(default_courts)},
+            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": warmup_court},
             {"id": f"phase_{ts}_2", "type": "Rotation", "name": "Rotation Drills", "duration": 45, "courts": [], "sub_blocks": []},
-            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Match Play", "duration": 20, "courts": list(default_courts)},
-            {"id": f"phase_{ts}_4", "type": "Fitness", "name": "Fitness", "duration": 15, "courts": list(default_courts)},
+            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Match Play", "duration": 20, "courts": []},
+            {"id": f"phase_{ts}_4", "type": "Fitness", "name": "Fitness", "duration": 15, "courts": []},
         ]
     elif duration >= 60:
         phases = [
-            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": list(default_courts)},
+            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": warmup_court},
             {"id": f"phase_{ts}_2", "type": "Rotation", "name": "Rotation Drills", "duration": 40, "courts": [], "sub_blocks": []},
-            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Cooldown / Freeplay", "duration": 10, "courts": list(default_courts)},
+            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Cooldown / Freeplay", "duration": 10, "courts": []},
         ]
     else:
-        # For shorter sessions or if no template matches, start blank.
         phases = []
         
     plan["timeline"] = phases

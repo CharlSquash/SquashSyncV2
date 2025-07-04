@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- APPLICATION FLOW ---
 
         init() {
-            console.log("Session Planner Initializing (Phase-Based)...");
+            console.log("Session Planner Initializing (Smart Defaults)...");
             try {
                 this.plan = JSON.parse(document.getElementById('plan-data').textContent);
                 this.players = JSON.parse(document.getElementById('players-data').textContent);
@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.sessionStartTime = this.elements.appContainer.dataset.sessionStartTime;
 
             this.addEventListeners();
+            this.updateCourtsBasedOnGroups(true); // Initial setup
             this.render();
             console.log("Planner setup complete. UI should be interactive.");
         },
@@ -71,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- RENDERING ---
-
+        
         renderAttendanceList() {
             const container = this.elements.attendanceList;
             if (!container) return;
@@ -193,61 +194,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
         getStandardPhaseContentHTML(phase) {
             let courtsHTML = '<div class="courts-grid">';
-            if (phase.courts) {
-                phase.courts.forEach(court => {
-                    const assignedGroupsHTML = (court.assignedGroupIds || [])
-                        .map(gid => {
-                            const group = this.plan.playerGroups.find(g => g.id === gid);
-                            return group ? this.createGroupChip(group, true, phase.id, court.id).outerHTML : '';
-                        }).join('');
+            (phase.courts || []).forEach(court => {
+                const assignedGroupsHTML = (court.assignedGroupIds || [])
+                    .map(gid => {
+                        const group = this.plan.playerGroups.find(g => g.id === gid);
+                        return group ? this.createGroupChip(group, true, phase.id, court.id).outerHTML : '';
+                    }).join('');
 
-                    let activitiesHTML = '';
-                    if (court.activities && court.activities.length > 0) {
-                        activitiesHTML = `
-                            <div class="court-activities-container">
-                                <ul class="court-activities-list list-unstyled mb-0">
-                                    ${court.activities.map(act => {
-                                        let activityDisplay;
-                                        // Check if it's a pre-defined drill with a YouTube link
-                                        if (act.drill_id) {
-                                            const drill = this.drills.find(d => d.id === act.drill_id);
-                                            if (drill && drill.youtube_link) {
-                                                activityDisplay = `<a href="${drill.youtube_link}" target="_blank" title="Watch on YouTube">${act.name} <i class="bi bi-box-arrow-up-right small"></i></a>`;
-                                            } else {
-                                                activityDisplay = `<span>${act.name}</span>`;
-                                            }
+                let activitiesHTML = '';
+                if (court.activities && court.activities.length > 0) {
+                     activitiesHTML = `
+                        <div class="court-activities-container">
+                            <ul class="court-activities-list list-unstyled mb-0">
+                                ${court.activities.map(act => {
+                                    let activityDisplay;
+                                    if (act.drill_id) {
+                                        const drill = this.drills.find(d => d.id === act.drill_id);
+                                        if (drill && drill.youtube_link) {
+                                            activityDisplay = `<a href="${drill.youtube_link}" target="_blank" title="Watch on YouTube">${act.name} <i class="bi bi-box-arrow-up-right small"></i></a>`;
                                         } else {
-                                            // It's a custom activity
                                             activityDisplay = `<span>${act.name}</span>`;
                                         }
-                                        return `
-                                            <li class="court-activity-item">
-                                                ${activityDisplay}
-                                                <span class="badge bg-light text-dark">${act.duration}m</span>
-                                            </li>`;
-                                    }).join('')}
-                                </ul>
-                            </div>`;
-                    }
-
-                    courtsHTML += `
-                        <div class="court-container" data-court-id="${court.id}" data-phase-id="${phase.id}">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="court-name">${court.name}</div>
-                                <button class="btn-close btn-sm remove-court-btn" data-court-id="${court.id}" data-phase-id="${phase.id}" title="Remove Court"></button>
-                            </div>
-                            <div class="assigned-groups-container mt-2">${assignedGroupsHTML}</div>
-                            ${activitiesHTML} 
+                                    } else {
+                                        activityDisplay = `<span>${act.name}</span>`;
+                                    }
+                                    return `
+                                        <li class="court-activity-item">
+                                            ${activityDisplay}
+                                            <span class="badge bg-light text-dark">${act.duration}m</span>
+                                        </li>`;
+                                }).join('')}
+                            </ul>
                         </div>`;
-                });
-            }
+                }
+
+                courtsHTML += `
+                    <div class="court-container" data-court-id="${court.id}" data-phase-id="${phase.id}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="court-name">${court.name}</div>
+                            <button class="btn-close btn-sm remove-court-btn" data-court-id="${court.id}" data-phase-id="${phase.id}" title="Remove Court"></button>
+                        </div>
+                        <div class="assigned-groups-container mt-2">${assignedGroupsHTML}</div>
+                        ${activitiesHTML} 
+                    </div>`;
+            });
             courtsHTML += `
                 <button class="btn btn-outline-secondary btn-sm add-court-btn" data-phase-id="${phase.id}">
                     <i class="bi bi-plus-lg"></i> Add Court
                 </button></div>`;
             return courtsHTML;
         },
-
+        
         getRotationPhaseContentHTML(phase) {
             let html = `
                 <h6>Rotation Courts</h6>
@@ -278,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return html;
         },
-        
+
         renderActivityModalContent() {
             const { court } = this.getActiveContext();
             if (!court) return;
@@ -336,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateActivityNameInput();
             formContainer.querySelector('#activity-type').addEventListener('change', () => this.updateActivityNameInput());
         },
-        
+
         updateActivityNameInput() {
             const type = document.getElementById('activity-type')?.value;
             const container = document.getElementById('activity-name-container');
@@ -349,47 +346,85 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.innerHTML = `<label for="custom-activity-name" class="form-label">Custom Activity Name</label><input type="text" id="custom-activity-name" class="form-control" placeholder="e.g., Forehand boasts" required>`;
             }
         },
-
+        
         // --- LOGIC & ACTIONS ---
+        
+        updateCourtsBasedOnGroups(isInitialSetup = false) {
+            const numGroups = (this.plan.playerGroups || []).filter(g => g.player_ids.length > 0).length;
+            if (numGroups === 0 && !isInitialSetup) return;
+
+            (this.plan.timeline || []).forEach(phase => {
+                let targetCourtCount;
+                if (phase.type === 'Warmup' || phase.type === 'Freeplay') {
+                    targetCourtCount = 1;
+                } else {
+                    targetCourtCount = Math.max(1, numGroups);
+                }
+
+                const defaultCourts = (phase.courts || []).filter(c => c.isDefault);
+                while (defaultCourts.length > targetCourtCount) {
+                    const courtToRemove = defaultCourts.pop();
+                    phase.courts = phase.courts.filter(c => c.id !== courtToRemove.id);
+                }
+                
+                let currentCourtCount = (phase.courts || []).length;
+                while (currentCourtCount < targetCourtCount) {
+                    currentCourtCount++;
+                    if (!phase.courts) phase.courts = [];
+                    phase.courts.push({
+                        id: `court_${Date.now()}_${currentCourtCount}`,
+                        name: `Court ${currentCourtCount}`,
+                        assignedGroupIds: [], activities: [], isDefault: true
+                    });
+                }
+            });
+        },
 
         calculateAndApplyRotations(phaseId) {
             const phase = this.plan.timeline.find(p => p.id === phaseId);
             if (!phase || phase.type !== 'Rotation') return;
-        
+
             const assignedGroupIds = new Set((phase.courts || []).flatMap(c => c.assignedGroupIds || []));
             const groupsInRotation = this.plan.playerGroups.filter(g => assignedGroupIds.has(g.id));
             const courtsInRotation = phase.courts || [];
-        
+
             if (groupsInRotation.length === 0 || courtsInRotation.length === 0) {
                 phase.sub_blocks = [];
                 phase.rotationDuration = 0;
+                // No need to render here, the calling function will handle it.
                 return;
             }
-        
-            const numRotations = Math.max(groupsInRotation.length, courtsInRotation.length);
+
+            const numGroups = groupsInRotation.length;
+            const numCourts = courtsInRotation.length;
+            const numRotations = Math.max(numGroups, numCourts);
             const rotationDuration = numRotations > 0 ? Math.floor(phase.duration / numRotations) : 0;
             phase.rotationDuration = rotationDuration;
-            
+
             let phaseStartTimeOffset = 0;
             for (const p of this.plan.timeline) {
                 if (p.id === phaseId) break;
                 phaseStartTimeOffset += p.duration;
             }
-        
+
             const newSubBlocks = [];
             let cumulativeTimeInPhase = 0;
-            for (let i = 0; i < numRotations; i++) {
+            for (let i = 0; i < numRotations; i++) { // i = rotation index (0, 1, 2...)
                 if (rotationDuration <= 0) continue;
+                
                 const assignments = {};
-                for (let j = 0; j < groupsInRotation.length; j++) {
-                    const group = groupsInRotation[j];
-                    const courtIndex = (j + i) % courtsInRotation.length;
-                    const court = courtsInRotation[courtIndex];
-                    if (court) {
+                // ** THIS IS THE CORRECTED LOGIC **
+                // Iterate through the courts and assign a group based on the correct forward-rotation formula.
+                for (let j = 0; j < numCourts; j++) { // j = court index
+                    const court = courtsInRotation[j];
+                    // The formula that produces the C1->C2->C3 pattern for a group.
+                    const groupIndex = (j - i + numGroups) % numGroups; 
+                    const group = groupsInRotation[groupIndex];
+                    if (group) {
                         assignments[court.id] = group.id;
                     }
                 }
-        
+
                 newSubBlocks.push({
                     startTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase),
                     endTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase + rotationDuration),
@@ -410,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 newPhase.rotationDuration = 15;
             }
             this.plan.timeline.push(newPhase);
-            this.elements.addPhaseModal.hide();
+            this.updateCourtsBasedOnGroups();
             this.render();
         },
         deletePhase(phaseId) {
@@ -424,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newCourtNum = phase.courts.length + 1;
             phase.courts.push({
                 id: `court_${Date.now()}`, name: `Court ${newCourtNum}`,
-                assignedGroupIds: [], activities: []
+                assignedGroupIds: [], activities: [], isDefault: false 
             });
             this.calculateAndApplyRotations(phaseId);
             this.render();
@@ -437,9 +472,10 @@ document.addEventListener('DOMContentLoaded', () => {
             this.render();
         },
         addNewGroup() {
-            const newGroupLetter = String.fromCharCode(65 + (this.plan.playerGroups || []).length);
             if (!this.plan.playerGroups) this.plan.playerGroups = [];
+            const newGroupLetter = String.fromCharCode(65 + (this.plan.playerGroups || []).length);
             this.plan.playerGroups.push({ id: `group${Date.now()}`, name: `Group ${newGroupLetter}`, player_ids: [] });
+            this.updateCourtsBasedOnGroups();
             this.render();
         },
         removeGroup(groupId) {
@@ -450,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 this.calculateAndApplyRotations(phase.id);
             });
+            this.updateCourtsBasedOnGroups();
             this.render();
         },
 
@@ -509,56 +546,51 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- EVENT HANDLERS ---
-        // Replace the existing handleAppClick function with this one
-handleAppClick(e) {
-    const target = e.target;
-    const button = target.closest('button');
-
-    // --- Step 1: Handle all button clicks first. ---
-    // If any button is clicked, this block will run and then exit the function.
-    if (button) {
-        if (button.matches('.delete-phase-btn')) {
-            if (confirm('Delete this phase?')) this.deletePhase(button.dataset.phaseId);
-        } else if (button.matches('.remove-activity-btn')) {
-            this.removeActivity(parseInt(button.dataset.index, 10));
-        } else if (button.matches('.player-attendance-item button')) {
-            this.cyclePlayerStatus(parseInt(button.dataset.playerId));
-        } else if (button.matches('.add-group-btn')) {
-            this.addNewGroup();
-        } else if (button.matches('.remove-group-btn')) {
-            if (confirm('Are you sure?')) this.removeGroup(button.dataset.groupId);
-        } else if (button.matches('.add-court-btn')) {
-            this.addCourtToPhase(button.dataset.phaseId);
-        } else if (button.matches('.remove-court-btn')) {
-            this.removeCourtFromPhase(button.dataset.phaseId, button.dataset.courtId);
-        } else if (button.id === 'save-plan-btn') {
-            this.savePlan();
-        }
-        // IMPORTANT: Stop the function here if a button was handled.
-        return;
-    }
-
-    // --- Step 2: Handle assigned group chip clicks for the activity modal ---
-    const assignedChip = target.closest('.group-chip.is-assigned');
-    if (assignedChip) {
-        this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
-        return;
-    }
-
-    // --- Step 3: If no button or chip was clicked, check for an accordion toggle. ---
-    const header = target.closest('.planner-header');
-    if (header) {
-        const section = header.parentElement;
-        if (section.matches('.planner-section')) {
-            section.classList.toggle('is-open');
-            // Persist the open/closed state for phases
-            if (section.matches('.phase-block')) {
-                const phase = this.plan.timeline.find(p => p.id === section.dataset.phaseId);
-                if (phase) phase.isOpen = section.classList.contains('is-open');
+        handleAppClick(e) {
+            const target = e.target;
+            
+            const assignedChip = target.closest('.group-chip.is-assigned');
+            if (assignedChip) {
+                this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
+                return;
             }
-        }
-    }
-},
+            
+            const button = target.closest('button');
+            if (button) {
+                if (button.matches('.remove-activity-btn')) {
+                    this.removeActivity(parseInt(button.dataset.index, 10));
+                } else if (button.closest('.planner-header')) {
+                    if (button.matches('.delete-phase-btn')) {
+                        if (confirm('Delete this phase?')) this.deletePhase(button.dataset.phaseId);
+                    }
+                } else if (button.matches('.player-attendance-item button')) {
+                    this.cyclePlayerStatus(parseInt(button.dataset.playerId));
+                } else if (button.matches('.add-group-btn')) {
+                    this.addNewGroup();
+                } else if (button.matches('.remove-group-btn')) {
+                    if (confirm('Are you sure?')) this.removeGroup(button.dataset.groupId);
+                } else if (button.matches('.add-court-btn')) {
+                    this.addCourtToPhase(button.dataset.phaseId);
+                } else if (button.matches('.remove-court-btn')) {
+                    this.removeCourtFromPhase(button.dataset.phaseId, button.dataset.courtId);
+                } else if (button.id === 'save-plan-btn') {
+                    this.savePlan();
+                }
+                return;
+            }
+
+            const header = target.closest('.planner-header');
+            if (header) {
+                const section = header.parentElement;
+                if (section.matches('.planner-section')) {
+                    section.classList.toggle('is-open');
+                    if (section.matches('.phase-block')) {
+                        const phase = this.plan.timeline.find(p => p.id === section.dataset.phaseId);
+                        if (phase) phase.isOpen = section.classList.contains('is-open');
+                    }
+                }
+            }
+        },
 
         handleAppChange(e) {
             const target = e.target;
@@ -604,7 +636,7 @@ handleAppClick(e) {
             court.activities.push({ name: name, drill_id: drillId, duration: duration });
 
             this.renderActivityModalContent();
-            this.render(); // Re-render the main timeline to show the new activity
+            this.render();
         },
 
         handleDragStart(e) {
@@ -638,11 +670,12 @@ handleAppClick(e) {
 
             if (this.draggedElement.type === 'player') {
                 const targetGroupId = dropTarget.dataset.groupId;
-                this.plan.playerGroups.forEach(g => { g.player_ids = g.player_ids.filter(id => id !== this.draggedElement.id); });
+                (this.plan.playerGroups || []).forEach(g => { g.player_ids = g.player_ids.filter(id => id !== this.draggedElement.id); });
                 if (targetGroupId) {
                     const targetGroup = this.plan.playerGroups.find(g => g.id === targetGroupId);
                     if (targetGroup) targetGroup.player_ids.push(this.draggedElement.id);
                 }
+                this.updateCourtsBasedOnGroups();
                 this.render();
             } else if (this.draggedElement.type === 'group') {
                 const phaseId = dropTarget.dataset.phaseId;
@@ -655,6 +688,7 @@ handleAppClick(e) {
                         court.assignedGroupIds.push(this.draggedElement.id);
                     }
                     this.calculateAndApplyRotations(phaseId);
+                    this.render();
                 }
             }
         },
@@ -695,7 +729,7 @@ handleAppClick(e) {
             return chip;
         },
         getActiveContext() {
-            const phase = this.plan.timeline.find(p => p.id === this.activeContext.phaseId);
+            const phase = (this.plan.timeline || []).find(p => p.id === this.activeContext.phaseId);
             const court = phase ? (phase.courts || []).find(c => c.id === this.activeContext.courtId) : null;
             return { phase, court };
         },
