@@ -71,8 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.activityModalEl.addEventListener('submit', this.handleActivityFormSubmit.bind(this));
         },
 
-        // --- RENDERING ---
-        
+        // --- RENDERING FUNCTIONS ---
+        // (Rendering functions are unchanged from the last version)
+
         renderAttendanceList() {
             const container = this.elements.attendanceList;
             if (!container) return;
@@ -350,17 +351,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- LOGIC & ACTIONS ---
         
         updateCourtsBasedOnGroups(isInitialSetup = false) {
-            const numGroups = (this.plan.playerGroups || []).filter(g => g.player_ids.length > 0).length;
+            const numGroups = (this.plan.playerGroups || []).length;
             if (numGroups === 0 && !isInitialSetup) return;
 
             (this.plan.timeline || []).forEach(phase => {
                 let targetCourtCount;
+                let autoAssignGroups = false;
+                
                 if (phase.type === 'Warmup' || phase.type === 'Freeplay') {
                     targetCourtCount = 1;
+                    if (isInitialSetup) autoAssignGroups = true; // Only auto-assign on first load
                 } else {
                     targetCourtCount = Math.max(1, numGroups);
                 }
 
+                // Only touch courts that were added by default
                 const defaultCourts = (phase.courts || []).filter(c => c.isDefault);
                 while (defaultCourts.length > targetCourtCount) {
                     const courtToRemove = defaultCourts.pop();
@@ -377,36 +382,53 @@ document.addEventListener('DOMContentLoaded', () => {
                         assignedGroupIds: [], activities: [], isDefault: true
                     });
                 }
+                
+                // *** NEW: Auto-assign logic ***
+                if (autoAssignGroups && phase.courts.length > 0) {
+                    phase.courts[0].assignedGroupIds = this.plan.playerGroups.map(g => g.id);
+                }
+
+                // For Rotation phases, assign each group to a court by default
+                if (phase.type === 'Rotation' && isInitialSetup) {
+                    const groupsToAssign = this.plan.playerGroups;
+                    const courtsToAssignTo = phase.courts;
+                    const assignments = Math.min(groupsToAssign.length, courtsToAssignTo.length);
+                    for (let i = 0; i < assignments; i++) {
+                        courtsToAssignTo[i].assignedGroupIds = [groupsToAssign[i].id];
+                    }
+                }
+                
+                this.calculateAndApplyRotations(phase.id);
             });
         },
 
         calculateAndApplyRotations(phaseId) {
             const phase = this.plan.timeline.find(p => p.id === phaseId);
             if (!phase || phase.type !== 'Rotation') return;
-
+        
             const assignedGroupIds = new Set((phase.courts || []).flatMap(c => c.assignedGroupIds || []));
             const groupsInRotation = this.plan.playerGroups.filter(g => assignedGroupIds.has(g.id));
             const courtsInRotation = phase.courts || [];
-
+        
             if (groupsInRotation.length === 0 || courtsInRotation.length === 0) {
                 phase.sub_blocks = [];
                 phase.rotationDuration = 0;
-                // No need to render here, the calling function will handle it.
+                // No need to render, the calling function will
                 return;
             }
-
+        
             const numGroups = groupsInRotation.length;
             const numCourts = courtsInRotation.length;
             const numRotations = Math.max(numGroups, numCourts);
             const rotationDuration = numRotations > 0 ? Math.floor(phase.duration / numRotations) : 0;
             phase.rotationDuration = rotationDuration;
-
+            
             let phaseStartTimeOffset = 0;
             for (const p of this.plan.timeline) {
                 if (p.id === phaseId) break;
                 phaseStartTimeOffset += p.duration;
             }
-
+        
             const newSubBlocks = [];
             let cumulativeTimeInPhase = 0;
             for (let i = 0; i < numRotations; i++) { // i = rotation index (0, 1, 2...)
@@ -417,14 +439,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Iterate through the courts and assign a group based on the correct forward-rotation formula.
                 for (let j = 0; j < numCourts; j++) { // j = court index
                     const court = courtsInRotation[j];
-                    // The formula that produces the C1->C2->C3 pattern for a group.
-                    const groupIndex = (j - i + numGroups) % numGroups; 
+                    // This formula ensures Group A -> C1, C2, C3 etc.
+                    const groupIndex = (j - i + numGroups*i) % numGroups; 
                     const group = groupsInRotation[groupIndex];
                     if (group) {
                         assignments[court.id] = group.id;
                     }
                 }
-
+        
                 newSubBlocks.push({
                     startTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase),
                     endTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase + rotationDuration),
@@ -480,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         removeGroup(groupId) {
             this.plan.playerGroups = this.plan.playerGroups.filter(g => g.id !== groupId);
-            this.plan.timeline.forEach(phase => {
+            (this.plan.timeline || []).forEach(phase => {
                 (phase.courts || []).forEach(court => {
                     court.assignedGroupIds = (court.assignedGroupIds || []).filter(id => id !== groupId);
                 });
@@ -557,12 +579,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const button = target.closest('button');
             if (button) {
-                if (button.matches('.remove-activity-btn')) {
-                    this.removeActivity(parseInt(button.dataset.index, 10));
-                } else if (button.closest('.planner-header')) {
+                if (button.closest('.planner-header')) {
                     if (button.matches('.delete-phase-btn')) {
                         if (confirm('Delete this phase?')) this.deletePhase(button.dataset.phaseId);
                     }
+                } else if (button.matches('.remove-activity-btn')) {
+                    this.removeActivity(parseInt(button.dataset.index, 10));
                 } else if (button.matches('.player-attendance-item button')) {
                     this.cyclePlayerStatus(parseInt(button.dataset.playerId));
                 } else if (button.matches('.add-group-btn')) {
