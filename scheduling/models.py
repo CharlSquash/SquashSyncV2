@@ -21,6 +21,15 @@ class Venue(models.Model):
         verbose_name = "Venue"
         verbose_name_plural = "Venues"
 
+
+class DrillTag(models.Model):
+    name = models.CharField(max_length=50, unique=True, help_text="A category or tag for a drill (e.g., Fitness, Forehand, Fun Games).")
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 # --- MODEL: Drill ---
 class Drill(models.Model):
     name = models.CharField(max_length=150, unique=True)
@@ -43,10 +52,14 @@ class Drill(models.Model):
         help_text="Optional: A link to a YouTube video demonstrating the drill."
     )
 
+    tags = models.ManyToManyField(DrillTag, blank=True, related_name="drills")
+
     def __str__(self):
         return self.name
     class Meta:
         ordering = ['name']
+
+
 
 
 # --- MODEL: ScheduledClass ---

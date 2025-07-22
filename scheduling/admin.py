@@ -8,7 +8,7 @@ from .forms import GenerateSessionsForm
 from .session_generation_service import generate_sessions_for_rules
 
 from .models import (
-    Venue, Drill, Session, TimeBlock, ScheduledClass,
+    Venue, Drill, DrillTag, Session, TimeBlock, ScheduledClass,
     ActivityAssignment, ManualCourtAssignment, CoachAvailability, Event
 )
 
@@ -18,11 +18,19 @@ class VenueAdmin(admin.ModelAdmin):
     list_filter = ('is_active',)
     search_fields = ('name', 'address', 'notes')
 
+@admin.register(DrillTag)
+class DrillTagAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
 @admin.register(Drill)
 class DrillAdmin(admin.ModelAdmin):
     list_display = ('name', 'duration_minutes_default', 'ideal_num_players', 'suitable_for_any')
-    list_filter = ('suitable_for_any',)
-    search_fields = ('name', 'description')
+    # *** UPDATED: Add tags to the filter and search ***
+    list_filter = ('tags', 'suitable_for_any',)
+    search_fields = ('name', 'description', 'tags__name')
+    # *** NEW: Use a better widget for selecting multiple tags ***
+    filter_horizontal = ('tags',)
 
 class TimeBlockInline(admin.TabularInline):
     model = TimeBlock

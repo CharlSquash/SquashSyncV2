@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
         plan: {},
         players: [],
         drills: [],
+        allTags: [],
 
         // DOM ELEMENTS
         elements: {
@@ -26,15 +27,26 @@ document.addEventListener('DOMContentLoaded', () => {
         draggedElement: null,
         sessionStartTime: null,
         activeContext: { phaseId: null, courtId: null },
+        activityFilters: {
+            primaryTagId: null,
+            secondaryTagIds: new Set(),
+        },
 
         // --- APPLICATION FLOW ---
 
         init() {
-            console.log("Session Planner Initializing (Smart Defaults)...");
+            console.log("Session Planner Initializing (Collapsible Fix)...");
             try {
                 this.plan = JSON.parse(document.getElementById('plan-data').textContent);
                 this.players = JSON.parse(document.getElementById('players-data').textContent);
                 this.drills = JSON.parse(document.getElementById('drills-data').textContent);
+                const allTagsData = document.getElementById('all-tags-data');
+                if (allTagsData) {
+                    this.allTags = JSON.parse(allTagsData.textContent);
+                } else {
+                    this.allTags = [];
+                    console.warn("Warning: 'all-tags-data' script element not found. Filtering will be disabled.");
+                }
             } catch (e) {
                 console.error("Fatal Error: Could not parse data from Django.", e);
                 this.elements.appContainer.innerHTML = `<div class="alert alert-danger"><h4>Application Error</h4><p>Could not load session data.</p></div>`;
@@ -43,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.sessionStartTime = this.elements.appContainer.dataset.sessionStartTime;
 
             this.addEventListeners();
-            this.updateCourtsBasedOnGroups(true); // Initial setup
+            this.updateCourtsBasedOnGroups(true);
             this.render();
             console.log("Planner setup complete. UI should be interactive.");
         },
@@ -55,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         addEventListeners() {
+            // General click handler for actions NOT handled by more specific listeners
             this.elements.appContainer.addEventListener('click', this.handleAppClick.bind(this));
             this.elements.appContainer.addEventListener('change', this.handleAppChange.bind(this));
             this.elements.appContainer.addEventListener('dragstart', this.handleDragStart.bind(this));
@@ -72,8 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- RENDERING FUNCTIONS ---
-        // (Rendering functions are unchanged from the last version)
-
+        
         renderAttendanceList() {
             const container = this.elements.attendanceList;
             if (!container) return;
@@ -107,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 groupCol.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <h6>${group.name} (${group.player_ids.length})</h6>
-                        <button class="btn btn-sm btn-outline-danger remove-group-btn" data-group-id="${group.id}" title="Remove Group">&times;</button>
+                        <button class="btn btn-sm btn-outline-danger remove-group-btn" data-group-id="${group.id}" title="Remove Group">×</button>
                     </div>
                     <div class="group-container" data-group-id="${group.id}"></div>`;
                 const groupContainer = groupCol.querySelector('.group-container');
@@ -146,8 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderPhase(phase, startTimeOffset) {
             const phaseEl = document.createElement('div');
-            const isOpen = phase.isOpen === false ? '' : 'is-open';
-            phaseEl.className = `planner-section phase-block ${isOpen} type-${phase.type.toLowerCase()}`;
+            const isOpenClass = phase.isOpen === false ? '' : 'is-open';
+            phaseEl.className = `planner-section phase-block ${isOpenClass} type-${phase.type.toLowerCase()}`;
             phaseEl.dataset.phaseId = phase.id;
 
             const phaseStartTime = this.minutesToTimeStr(startTimeOffset);
@@ -158,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h4><i class="bi bi-grip-vertical"></i> ${phase.type}</h4>
                     <div class="d-flex align-items-center gap-3">
                         <span class="text-muted small">${phaseStartTime} - ${phaseEndTime}</span>
-                        <button class="btn btn-sm btn-outline-danger delete-phase-btn" data-phase-id="${phase.id}" title="Delete Phase">&times;</button>
+                        <button class="btn btn-sm btn-outline-danger delete-phase-btn" data-phase-id="${phase.id}" title="Delete Phase">×</button>
                         <i class="bi bi-chevron-down arrow"></i>
                     </div>
                 </div>
@@ -176,6 +188,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <hr>
                     <div class="phase-content-body">${this.getPhaseContentHTML(phase)}</div>
                 </div>`;
+            
+            const header = phaseEl.querySelector('.planner-header');
+            if (header) {
+                header.addEventListener('click', (e) => this.togglePhase(e, phase.id));
+            }
+
             return phaseEl;
         },
 
@@ -287,9 +305,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             this.elements.activityModalLabel.textContent = `Activities for ${groupNames || 'Group'} on ${court.name}`;
 
+            this.renderActivityList();
+            this.renderActivityForm();
+        },
+        
+        renderActivityList() {
+            const { court } = this.getActiveContext();
             const listContainer = this.elements.activityListContainer;
             listContainer.innerHTML = '';
-            if (!court.activities || court.activities.length === 0) {
+            if (!court || !court.activities || court.activities.length === 0) {
                 listContainer.innerHTML = '<p class="text-muted">No activities planned for this block yet.</p>';
             } else {
                 const ul = document.createElement('ul');
@@ -301,100 +325,199 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span>${activity.name}</span>
                         <div>
                             <span class="badge bg-secondary me-2">${activity.duration} min</span>
-                            <button type="button" class="btn btn-sm btn-outline-danger remove-activity-btn" data-index="${index}">&times;</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-activity-btn" data-index="${index}">×</button>
                         </div>`;
                     ul.appendChild(li);
                 });
                 listContainer.appendChild(ul);
             }
-
+        },
+        
+        renderActivityForm() {
             const formContainer = this.elements.addActivityFormContainer;
             formContainer.innerHTML = `
-                <form id="add-activity-form">
+                <form id="add-activity-form" novalidate>
                     <h6 class="mt-4">Add New Activity</h6>
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <label for="activity-type" class="form-label">Activity Type</label>
-                            <select id="activity-type" class="form-select">
-                                <option value="drill" selected>Pre-defined Drill</option>
-                                <option value="custom">Custom Activity</option>
-                            </select>
+                    ${this.buildFilterControlsHTML()} 
+                    <div class="row g-2 mt-3 align-items-end">
+                        <div class="col">
+                            <label for="drill-select" class="form-label">Select Drill</label>
+                            <select id="drill-select" class="form-select"></select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-secondary preview-drill-btn" title="Preview Selected Drill">
+                                <i class="bi bi-play-btn-fill"></i> Preview
+                            </button>
+                        </div>
+                        <div class="col-md-3">
                             <label for="activity-duration" class="form-label">Duration (min)</label>
                             <input type="number" id="activity-duration" class="form-control" value="10" min="1">
                         </div>
                     </div>
-                    <div class="mt-2" id="activity-name-container"></div>
+                    <div id="youtube-preview-container" class="mt-3"></div>
                     <div class="mt-3">
                         <button type="submit" class="btn btn-primary w-100">Add to Plan</button>
                     </div>
                 </form>
             `;
-            this.updateActivityNameInput();
-            formContainer.querySelector('#activity-type').addEventListener('change', () => this.updateActivityNameInput());
+            this.renderFilteredDrillList();
+            formContainer.querySelector('#primary-tag-filter').addEventListener('change', this.handleFilterChange.bind(this));
+            formContainer.querySelectorAll('.secondary-tag-filter').forEach(el => {
+                el.addEventListener('change', this.handleFilterChange.bind(this));
+            });
+            formContainer.querySelector('#drill-select').addEventListener('change', () => {
+                document.getElementById('youtube-preview-container').innerHTML = '';
+            });
+            formContainer.querySelector('.preview-drill-btn').addEventListener('click', () => this.showYoutubePreview());
         },
 
-        updateActivityNameInput() {
-            const type = document.getElementById('activity-type')?.value;
-            const container = document.getElementById('activity-name-container');
-            if (!type || !container) return;
+        buildFilterControlsHTML() {
+            if (!this.allTags || this.allTags.length === 0) return '';
 
-            if (type === 'drill') {
-                const options = this.drills.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-                container.innerHTML = `<label for="drill-select" class="form-label">Select Drill</label><select id="drill-select" class="form-select">${options}</select>`;
-            } else {
-                container.innerHTML = `<label for="custom-activity-name" class="form-label">Custom Activity Name</label><input type="text" id="custom-activity-name" class="form-control" placeholder="e.g., Forehand boasts" required>`;
-            }
+            const { phase } = this.getActiveContext();
+            const phaseTypeToTagName = {
+                'Fun Games': 'Fun Games',
+                'Rotation': 'Rotation Drill',
+                'Fitness': 'Fitness'
+            };
+            const defaultTagName = phase ? phaseTypeToTagName[phase.type] || '' : '';
+            const defaultTag = this.allTags.find(t => t.name === defaultTagName);
+            this.activityFilters.primaryTagId = defaultTag ? defaultTag.id : null;
+
+            const primaryOptions = this.allTags.map(tag =>
+                `<option value="${tag.id}" ${tag.id === this.activityFilters.primaryTagId ? 'selected' : ''}>${tag.name}</option>`
+            ).join('');
+            
+            const secondaryCheckboxes = this.allTags.map(tag => `
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input secondary-tag-filter" type="checkbox" value="${tag.id}" id="tag-${tag.id}">
+                    <label class="form-check-label" for="tag-${tag.id}">${tag.name}</label>
+                </div>
+            `).join('');
+
+            return `
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label for="primary-tag-filter" class="form-label">Drill Category</label>
+                        <select id="primary-tag-filter" class="form-select">
+                            <option value="">All Drills</option>
+                            ${primaryOptions}
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <label class="form-label">Additional Filters</label>
+                    <div class="border p-2 rounded" style="max-height: 100px; overflow-y: auto;">
+                        ${secondaryCheckboxes}
+                    </div>
+                </div>
+            `;
+        },
+
+        renderFilteredDrillList() {
+            const selectEl = document.getElementById('drill-select');
+            if (!selectEl) return;
+
+            const { primaryTagId, secondaryTagIds } = this.activityFilters;
+
+            const filteredDrills = this.drills.filter(drill => {
+                const hasPrimaryTag = primaryTagId ? (drill.tag_ids || []).includes(primaryTagId) : true;
+                const hasAllSecondaryTags = [...secondaryTagIds].every(tagId => (drill.tag_ids || []).includes(tagId));
+                return hasPrimaryTag && hasAllSecondaryTags;
+            });
+
+            selectEl.innerHTML = filteredDrills.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
         },
         
         // --- LOGIC & ACTIONS ---
         
+        // ===================================================================
+        // START: REVERTED YOUTUBE PREVIEW FUNCTION
+        // ===================================================================
+        showYoutubePreview() {
+            const drillSelect = document.getElementById('drill-select');
+            const previewContainer = document.getElementById('youtube-preview-container');
+            if (!drillSelect || !previewContainer) return;
+
+            if (!drillSelect.value) {
+                previewContainer.innerHTML = `<p class="text-muted small mt-2">Please select a drill to preview.</p>`;
+                return;
+            }
+
+            const drillId = parseInt(drillSelect.value);
+            const drill = this.drills.find(d => d.id === drillId);
+
+            if (drill && drill.youtube_link) {
+                let videoId = null;
+                const link = drill.youtube_link.trim();
+                
+                // This simple method was working for the user's original data.
+                try {
+                    const parts = link.split('/');
+                    const potentialId = parts[parts.length - 1];
+                    if (potentialId) {
+                        videoId = potentialId;
+                    }
+                } catch (e) {
+                    console.error("An error occurred while splitting the URL.", e);
+                }
+
+                if (videoId) {
+                    previewContainer.innerHTML = `
+                        <div class="youtube-preview-container">
+                            <iframe src="https://www.youtube.com/embed/${videoId}" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen>
+                            </iframe>
+                        </div>`;
+                } else {
+                     previewContainer.innerHTML = `<p class="text-danger small mt-2"><b>Error:</b> Could not extract a Video ID from the link. The URL appears to be malformed.</p>`;
+                }
+            } else {
+                previewContainer.innerHTML = `<p class="text-muted small mt-2">No video preview available for this drill.</p>`;
+            }
+        },
+        // ===================================================================
+        // END: REVERTED YOUTUBE PREVIEW FUNCTION
+        // ===================================================================
+
         updateCourtsBasedOnGroups(isInitialSetup = false) {
-            const numGroups = (this.plan.playerGroups || []).length;
-            if (numGroups === 0 && !isInitialSetup) return;
+            const groups = this.plan.playerGroups || [];
+            const numGroups = groups.length > 0 ? groups.length : 1;
 
             (this.plan.timeline || []).forEach(phase => {
                 let targetCourtCount;
-                let autoAssignGroups = false;
                 
-                if (phase.type === 'Warmup' || phase.type === 'Freeplay') {
+                if (phase.type === 'Warmup') {
                     targetCourtCount = 1;
-                    if (isInitialSetup) autoAssignGroups = true; // Only auto-assign on first load
                 } else {
-                    targetCourtCount = Math.max(1, numGroups);
+                    targetCourtCount = numGroups;
                 }
 
-                // Only touch courts that were added by default
-                const defaultCourts = (phase.courts || []).filter(c => c.isDefault);
-                while (defaultCourts.length > targetCourtCount) {
-                    const courtToRemove = defaultCourts.pop();
-                    phase.courts = phase.courts.filter(c => c.id !== courtToRemove.id);
-                }
-                
-                let currentCourtCount = (phase.courts || []).length;
-                while (currentCourtCount < targetCourtCount) {
-                    currentCourtCount++;
-                    if (!phase.courts) phase.courts = [];
-                    phase.courts.push({
-                        id: `court_${Date.now()}_${currentCourtCount}`,
-                        name: `Court ${currentCourtCount}`,
+                let currentCourts = phase.courts || [];
+                while (currentCourts.length < targetCourtCount) {
+                    currentCourts.push({
+                        id: `court_${Date.now()}_${currentCourts.length + 1}`,
+                        name: `Court ${currentCourts.length + 1}`,
                         assignedGroupIds: [], activities: [], isDefault: true
                     });
                 }
-                
-                // *** NEW: Auto-assign logic ***
-                if (autoAssignGroups && phase.courts.length > 0) {
-                    phase.courts[0].assignedGroupIds = this.plan.playerGroups.map(g => g.id);
+                while (currentCourts.length > targetCourtCount && currentCourts.some(c => c.isDefault)) {
+                    const idxToRemove = currentCourts.findIndex(c => c.isDefault);
+                    if (idxToRemove > -1) currentCourts.splice(idxToRemove, 1);
+                    else break; 
                 }
-
-                // For Rotation phases, assign each group to a court by default
-                if (phase.type === 'Rotation' && isInitialSetup) {
-                    const groupsToAssign = this.plan.playerGroups;
-                    const courtsToAssignTo = phase.courts;
-                    const assignments = Math.min(groupsToAssign.length, courtsToAssignTo.length);
-                    for (let i = 0; i < assignments; i++) {
-                        courtsToAssignTo[i].assignedGroupIds = [groupsToAssign[i].id];
+                phase.courts = currentCourts;
+                
+                if (isInitialSetup) {
+                    if (phase.type === 'Warmup' && phase.courts.length > 0) {
+                        phase.courts[0].assignedGroupIds = groups.map(g => g.id);
+                    } else if (phase.type === 'Rotation' || phase.type === 'Freeplay') {
+                        const assignments = Math.min(groups.length, phase.courts.length);
+                        for (let i = 0; i < assignments; i++) {
+                            phase.courts[i].assignedGroupIds = [groups[i].id];
+                        }
                     }
                 }
                 
@@ -405,48 +528,42 @@ document.addEventListener('DOMContentLoaded', () => {
         calculateAndApplyRotations(phaseId) {
             const phase = this.plan.timeline.find(p => p.id === phaseId);
             if (!phase || phase.type !== 'Rotation') return;
-        
-            const assignedGroupIds = new Set((phase.courts || []).flatMap(c => c.assignedGroupIds || []));
-            const groupsInRotation = this.plan.playerGroups.filter(g => assignedGroupIds.has(g.id));
+
             const courtsInRotation = phase.courts || [];
-        
-            if (groupsInRotation.length === 0 || courtsInRotation.length === 0) {
+            const initialGroupOrder = courtsInRotation
+                .map(c => (c.assignedGroupIds && c.assignedGroupIds.length > 0) ? c.assignedGroupIds[0] : null)
+                .filter(Boolean); 
+
+            if (initialGroupOrder.length === 0 || courtsInRotation.length === 0 || initialGroupOrder.length !== courtsInRotation.length) {
                 phase.sub_blocks = [];
                 phase.rotationDuration = 0;
-                // No need to render, the calling function will
                 return;
             }
-        
-            const numGroups = groupsInRotation.length;
-            const numCourts = courtsInRotation.length;
-            const numRotations = Math.max(numGroups, numCourts);
+
+            const numRotations = initialGroupOrder.length;
             const rotationDuration = numRotations > 0 ? Math.floor(phase.duration / numRotations) : 0;
             phase.rotationDuration = rotationDuration;
-            
+
             let phaseStartTimeOffset = 0;
             for (const p of this.plan.timeline) {
                 if (p.id === phaseId) break;
                 phaseStartTimeOffset += p.duration;
             }
-        
+
             const newSubBlocks = [];
             let cumulativeTimeInPhase = 0;
-            for (let i = 0; i < numRotations; i++) { // i = rotation index (0, 1, 2...)
+            for (let i = 0; i < numRotations; i++) { 
                 if (rotationDuration <= 0) continue;
                 
                 const assignments = {};
-                // ** THIS IS THE CORRECTED LOGIC **
-                // Iterate through the courts and assign a group based on the correct forward-rotation formula.
-                for (let j = 0; j < numCourts; j++) { // j = court index
+                for (let j = 0; j < courtsInRotation.length; j++) { 
                     const court = courtsInRotation[j];
-                    // This formula ensures Group A -> C1, C2, C3 etc.
-                    const groupIndex = (j - i + numGroups*i) % numGroups; 
-                    const group = groupsInRotation[groupIndex];
-                    if (group) {
-                        assignments[court.id] = group.id;
-                    }
+                    const groupIndex = ((j - i) % numRotations + numRotations) % numRotations;
+                    const groupIdToAssign = initialGroupOrder[groupIndex];
+                    
+                    assignments[court.id] = groupIdToAssign;
                 }
-        
+
                 newSubBlocks.push({
                     startTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase),
                     endTime: this.minutesToTimeStr(phaseStartTimeOffset + cumulativeTimeInPhase + rotationDuration),
@@ -568,23 +685,29 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- EVENT HANDLERS ---
-        handleAppClick(e) {
-            const target = e.target;
-            
-            const assignedChip = target.closest('.group-chip.is-assigned');
-            if (assignedChip) {
-                this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
+        
+        togglePhase(event, phaseId) {
+            if (event.target.closest('button, input')) {
                 return;
             }
+            const phaseElement = document.querySelector(`.phase-block[data-phase-id="${phaseId}"]`);
+            if (!phaseElement) return;
             
+            const phaseData = this.plan.timeline.find(p => p.id === phaseId);
+            if (!phaseData) return;
+
+            const newIsOpenState = !phaseElement.classList.contains('is-open');
+            phaseElement.classList.toggle('is-open', newIsOpenState);
+            phaseData.isOpen = newIsOpenState;
+        },
+
+        handleAppClick(e) {
+            const target = e.target;
+
             const button = target.closest('button');
             if (button) {
-                if (button.closest('.planner-header')) {
-                    if (button.matches('.delete-phase-btn')) {
-                        if (confirm('Delete this phase?')) this.deletePhase(button.dataset.phaseId);
-                    }
-                } else if (button.matches('.remove-activity-btn')) {
-                    this.removeActivity(parseInt(button.dataset.index, 10));
+                if (button.matches('.delete-phase-btn')) {
+                    if (confirm('Delete this phase?')) this.deletePhase(button.dataset.phaseId);
                 } else if (button.matches('.player-attendance-item button')) {
                     this.cyclePlayerStatus(parseInt(button.dataset.playerId));
                 } else if (button.matches('.add-group-btn')) {
@@ -595,39 +718,54 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.addCourtToPhase(button.dataset.phaseId);
                 } else if (button.matches('.remove-court-btn')) {
                     this.removeCourtFromPhase(button.dataset.phaseId, button.dataset.courtId);
+                } else if (button.matches('.remove-activity-btn')) {
+                     this.removeActivity(parseInt(button.dataset.index, 10));
                 } else if (button.id === 'save-plan-btn') {
                     this.savePlan();
                 }
-                return;
+                return; 
             }
 
+            const assignedChip = target.closest('.group-chip.is-assigned');
+            if (assignedChip) {
+                this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
+                return;
+            }
+            
             const header = target.closest('.planner-header');
-            if (header) {
-                const section = header.parentElement;
-                if (section.matches('.planner-section')) {
-                    section.classList.toggle('is-open');
-                    if (section.matches('.phase-block')) {
-                        const phase = this.plan.timeline.find(p => p.id === section.dataset.phaseId);
-                        if (phase) phase.isOpen = section.classList.contains('is-open');
-                    }
-                }
+            if(header && !header.parentElement.matches('.phase-block')) {
+                 header.parentElement.classList.toggle('is-open');
             }
         },
 
         handleAppChange(e) {
             const target = e.target;
-            const phaseId = target.dataset.phaseId;
-            if (!phaseId) return;
-            const phase = this.plan.timeline.find(p => p.id === phaseId);
-            if (!phase) return;
-
-            if (target.matches('.phase-name-input')) {
-                phase.name = target.value;
-            } else if (target.matches('.phase-duration-input')) {
-                phase.duration = parseInt(target.value, 10) || 0;
+            if (target.matches('#primary-tag-filter') || target.matches('.secondary-tag-filter')) {
+                this.handleFilterChange();
+            } else if (target.matches('.phase-name-input, .phase-duration-input')) {
+                const phaseId = target.dataset.phaseId;
+                const phase = this.plan.timeline.find(p => p.id === phaseId);
+                if (!phase) return;
+                
+                if (target.matches('.phase-name-input')) phase.name = target.value;
+                else if (target.matches('.phase-duration-input')) phase.duration = parseInt(target.value, 10) || 0;
+                
+                this.calculateAndApplyRotations(phaseId);
+                this.render();
             }
-            this.calculateAndApplyRotations(phaseId);
-            this.render();
+        },
+        
+        handleFilterChange() {
+            const primaryFilter = document.getElementById('primary-tag-filter');
+            if (!primaryFilter) return;
+            this.activityFilters.primaryTagId = primaryFilter.value ? parseInt(primaryFilter.value) : null;
+            
+            this.activityFilters.secondaryTagIds.clear();
+            document.querySelectorAll('.secondary-tag-filter:checked').forEach(el => {
+                this.activityFilters.secondaryTagIds.add(parseInt(el.value));
+            });
+            
+            this.renderFilteredDrillList();
         },
         
         handleActivityFormSubmit(e) {
@@ -637,27 +775,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const { court } = this.getActiveContext();
             if (!court) return;
 
-            const type = document.getElementById('activity-type').value;
+            const select = document.getElementById('drill-select');
             const duration = parseInt(document.getElementById('activity-duration').value, 10);
-            let name, drillId = null;
-
-            if (type === 'drill') {
-                const select = document.getElementById('drill-select');
-                name = select.options[select.selectedIndex].text;
-                drillId = parseInt(select.value, 10);
-            } else {
-                name = document.getElementById('custom-activity-name').value;
+            
+            if (!select.value) {
+                alert("No drill selected. Please select a drill from the list.");
+                return;
             }
 
+            const drillId = parseInt(select.value, 10);
+            const name = select.options[select.selectedIndex].text;
+
             if (!name || !(duration > 0)) {
-                alert("Please provide a valid name and duration.");
+                alert("Please provide a valid duration.");
                 return;
             }
 
             if (!court.activities) court.activities = [];
             court.activities.push({ name: name, drill_id: drillId, duration: duration });
 
-            this.renderActivityModalContent();
+            this.renderActivityList();
             this.render();
         },
 
@@ -706,8 +843,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const court = phase ? (phase.courts || []).find(c => c.id === courtId) : null;
                 if (court) {
                     if (!court.assignedGroupIds) court.assignedGroupIds = [];
-                    if (!court.assignedGroupIds.includes(this.draggedElement.id)) {
-                        court.assignedGroupIds.push(this.draggedElement.id);
+                    if (phase.type !== 'Rotation') {
+                         if (!court.assignedGroupIds.includes(this.draggedElement.id)) {
+                            court.assignedGroupIds.push(this.draggedElement.id);
+                        }
+                    } else {
+                        court.assignedGroupIds = [this.draggedElement.id];
                     }
                     this.calculateAndApplyRotations(phaseId);
                     this.render();

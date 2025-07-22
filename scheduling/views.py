@@ -25,7 +25,7 @@ from .utils import get_month_start_end # We will create this helper function nex
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
-from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill
+from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup
 from . import notifications
@@ -63,28 +63,20 @@ def homepage(request):
     # Render the homepage template from its new location
     return render(request, 'scheduling/homepage.html', context)
 
+
 def _get_default_plan(session):
-    """
-    Generates a default, phase-based session plan based on the session's duration.
-    """
+    # This function remains the same as the last version
     duration = session.planned_duration_minutes
-    
     plan = {
         "playerGroups": [
             {"id": "groupA", "name": "Group A", "player_ids": []},
             {"id": "groupB", "name": "Group B", "player_ids": []},
             {"id": "groupC", "name": "Group C", "player_ids": []},
-        ],
-        "timeline": []
+        ], "timeline": []
     }
-
-    # *** NEW: Get a list of all default group IDs to pre-assign them ***
     all_group_ids = [g['id'] for g in plan['playerGroups']]
     ts = int(time.time())
-    
-    # *** UPDATED: The default court for warmup now has a new name and is pre-populated ***
     warmup_court = [{"id": f"court_warmup_{ts}", "name": "Court 1", "assignedGroupIds": all_group_ids, "activities": []}]
-
     if duration >= 90:
         phases = [
             {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": warmup_court},
@@ -100,7 +92,6 @@ def _get_default_plan(session):
         ]
     else:
         phases = []
-        
     plan["timeline"] = phases
     return plan
 
@@ -108,7 +99,7 @@ def _get_default_plan(session):
 @user_passes_test(is_staff)
 def session_detail(request, session_id):
     session = get_object_or_404(
-        Session.objects.select_related('school_group', 'venue'), 
+        Session.objects.select_related('school_group', 'venue'),
         pk=session_id
     )
 
@@ -116,7 +107,7 @@ def session_detail(request, session_id):
     if session.school_group:
         all_players_in_group = session.school_group.players.filter(is_active=True).order_by('last_name', 'first_name')
         attendance_map = {
-            att.player_id: att.status 
+            att.player_id: att.status
             for att in AttendanceTracking.objects.filter(session=session)
         }
         for player in all_players_in_group:
@@ -125,16 +116,26 @@ def session_detail(request, session_id):
                 'name': player.full_name,
                 'status': attendance_map.get(player.id, 'PENDING')
             })
-    
-    drills = list(Drill.objects.all().values('id', 'name', 'youtube_link'))
-    
-    # --- REVISED: Generate phase-based default plan ---
+
+    # *** NEW: Fetch drills and their tags in a structured way ***
+    drills_queryset = Drill.objects.prefetch_related('tags').all()
+    drills_data = []
+    for drill in drills_queryset:
+        drills_data.append({
+            'id': drill.id,
+            'name': drill.name,
+            'youtube_link': drill.youtube_link,
+            'tag_ids': list(drill.tags.values_list('id', flat=True))
+        })
+
+    # *** NEW: Fetch all available tags for the filter controls ***
+    all_tags_data = list(DrillTag.objects.all().values('id', 'name'))
+
     plan_data = session.plan if isinstance(session.plan, dict) and 'timeline' in session.plan else None
 
     if not plan_data:
-        # If no plan exists, generate a smart default based on the new phase structure.
         plan_data = _get_default_plan(session)
-    
+
     if session.school_group:
         display_name = f"{session.school_group.name} Session"
     else:
@@ -143,7 +144,8 @@ def session_detail(request, session_id):
     context = {
         'session': session,
         'players_with_status': players,
-        'drills': drills,
+        'drills': drills_data,
+        'all_tags': all_tags_data,  # Pass all tags to the template
         'plan': plan_data,
         'page_title': f"Plan for {display_name}"
     }
