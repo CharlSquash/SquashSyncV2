@@ -93,6 +93,13 @@ class ScheduledClass(models.Model):
 
 # --- MODEL: Session ---
 class Session(models.Model):
+    # *** ADDED: Status choices are now defined inside the class ***
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('active', 'Active'),
+        ('finished', 'Finished'),
+    ]
+
     session_date = models.DateField(default=timezone.now)
     session_start_time = models.TimeField(default=timezone.now)
     planned_duration_minutes = models.PositiveIntegerField(default=60, validators=[MinValueValidator(1)])
@@ -111,6 +118,13 @@ class Session(models.Model):
         blank=True, 
         help_text="Stores the detailed lesson plan including timeline, groups, and activities."
     )
+    
+    # *** ADDED: Fields for the live session view to use ***
+    start_time = models.DateTimeField(null=True, blank=True, help_text="The actual start time when a coach begins the session.")
+    end_time = models.DateTimeField(null=True, blank=True, help_text="The actual end time when a session is finished.")
+    
+    # *** ADDED: The status field now works correctly ***
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
 
     @property
     def start_datetime(self):

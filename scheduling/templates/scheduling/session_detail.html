@@ -3,7 +3,7 @@
 
 {% block title %}{{ page_title }}{% endblock %}
 
-{% block head_extra %}
+{% block extra_head %}
 <style>
     /* Base Planner Styles */
     .planner-section { border: 1px solid var(--bs-border-color); border-radius: 0.5rem; margin-bottom: 1.5rem; }
@@ -167,6 +167,7 @@
 {{ all_tags|json_script:"all-tags-data" }} {{ players_with_status|json_script:"players-data" }}
 {% endblock %}
 
-{% block scripts_extra %}
-    <script src="{% static 'js/session_planner.js' %}"></script>
+{# *** THIS IS THE FIX: Changed 'scripts_extra' to 'extra_js' *** #}
+{% block extra_js %}
+    <script src="{% static 'js/session_planner.js' %}?v=1.1"></script>
 {% endblock %}

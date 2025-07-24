@@ -1,59 +1,104 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ page_title|default:"Live Session View" }}{% endblock %}
+{% block title %}Live Session - {{ session.title }}{% endblock %}
 
-{% block content %}
-<div class="container-fluid" id="live-session-container">
-    <div class="page-header">
-        <h1>{{ page_title }}</h1>
-    </div>
-
-    <div id="liveStatusContainer" class="live-status">
-        <p>Loading session state...</p>
-    </div>
-
-    <div id="courtsContainer" class="courts-container">
-        </div>
-</div>
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/live_session.css' %}">
 {% endblock %}
 
-{% block scripts_extra %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const apiUrl = "{% url 'live_session:live_session_update_api' session.id %}";
-        const liveStatusEl = document.getElementById('liveStatusContainer');
-        const courtsContainerEl = document.getElementById('courtsContainer');
+{% block content %}
+<div id="live-view-container" class="loading" data-session-id="{{ session.id }}">
+    
+    <div id="loading-indicator">
+        <div class="spinner"></div>
+        <p>Preparing Live Session...</p>
+    </div>
 
-        function fetchLiveState() {
-            fetch(apiUrl)
-                .then(response => response.json())
-                .then(data => {
-                    updatePage(data);
-                })
-                .catch(error => {
-                    console.error('Error fetching live state:', error);
-                    liveStatusEl.innerHTML = '<p class="text-danger">Error loading session state. Please try refreshing.</p>';
-                });
-        }
+    <header id="live-header">
+        <div class="header-left">
+            <span class="header-label">Session Time Left</span>
+            <h2 id="master-session-timer">--:--:--</h2>
+        </div>
+        <div class="header-center">
+            <h1 id="session-title-header">{{ session.title }}</h1>
+        </div>
+        <div class="header-right">
+            <div id="view-toggle" class="view-toggle">
+                <button class="toggle-btn active" data-view="all-courts-view">All Courts</button>
+                <button class="toggle-btn" data-view="single-court-view">Single Court</button>
+            </div>
+        </div>
+    </header>
 
-        function updatePage(data) {
-            let statusHtml = `<h3>Status: <span class="badge bg-secondary">${data.status.toUpperCase()}</span></h3>`;
+    <main id="live-main-content">
+        <div id="all-courts-view" class="view active">
+            </div>
 
-            if (data.current_block) {
-                statusHtml += `<p>Current Block: <strong>${data.current_block.focus}</strong></p>`;
-            } else if (data.status === 'pending') {
-                statusHtml += `<p>Session has not started yet.</p>`;
-            } else if (data.status === 'finished') {
-                statusHtml += `<p>Session has finished.</p>`;
-            }
+        <div id="single-court-view" class="view">
+            <div id="single-court-selector" class="court-selector">
+                </div>
+            <div id="single-court-content">
+                </div>
+        </div>
+    </main>
 
-            liveStatusEl.innerHTML = statusHtml;
-        }
+    <footer id="live-footer">
+        <div class="footer-content">
+            <span class="footer-label">Current Phase</span>
+            <h3 id="current-phase-name">--</h3>
+        </div>
+        <div id="phase-timer-container">
+             </div>
+    </footer>
 
-        // Initial call and set interval to poll for updates
-        fetchLiveState();
-        setInterval(fetchLiveState, 5000); // Poll every 5 seconds
-    });
-</script>
+</div>
+
+<template id="court-card-template">
+    <div class="court-card">
+        <div class="card-header">
+            <h3 class="court-name"></h3>
+            <span class="player-group"></span>
+        </div>
+        <div class="card-body">
+            <p class="drill-name"></p>
+        </div>
+        <div class="card-footer">
+            <div class="timer-wrapper" data-timer-type="activity">
+                <span class="timer-label">Drill Time</span>
+                </div>
+        </div>
+    </div>
+</template>
+
+<template id="single-court-display-template">
+    <div class="single-court-focused">
+        <div class="main-timer-area" data-timer-type="activity">
+            </div>
+        <div class="main-drill-info">
+            <h2 class="drill-name"></h2>
+            <p class="player-group"></p>
+        </div>
+        <div class="up-next-panel">
+            <h4>UP NEXT</h4>
+            <p class="up-next-name">--</p>
+        </div>
+    </div>
+</template>
+
+<template id="circle-timer-template">
+    <div class="circle-timer">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+            <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
+            <circle class="timer-progress" cx="50" cy="50" r="45"></circle>
+        </svg>
+        <div class="timer-text">00:00</div>
+    </div>
+</template>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/live_session.js' %}?v=1.1"></script>
 {% endblock %}
