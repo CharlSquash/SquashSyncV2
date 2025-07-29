@@ -39,7 +39,8 @@
 </div>
 {% endblock %}
 
-{% block scripts_extra %}
+{# *** THIS IS THE FIX: Changed 'scripts_extra' to 'extra_js' *** #}
+{% block extra_js %}
 <script src="{% static 'vendor/fullcalendar/index.global.min.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {

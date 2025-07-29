@@ -1,56 +1,47 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Live Session - {{ session.title }}{% endblock %}
-
-{% block extra_head %}
-<link rel="stylesheet" href="{% static 'css/live_session.css' %}">
-{% endblock %}
+{% block title %}Live Session{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/live_session.css' %}">{% endblock %}
 
 {% block content %}
 <div id="live-view-container" class="loading" data-session-id="{{ session.id }}">
     
-    <div id="loading-indicator">
-        <div class="spinner"></div>
-        <p>Preparing Live Session...</p>
-    </div>
+    <div id="loading-indicator"><div class="spinner"></div><p>Preparing Live Session...</p></div>
 
     <header id="live-header">
         <div class="header-left">
-            <span class="header-label">Session Time Left</span>
-            <h2 id="master-session-timer">--:--:--</h2>
+            <div class="timer-block">
+                <span class="header-label">Session Time Left</span>
+                <h2 id="master-session-timer">--:--</h2>
+            </div>
         </div>
         <div class="header-center">
-            <h1 id="session-title-header">{{ session.title }}</h1>
+            <h1 id="session-title-header">Loading Session...</h1>
+            <div class="phase-info">
+                <span id="current-phase-name">--</span>
+                <div id="phase-timer-container"></div>
+            </div>
         </div>
         <div class="header-right">
             <div id="view-toggle" class="view-toggle">
                 <button class="toggle-btn active" data-view="all-courts-view">All Courts</button>
                 <button class="toggle-btn" data-view="single-court-view">Single Court</button>
             </div>
+             <button id="fullscreen-toggle" class="btn btn-link nav-link" title="Toggle Fullscreen">
+                <i class="bi bi-fullscreen"></i>
+                <i class="bi bi-fullscreen-exit d-none"></i>
+            </button>
         </div>
     </header>
 
     <main id="live-main-content">
-        <div id="all-courts-view" class="view active">
-            </div>
-
+        <div id="all-courts-view" class="view active"></div>
         <div id="single-court-view" class="view">
-            <div id="single-court-selector" class="court-selector">
-                </div>
-            <div id="single-court-content">
-                </div>
+            <div id="single-court-selector" class="court-selector"></div>
+            <div id="single-court-content"></div>
         </div>
     </main>
-
-    <footer id="live-footer">
-        <div class="footer-content">
-            <span class="footer-label">Current Phase</span>
-            <h3 id="current-phase-name">--</h3>
-        </div>
-        <div id="phase-timer-container">
-             </div>
-    </footer>
 
 </div>
 
@@ -62,22 +53,24 @@
         </div>
         <div class="card-body">
             <p class="drill-name"></p>
+            <ul class="player-name-list"></ul>
         </div>
         <div class="card-footer">
             <div class="timer-wrapper" data-timer-type="activity">
                 <span class="timer-label">Drill Time</span>
-                </div>
+            </div>
         </div>
     </div>
 </template>
-
 <template id="single-court-display-template">
     <div class="single-court-focused">
-        <div class="main-timer-area" data-timer-type="activity">
-            </div>
+        <div class="main-timer-area" data-timer-type="activity"></div>
         <div class="main-drill-info">
             <h2 class="drill-name"></h2>
-            <p class="player-group"></p>
+            <div class="player-info">
+                <p class="player-group"></p>
+                <ul class="player-name-list"></ul>
+            </div>
         </div>
         <div class="up-next-panel">
             <h4>UP NEXT</h4>
@@ -85,7 +78,6 @@
         </div>
     </div>
 </template>
-
 <template id="circle-timer-template">
     <div class="circle-timer">
         <svg class="timer-svg" viewBox="0 0 100 100">
@@ -95,10 +87,6 @@
         <div class="timer-text">00:00</div>
     </div>
 </template>
-
-
 {% endblock %}
 
-{% block extra_js %}
-<script src="{% static 'js/live_session.js' %}?v=1.1"></script>
-{% endblock %}
+{% block extra_js %}<script src="{% static 'js/live_session.js' %}?v=1.5"></script>{% endblock %}

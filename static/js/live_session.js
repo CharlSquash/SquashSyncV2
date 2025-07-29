@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Application State ---
-    console.log('[DEBUG] 1. Script Loaded: DOMContentLoaded event fired.');
     const appState = {
         sessionId: null,
         currentView: 'all-courts-view',
@@ -14,113 +13,154 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         container: document.getElementById('live-view-container'),
         loadingIndicator: document.getElementById('loading-indicator'),
-        allCourtsView: document.getElementById('all-courts-view'),
-        courtCardTemplate: document.getElementById('court-card-template'),
-        circleTimerTemplate: document.getElementById('circle-timer-template'),
         masterTimer: document.getElementById('master-session-timer'),
-        sessionTitle: document.getElementById('session-title-header'),
+        sessionTitle: document.getElementById('session-title-header'), // This will now find the element
         phaseName: document.getElementById('current-phase-name'),
         phaseTimerContainer: document.getElementById('phase-timer-container'),
+        viewToggle: document.getElementById('view-toggle'),
+        fullscreenToggle: document.getElementById('fullscreen-toggle'),
+        allCourtsView: document.getElementById('all-courts-view'),
+        singleCourtView: document.getElementById('single-court-view'),
+        singleCourtSelector: document.getElementById('single-court-selector'),
+        singleCourtContent: document.getElementById('single-court-content'),
+        courtCardTemplate: document.getElementById('court-card-template'),
+        singleCourtDisplayTemplate: document.getElementById('single-court-display-template'),
+        circleTimerTemplate: document.getElementById('circle-timer-template')
     };
-    console.log('[DEBUG] 2. DOM Elements selected.');
 
-    // --- Main Functions ---
+    const cleanup = () => {
+        if (appState.apiPollInterval) { clearInterval(appState.apiPollInterval); appState.apiPollInterval = null; }
+        for (const timerId in appState.timers) { clearInterval(appState.timers[timerId]); }
+        appState.timers = {};
+    };
+
     const init = () => {
+        cleanup();
         appState.sessionId = elements.container.dataset.sessionId;
-        if (!appState.sessionId) {
-            console.error('[DEBUG] FATAL: Session ID missing from data-session-id attribute.');
-            return;
-        }
-        console.log(`[DEBUG] 3. Initialization complete. Session ID: ${appState.sessionId}.`);
+        if (!appState.sessionId) return;
+        setupEventListeners();
         fetchSessionState();
         appState.apiPollInterval = setInterval(fetchSessionState, 5000);
     };
 
     const fetchSessionState = async () => {
         try {
-            const url = `/live-session/api/update/${appState.sessionId}/`;
-            console.log(`[DEBUG] 4. Fetching data from: ${url}`);
-            const response = await fetch(`${url}?_=${new Date().getTime()}`); // Cache-busting
+            const response = await fetch(`/live-session/api/update/${appState.sessionId}/?_=${new Date().getTime()}`);
+            if (!response.ok) throw new Error(`API request failed: ${response.status}`);
             const data = await response.json();
-            
-            console.log('[DEBUG] 5. Data Received from API:', JSON.parse(JSON.stringify(data)));
-
-            if (!response.ok || data.status === 'error') {
-                throw new Error(data.message || `API request failed: ${response.status}`);
-            }
-            
+            if (data.status === 'error') throw new Error(data.message);
             appState.lastKnownData = data;
             updateUI(data);
-
         } catch (error) {
-            console.error('[DEBUG] FINAL ERROR: The process failed inside fetchSessionState.', error);
-            elements.container.innerHTML = `<div style="color:red; padding: 2rem;"><h3>Error Fetching Data</h3><p>${error.message}</p></div>`;
-            clearInterval(appState.apiPollInterval);
+            cleanup();
+            elements.container.innerHTML = `<div class="session-error-message"><h1>Error</h1><p>${error.message}</p></div>`;
         }
     };
 
     const updateUI = (data) => {
-        console.log('[DEBUG] 6. updateUI function called.');
-        if (elements.container.classList.contains('loading')) {
-            elements.container.classList.remove('loading');
-            console.log('[DEBUG] >> Loading indicator removed.');
-        }
+        if (elements.container.classList.contains('loading')) elements.container.classList.remove('loading');
+        if (data.sessionStatus === 'finished' || !data.currentPhase) { displaySessionFinished(); return; }
 
-        if (data.sessionStatus === 'finished' || !data.currentPhase) {
-            console.log('[DEBUG] >> Session is finished. Stopping UI updates.');
-            displaySessionFinished();
-            return;
-        }
-
-        console.log('[DEBUG] >> Updating timers and text content...');
         elements.masterTimer.textContent = formatTime(data.totalTimeLeft);
         elements.sessionTitle.textContent = data.sessionTitle;
         elements.phaseName.textContent = data.currentPhase.name;
         updateCircleTimer(elements.phaseTimerContainer, data.currentPhase.timeLeft, data.currentPhase.duration, "phase-timer");
-        
-        console.log('[DEBUG] >> Calling updateAllCourtsView...');
-        updateAllCourtsView(data.courts);
-        console.log('[DEBUG] 7. updateUI function finished.');
+
+        if (appState.currentView === 'all-courts-view') {
+            updateAllCourtsView(data.courts);
+        } else {
+            if (!appState.selectedCourt && data.courts.length > 0) appState.selectedCourt = data.courts[0].courtName;
+            updateSingleCourtSelector(data.courts);
+            updateSingleCourtView(data.courts);
+        }
     };
 
     const updateAllCourtsView = (courts) => {
-        elements.allCourtsView.innerHTML = ''; // Clear previous content
-
-        if (!courts || courts.length === 0) {
-            console.error('[DEBUG] >> CRITICAL: The "courts" array in the received data is empty or missing. Nothing to display.');
-            elements.allCourtsView.innerHTML = `<div style="color:orange; padding: 2rem;"><h3>No Courts Found</h3><p>The API returned no court data for the current phase.</p></div>`;
-            return;
-        }
-
-        console.log(`[DEBUG] >> Found ${courts.length} courts. Creating cards...`);
-        courts.forEach((court, index) => {
-            console.log(`[DEBUG] >> Processing Court ${index + 1}:`, court);
+        elements.allCourtsView.innerHTML = '';
+        if (!courts || courts.length === 0) { elements.allCourtsView.innerHTML = '<p class="no-data-message">No activities for this phase.</p>'; return; }
+        courts.forEach(court => {
             const card = elements.courtCardTemplate.content.cloneNode(true).querySelector('.court-card');
-            
             card.querySelector('.court-name').textContent = court.courtName;
             card.querySelector('.player-group').textContent = court.playerGroup;
             card.querySelector('.drill-name').textContent = court.currentActivity.name;
-
-            const activityTimerWrapper = card.querySelector('.timer-wrapper[data-timer-type="activity"]');
-            updateCircleTimer(activityTimerWrapper, court.currentActivity.timeLeft, court.currentActivity.duration, `activity-${court.courtName}`);
-            
+            const playerList = card.querySelector('.player-name-list');
+            playerList.innerHTML = court.players.map(name => `<li>${name}</li>`).join('');
+            const timerWrapper = card.querySelector('.timer-wrapper');
+            updateCircleTimer(timerWrapper, court.currentActivity.timeLeft, court.currentActivity.duration, `activity-${court.courtName}`);
             elements.allCourtsView.appendChild(card);
         });
-        console.log(`[DEBUG] >> Finished creating all court cards.`);
+    };
+
+    const updateSingleCourtSelector = (courts) => {
+        elements.singleCourtSelector.innerHTML = '';
+        courts.forEach(court => {
+            const button = document.createElement('button');
+            button.textContent = court.courtName;
+            if (court.courtName === appState.selectedCourt) button.classList.add('active');
+            button.onclick = () => { appState.selectedCourt = court.courtName; if (appState.lastKnownData) updateUI(appState.lastKnownData); };
+            elements.singleCourtSelector.appendChild(button);
+        });
+    };
+
+    const updateSingleCourtView = (courts) => {
+        const courtData = courts.find(c => c.courtName === appState.selectedCourt);
+        if (!courtData) { elements.singleCourtContent.innerHTML = '<p>Select a court.</p>'; return; }
+        const display = elements.singleCourtDisplayTemplate.content.cloneNode(true).querySelector('.single-court-focused');
+        display.querySelector('.drill-name').textContent = courtData.currentActivity.name;
+        display.querySelector('.player-group').textContent = courtData.playerGroup;
+        const playerList = display.querySelector('.player-name-list');
+        playerList.innerHTML = courtData.players.map(name => `<li>${name}</li>`).join('');
+        display.querySelector('.up-next-name').textContent = courtData.nextActivity ? courtData.nextActivity.name : 'Session End';
+        const mainTimerArea = display.querySelector('.main-timer-area');
+        updateCircleTimer(mainTimerArea, courtData.currentActivity.timeLeft, courtData.currentActivity.duration, `single-activity-${courtData.courtName}`);
+        elements.singleCourtContent.innerHTML = '';
+        elements.singleCourtContent.appendChild(display);
+    };
+
+    const setupEventListeners = () => {
+        elements.viewToggle.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (button) {
+                const newView = button.dataset.view;
+                if (newView === appState.currentView) return;
+                elements.viewToggle.querySelector('.active').classList.remove('active');
+                button.classList.add('active');
+                document.querySelector('.view.active').classList.remove('active');
+                document.getElementById(newView).classList.add('active');
+                appState.currentView = newView;
+                if (appState.lastKnownData) { updateUI(appState.lastKnownData); }
+            }
+        });
+
+        elements.fullscreenToggle.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                elements.container.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            const isFullscreen = !!document.fullscreenElement;
+            const enterIcon = elements.fullscreenToggle.querySelector('.bi-fullscreen');
+            const exitIcon = elements.fullscreenToggle.querySelector('.bi-fullscreen-exit');
+            enterIcon.classList.toggle('d-none', isFullscreen);
+            exitIcon.classList.toggle('d-none', !isFullscreen);
+        });
     };
     
     const updateCircleTimer = (container, timeLeft, totalDuration, timerId) => {
-        if (!container) {
-            console.warn(`[DEBUG] Timer container not found for timerId: ${timerId}`);
-            return;
-        }
-        //... (rest of function is the same)
+        if (!container) return;
         let timer = container.querySelector('.circle-timer');
         if (!timer) {
-            timer = elements.circleTimerTemplate.content.cloneNode(true).querySelector('.circle-timer');
+            timer = elements.circleTimerTemplate.content.cloneNode(true);
             container.innerHTML = '';
             container.appendChild(timer);
+            timer = container.querySelector('.circle-timer');
         }
+        if (!timer) { console.error("Could not create or find .circle-timer element"); return; }
         const timerText = timer.querySelector('.timer-text');
         const progressCircle = timer.querySelector('.timer-progress');
         const radius = progressCircle.r.baseVal.value;
@@ -137,10 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         render();
         appState.timers[timerId] = setInterval(() => {
             remaining--;
-            if (remaining < 0) {
-                remaining = 0;
-                clearInterval(appState.timers[timerId]);
-            }
+            if (remaining < 0) { remaining = 0; clearInterval(appState.timers[timerId]); }
             render();
         }, 1000);
     };
@@ -153,10 +190,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const displaySessionFinished = () => {
-        clearInterval(appState.apiPollInterval);
+        cleanup();
         elements.container.innerHTML = `<div class="session-finished-message"><h1>Session Finished</h1></div>`;
     };
     
-    // --- Start the Application ---
+    window.addEventListener('beforeunload', cleanup);
     init();
 });
