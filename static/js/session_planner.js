@@ -92,13 +92,14 @@ document.addEventListener('DOMContentLoaded', () => {
             container.innerHTML = '';
             this.players.forEach(player => {
                 const badgeClass = player.status === 'ATTENDING' ? 'text-bg-success' : player.status === 'DECLINED' ? 'text-bg-danger' : 'text-bg-secondary';
+                // This is the new, cleaner HTML structure
                 container.innerHTML += `
-                    <div class="player-attendance-item d-flex justify-content-between align-items-center mb-2">
-                        <span>${player.name}</span>
-                        <button class="btn btn-sm badge rounded-pill ${badgeClass}" data-player-id="${player.id}" title="Click to cycle status">${player.status}</button>
+                    <div class="player-attendance-item" data-player-id="${player.id}" title="Click to cycle status">
+                        <span class="player-name">${player.name}</span>
+                        <span class="badge rounded-pill ${badgeClass}">${player.status}</span>
                     </div>`;
             });
-        },
+},
 
         renderGroupingSection() {
             if (!this.elements.unassignedPlayers || !this.elements.sessionGroupsContainer) return;
@@ -704,12 +705,19 @@ document.addEventListener('DOMContentLoaded', () => {
         handleAppClick(e) {
             const target = e.target;
 
+            // --- CORRECTED LOGIC ---
+            // First, check if an attendance item was clicked.
+            const attendanceItem = target.closest('.player-attendance-item');
+            if (attendanceItem) {
+                this.cyclePlayerStatus(parseInt(attendanceItem.dataset.playerId));
+                return; // Stop here if it was an attendance click.
+            }
+            // -----------------------
+
             const button = target.closest('button');
             if (button) {
                 if (button.matches('.delete-phase-btn')) {
                     if (confirm('Delete this phase?')) this.deletePhase(button.dataset.phaseId);
-                } else if (button.matches('.player-attendance-item button')) {
-                    this.cyclePlayerStatus(parseInt(button.dataset.playerId));
                 } else if (button.matches('.add-group-btn')) {
                     this.addNewGroup();
                 } else if (button.matches('.remove-group-btn')) {
@@ -719,11 +727,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (button.matches('.remove-court-btn')) {
                     this.removeCourtFromPhase(button.dataset.phaseId, button.dataset.courtId);
                 } else if (button.matches('.remove-activity-btn')) {
-                     this.removeActivity(parseInt(button.dataset.index, 10));
+                    this.removeActivity(parseInt(button.dataset.index, 10));
                 } else if (button.id === 'save-plan-btn') {
                     this.savePlan();
                 }
-                return; 
+                return;
             }
 
             const assignedChip = target.closest('.group-chip.is-assigned');
@@ -731,12 +739,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
                 return;
             }
-            
+
             const header = target.closest('.planner-header');
             if(header && !header.parentElement.matches('.phase-block')) {
-                 header.parentElement.classList.toggle('is-open');
+                header.parentElement.classList.toggle('is-open');
             }
-        },
+},
 
         handleAppChange(e) {
             const target = e.target;
