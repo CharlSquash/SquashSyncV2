@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStartTime: null,
         activeContext: { phaseId: null, courtId: null },
         activityFilters: {
-            primaryTagId: null,
             secondaryTagIds: new Set(),
         },
 
@@ -55,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.sessionStartTime = this.elements.appContainer.dataset.sessionStartTime;
 
             this.addEventListeners();
-            this.updateCourtsBasedOnGroups(true);
+            this.updateCourtsBasedOnGroups();
             this.render();
             console.log("Planner setup complete.");
         },
@@ -81,6 +80,22 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             this.elements.activityModalEl.addEventListener('submit', this.handleActivityFormSubmit.bind(this));
+
+            // --- THIS IS THE FIX ---
+            // Add a dedicated click listener for the activity modal
+            this.elements.activityModalEl.addEventListener('click', (e) => {
+                const drillItem = e.target.closest('.drill-button-item');
+                if (drillItem) {
+                    if (e.target.classList.contains('preview-drill-icon')) {
+                        this.showYoutubePreview(drillItem.dataset.drillId);
+                    } else {
+                        this.selectDrill(drillItem.dataset.drillName, drillItem.dataset.drillId);
+                        // Highlight the selected drill
+                        this.elements.activityModalEl.querySelectorAll('.drill-button-item.selected').forEach(el => el.classList.remove('selected'));
+                        drillItem.classList.add('selected');
+                    }
+                }
+            });
         },
 
         // --- RENDERING FUNCTIONS ---
@@ -230,15 +245,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             </ul>
                         </div>`;
                 } else {
-                    // --- THIS IS THE NEW PART ---
-                    // If there are no activities, show a helpful prompt.
                     activitiesHTML = `
                         <div class="court-activities-placeholder">
                             <i class="bi bi-plus-circle-dotted"></i>
                             <span>Add Activities</span>
                         </div>
                     `;
-                    // --- END OF NEW PART ---
                 }
 
                 courtsHTML += `
@@ -329,54 +341,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 <form id="add-activity-form" novalidate>
                     <h6 class="mt-4">Add New Activity</h6>
                     ${this.buildFilterControlsHTML()} 
+                    <div class="drill-selection-container mt-3">
+                        <label class="form-label">Select Drill</label>
+                        <div id="drill-list-container"></div>
+                    </div>
                     <div class="row g-2 mt-3 align-items-end">
-                        <div class="col">
-                            <label for="drill-select" class="form-label">Select Drill</label>
-                            <select id="drill-select" class="form-select"></select>
+                        <div class="col-md-5">
+                            <label for="activity-name" class="form-label">Selected Drill</label>
+                            <input type="text" id="activity-name" class="form-control" placeholder="Select a drill from the list" readonly>
+                            <input type="hidden" id="selected-drill-id">
                         </div>
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-secondary preview-drill-btn" title="Preview Selected Drill">
-                                <i class="bi bi-play-btn-fill"></i> Preview
-                            </button>
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label for="activity-duration" class="form-label">Duration (min)</label>
                             <input type="number" id="activity-duration" class="form-control" value="10" min="1">
                         </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100 mt-auto">Add to Plan</button>
+                        </div>
                     </div>
                     <div id="youtube-preview-container" class="mt-3"></div>
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary w-100">Add to Plan</button>
-                    </div>
                 </form>
             `;
             this.renderFilteredDrillList();
-            formContainer.querySelector('#primary-tag-filter').addEventListener('change', this.handleFilterChange.bind(this));
             formContainer.querySelectorAll('.secondary-tag-filter').forEach(el => {
                 el.addEventListener('change', this.handleFilterChange.bind(this));
             });
-            formContainer.querySelector('#drill-select').addEventListener('change', () => {
-                document.getElementById('youtube-preview-container').innerHTML = '';
-            });
-            formContainer.querySelector('.preview-drill-btn').addEventListener('click', () => this.showYoutubePreview());
         },
 
         buildFilterControlsHTML() {
             if (!this.allTags || this.allTags.length === 0) return '';
-
-            const { phase } = this.getActiveContext();
-            const phaseTypeToTagName = {
-                'Fun Games': 'Fun Games',
-                'Rotation': 'Rotation Drill',
-                'Fitness': 'Fitness'
-            };
-            const defaultTagName = phase ? phaseTypeToTagName[phase.type] || '' : '';
-            const defaultTag = this.allTags.find(t => t.name === defaultTagName);
-            this.activityFilters.primaryTagId = defaultTag ? defaultTag.id : null;
-
-            const primaryOptions = this.allTags.map(tag =>
-                `<option value="${tag.id}" ${tag.id === this.activityFilters.primaryTagId ? 'selected' : ''}>${tag.name}</option>`
-            ).join('');
 
             const secondaryCheckboxes = this.allTags.map(tag => `
                 <div class="form-check form-check-inline">
@@ -386,17 +379,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `).join('');
 
             return `
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label for="primary-tag-filter" class="form-label">Drill Category</label>
-                        <select id="primary-tag-filter" class="form-select">
-                            <option value="">All Drills</option>
-                            ${primaryOptions}
-                        </select>
-                    </div>
-                </div>
-                <div class="mt-2">
-                    <label class="form-label">Additional Filters</label>
+                <div>
+                    <label class="form-label">Filter by Tags</label>
                     <div class="border p-2 rounded" style="max-height: 100px; overflow-y: auto;">
                         ${secondaryCheckboxes}
                     </div>
@@ -405,47 +389,75 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         renderFilteredDrillList() {
-            const selectEl = document.getElementById('drill-select');
-            if (!selectEl) return;
+            const container = document.getElementById('drill-list-container');
+            if (!container) return;
 
-            const { primaryTagId, secondaryTagIds } = this.activityFilters;
-
+            const { secondaryTagIds } = this.activityFilters;
             const filteredDrills = this.drills.filter(drill => {
-                const hasPrimaryTag = primaryTagId ? (drill.tag_ids || []).includes(primaryTagId) : true;
-                const hasAllSecondaryTags = [...secondaryTagIds].every(tagId => (drill.tag_ids || []).includes(tagId));
-                return hasPrimaryTag && hasAllSecondaryTags;
+                if (secondaryTagIds.size === 0) return true;
+                return [...secondaryTagIds].every(tagId => (drill.tag_ids || []).includes(tagId));
             });
 
-            selectEl.innerHTML = filteredDrills.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            if (filteredDrills.length > 0 && filteredDrills.length < 10) {
+                container.innerHTML = `
+                    <div class="drill-button-list">
+                        ${filteredDrills.map(d => `
+                            <div class="drill-button-item" data-drill-id="${d.id}" data-drill-name="${d.name}">
+                                <span class="drill-name">${d.name}</span>
+                                ${d.youtube_link ? '<i class="bi bi-play-circle-fill preview-drill-icon" title="Preview drill"></i>' : ''}
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else {
+                container.innerHTML = `
+                    <select id="drill-select" class="form-select">
+                        <option value="">${filteredDrills.length > 0 ? 'Select a drill...' : 'No drills match filters'}</option>
+                        ${filteredDrills.map(d => `<option value="${d.id}" data-drill-name="${d.name}">${d.name}</option>`).join('')}
+                    </select>`;
+                const selectEl = document.getElementById('drill-select');
+                if (selectEl) {
+                    selectEl.addEventListener('change', e => {
+                        const selectedOption = e.target.options[e.target.selectedIndex];
+                        this.selectDrill(selectedOption.dataset.drillName, selectedOption.value);
+                    });
+                }
+            }
+        },
+
+        selectDrill(name, id) {
+            document.getElementById('activity-name').value = name;
+            document.getElementById('selected-drill-id').value = id;
         },
 
         // --- LOGIC & ACTIONS ---
 
-        showYoutubePreview() {
-            const drillSelect = document.getElementById('drill-select');
+        showYoutubePreview(drillId) {
             const previewContainer = document.getElementById('youtube-preview-container');
-            if (!drillSelect || !previewContainer) return;
+            if (!previewContainer) return;
 
-            if (!drillSelect.value) {
+            if (!drillId) {
                 previewContainer.innerHTML = `<p class="text-muted small mt-2">Please select a drill to preview.</p>`;
                 return;
             }
 
-            const drillId = parseInt(drillSelect.value);
-            const drill = this.drills.find(d => d.id === drillId);
+            const drill = this.drills.find(d => d.id === parseInt(drillId));
 
             if (drill && drill.youtube_link) {
                 let videoId = null;
                 const link = drill.youtube_link.trim();
 
                 try {
-                    const parts = link.split('/');
-                    const potentialId = parts[parts.length - 1];
-                    if (potentialId) {
-                        videoId = potentialId;
+                    const url = new URL(link);
+                    if (url.hostname === 'youtu.be') {
+                        videoId = url.pathname.slice(1);
+                    } else if (url.hostname.includes('youtube.com') && url.searchParams.has('v')) {
+                        videoId = url.searchParams.get('v');
+                    } else { // Fallback for simple links
+                        const parts = link.split('/');
+                        videoId = parts[parts.length - 1].split('?v=')[1] || parts[parts.length - 1];
                     }
                 } catch (e) {
-                    console.error("An error occurred while splitting the URL.", e);
+                    console.error("Could not parse YouTube URL.", e);
                 }
 
                 if (videoId) {
@@ -458,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </iframe>
                         </div>`;
                 } else {
-                     previewContainer.innerHTML = `<p class="text-danger small mt-2"><b>Error:</b> Could not extract a Video ID from the link. The URL appears to be malformed.</p>`;
+                     previewContainer.innerHTML = `<p class="text-danger small mt-2"><b>Error:</b> Could not extract a Video ID from the link: ${link}</p>`;
                 }
             } else {
                 previewContainer.innerHTML = `<p class="text-muted small mt-2">No video preview available for this drill.</p>`;
@@ -473,16 +485,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 let targetCourtCount = 0;
                 let autoAssign = false;
 
-                // Define rules for each phase type
                 if (phase.type === 'Warmup' || phase.type === 'Fitness') {
-                    targetCourtCount = 1; // Always one court for Warmup and Fitness
+                    targetCourtCount = 1;
                     autoAssign = true;
                 } else if (phase.type === 'Rotation' || phase.type === 'Freeplay') {
-                    targetCourtCount = numGroups > 0 ? numGroups : 1; // One court per group
+                    targetCourtCount = numGroups > 0 ? numGroups : 1;
                     autoAssign = true;
                 }
 
-                // Synchronize the number of courts
                 let currentCourts = phase.courts || [];
                 while (currentCourts.length < targetCourtCount) {
                     currentCourts.push({
@@ -492,17 +502,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
                 if (currentCourts.length > targetCourtCount) {
-                    currentCourts.splice(targetCourtCount); // Remove extra courts
+                    currentCourts.splice(targetCourtCount);
                 }
                 phase.courts = currentCourts;
 
-                // Perform automatic group assignment
                 if (autoAssign) {
                     if ((phase.type === 'Warmup' || phase.type === 'Fitness') && phase.courts.length > 0) {
-                        // Assign all groups to the single court
                         phase.courts[0].assignedGroupIds = groups.map(g => g.id);
                     } else if (phase.type === 'Rotation' || phase.type === 'Freeplay') {
-                        // Assign groups one-to-one to courts
                         for (let i = 0; i < phase.courts.length; i++) {
                             if (groups[i]) {
                                 phase.courts[i].assignedGroupIds = [groups[i].id];
@@ -526,9 +533,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 .map(c => (c.assignedGroupIds && c.assignedGroupIds.length > 0) ? c.assignedGroupIds[0] : null)
                 .filter(Boolean); 
 
-            if (initialGroupOrder.length === 0 || courtsInRotation.length === 0 || initialGroupOrder.length !== courtsInRotation.length) {
+            if (initialGroupOrder.length <= 1) {
                 phase.sub_blocks = [];
-                phase.rotationDuration = 0;
+                phase.rotationDuration = phase.duration;
                 return;
             }
 
@@ -579,29 +586,12 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateCourtsBasedOnGroups();
             this.render();
         },
+
         deletePhase(phaseId) {
             this.plan.timeline = this.plan.timeline.filter(p => p.id !== phaseId);
             this.render();
         },
-        addCourtToPhase(phaseId) {
-            const phase = this.plan.timeline.find(p => p.id === phaseId);
-            if (!phase) return;
-            if (!phase.courts) phase.courts = [];
-            const newCourtNum = phase.courts.length + 1;
-            phase.courts.push({
-                id: `court_${Date.now()}`, name: `Court ${newCourtNum}`,
-                assignedGroupIds: [], activities: [], isDefault: false 
-            });
-            this.calculateAndApplyRotations(phaseId);
-            this.render();
-        },
-        removeCourtFromPhase(phaseId, courtId) {
-            const phase = this.plan.timeline.find(p => p.id === phaseId);
-            if (!phase || !phase.courts) return;
-            phase.courts = phase.courts.filter(c => c.id !== courtId);
-            this.calculateAndApplyRotations(phaseId);
-            this.render();
-        },
+
         addNewGroup() {
             if (!this.plan.playerGroups) this.plan.playerGroups = [];
             const newGroupLetter = String.fromCharCode(65 + (this.plan.playerGroups || []).length);
@@ -609,14 +599,9 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateCourtsBasedOnGroups();
             this.render();
         },
+
         removeGroup(groupId) {
             this.plan.playerGroups = this.plan.playerGroups.filter(g => g.id !== groupId);
-            (this.plan.timeline || []).forEach(phase => {
-                (phase.courts || []).forEach(court => {
-                    court.assignedGroupIds = (court.assignedGroupIds || []).filter(id => id !== groupId);
-                });
-                this.calculateAndApplyRotations(phase.id);
-            });
             this.updateCourtsBasedOnGroups();
             this.render();
         },
@@ -667,10 +652,55 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.activityModal.show();
         },
 
+        handleActivityFormSubmit(e) {
+            e.preventDefault();
+            if (e.target.id !== 'add-activity-form') return;
+
+            const { court, phase } = this.getActiveContext();
+            if (!court) return;
+
+            const drillId = parseInt(document.getElementById('selected-drill-id').value, 10);
+            const name = document.getElementById('activity-name').value;
+
+            if (!drillId || !name) {
+                alert("Please select a drill from the list.");
+                return;
+            }
+
+            if (!court.activities) court.activities = [];
+            court.activities.push({ name: name, drill_id: drillId, duration: 0 });
+
+            this.redistributeCourtTime(court, phase);
+
+            this.renderActivityModalContent();
+            this.render();
+        },
+
+        redistributeCourtTime(court, phase) {
+            const totalDurationForCourt = this.getDurationForCourt(court, phase);
+            if (!court.activities || court.activities.length === 0) return;
+
+            const numActivities = court.activities.length;
+            const evenDuration = Math.floor(totalDurationForCourt / numActivities);
+            let remainder = totalDurationForCourt % numActivities;
+
+            court.activities.forEach((activity, index) => {
+                activity.duration = evenDuration + (index < remainder ? 1 : 0);
+            });
+        },
+
+        getDurationForCourt(court, phase) {
+            if (phase.type === 'Rotation') {
+                return phase.rotationDuration || phase.duration;
+            }
+            return phase.duration;
+        },
+
         removeActivity(index) {
-            const { court } = this.getActiveContext();
+            const { court, phase } = this.getActiveContext();
             if (court && court.activities) {
                 court.activities.splice(index, 1);
+                this.redistributeCourtTime(court, phase);
                 this.renderActivityModalContent();
                 this.render(); 
             }
@@ -702,7 +732,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // NEW: Handle clicks on the court container to open the activity modal
             const courtContainer = target.closest('.court-clickable');
             if (courtContainer) {
                 this.openActivityModal(courtContainer.dataset.phaseId, courtContainer.dataset.courtId);
@@ -717,7 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.addNewGroup();
                 } else if (button.matches('.remove-group-btn')) {
                     if (confirm('Are you sure?')) this.removeGroup(button.dataset.groupId);
-                } else if (button.matches('.remove-activity-btn')) { // This is inside the modal
+                } else if (button.matches('.remove-activity-btn')) {
                     this.removeActivity(parseInt(button.dataset.index, 10));
                 } else if (button.id === 'save-plan-btn') {
                     this.savePlan();
@@ -726,14 +755,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const header = target.closest('.planner-header');
-            if (header && !header.parentElement.matches('.phase-block')) {
+            if(header && !header.parentElement.matches('.phase-block')) {
                 header.parentElement.classList.toggle('is-open');
             }
         },
 
         handleAppChange(e) {
             const target = e.target;
-            if (target.matches('#primary-tag-filter') || target.matches('.secondary-tag-filter')) {
+            if (target.matches('.secondary-tag-filter')) {
                 this.handleFilterChange();
             } else if (target.matches('.phase-name-input, .phase-duration-input')) {
                 const phaseId = target.dataset.phaseId;
@@ -741,7 +770,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!phase) return;
 
                 if (target.matches('.phase-name-input')) phase.name = target.value;
-                else if (target.matches('.phase-duration-input')) phase.duration = parseInt(target.value, 10) || 0;
+                else if (target.matches('.phase-duration-input')) {
+                    phase.duration = parseInt(target.value, 10) || 0;
+                    (phase.courts || []).forEach(court => {
+                        this.redistributeCourtTime(court, phase);
+                    });
+                }
 
                 this.calculateAndApplyRotations(phaseId);
                 this.render();
@@ -749,46 +783,11 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         handleFilterChange() {
-            const primaryFilter = document.getElementById('primary-tag-filter');
-            if (!primaryFilter) return;
-            this.activityFilters.primaryTagId = primaryFilter.value ? parseInt(primaryFilter.value) : null;
-
             this.activityFilters.secondaryTagIds.clear();
             document.querySelectorAll('.secondary-tag-filter:checked').forEach(el => {
                 this.activityFilters.secondaryTagIds.add(parseInt(el.value));
             });
-
             this.renderFilteredDrillList();
-        },
-
-        handleActivityFormSubmit(e) {
-            e.preventDefault();
-            if (e.target.id !== 'add-activity-form') return;
-
-            const { court } = this.getActiveContext();
-            if (!court) return;
-
-            const select = document.getElementById('drill-select');
-            const duration = parseInt(document.getElementById('activity-duration').value, 10);
-
-            if (!select.value) {
-                alert("No drill selected. Please select a drill from the list.");
-                return;
-            }
-
-            const drillId = parseInt(select.value, 10);
-            const name = select.options[select.selectedIndex].text;
-
-            if (!name || !(duration > 0)) {
-                alert("Please provide a valid duration.");
-                return;
-            }
-
-            if (!court.activities) court.activities = [];
-            court.activities.push({ name: name, drill_id: drillId, duration: duration });
-
-            this.renderActivityList();
-            this.render();
         },
 
         handleDragStart(e) {
@@ -804,16 +803,16 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         handleDragOver(e) {
             e.preventDefault();
-            const dropTarget = e.target.closest('.group-container, .player-list, .court-container');
+            const dropTarget = e.target.closest('.group-container, .player-list');
             if (dropTarget) dropTarget.classList.add('drag-over');
         },
         handleDragLeave(e) {
-            e.target.closest('.group-container, .player-list, .court-container')?.classList.remove('drag-over');
+            e.target.closest('.group-container, .player-list')?.classList.remove('drag-over');
         },
         handleDrop(e) {
             e.preventDefault();
             if (!this.draggedElement) return;
-            const dropTarget = e.target.closest('.group-container, .player-list, .court-container');
+            const dropTarget = e.target.closest('.group-container, .player-list');
             if (!dropTarget) return;
             dropTarget.classList.remove('drag-over');
 
@@ -847,22 +846,6 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.type = 'player';
             card.textContent = player.name;
             return card;
-        },
-        createGroupChip(group, isAssigned = false, phaseId = null, courtId = null) {
-            const chip = document.createElement('div');
-            chip.className = 'group-chip';
-            chip.dataset.groupId = group.id;
-            chip.innerHTML = `<i class="bi bi-people-fill me-2"></i> ${group.name} (${group.player_ids.length})`;
-
-            if (isAssigned) {
-                chip.classList.add('is-assigned');
-            } else {
-                chip.draggable = true;
-                chip.dataset.type = 'group';
-            }
-            chip.dataset.phaseId = phaseId;
-            chip.dataset.courtId = courtId;
-            return chip;
         },
         getActiveContext() {
             const phase = (this.plan.timeline || []).find(p => p.id === this.activeContext.phaseId);

@@ -1230,3 +1230,58 @@ html.dark-mode .btn-unconfirm:hover { background-color: #b88a00; border-color: #
     font-size: 1.5rem;
     margin-bottom: 0.25rem;
 }
+
+/* --- Redesigned Activity Modal --- */
+.drill-selection-container {
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    background-color: var(--body-bg);
+    min-height: 100px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.drill-button-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.drill-button-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-light);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.drill-button-item:hover {
+    background-color: var(--container-light-bg);
+    border-color: var(--link-color);
+}
+
+.drill-button-item.selected {
+    background-color: var(--bs-primary-bg-subtle);
+    border-color: var(--bs-primary);
+    font-weight: 500;
+}
+
+.drill-button-item .drill-name {
+    flex-grow: 1;
+}
+
+.drill-button-item .preview-drill-icon {
+    font-size: 1.2rem;
+    color: var(--subheading-color);
+    margin-left: 0.5rem;
+    opacity: 0.6;
+}
+
+.drill-button-item .preview-drill-icon:hover {
+    color: var(--link-color);
+    opacity: 1;
+}
