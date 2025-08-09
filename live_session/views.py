@@ -9,22 +9,20 @@ from accounts.models import Coach
 from players.models import Player
 
 def find_current_phase(plan, elapsed_seconds):
-    """Finds the current phase and its elapsed time."""
+    """Finds the current phase, its elapsed time, and its index in the timeline."""
     cumulative_duration = 0
     timeline = plan.get('timeline', [])
-    for phase in timeline:
+    for index, phase in enumerate(timeline):
         phase_duration = int(phase.get('duration', 0)) * 60
         if elapsed_seconds < cumulative_duration + phase_duration:
-            return phase, elapsed_seconds - cumulative_duration
+            return phase, elapsed_seconds - cumulative_duration, index
         cumulative_duration += phase_duration
-    return None, 0
+    return None, 0, -1
 
 def get_activity_details(phase, court_id, elapsed_in_phase, player_groups_map, players_map):
-    """
-    Finds the current activity, group, time left, and total duration for a court.
-    """
+    """Finds the current activity, group, time left, and total duration for a court."""
     phase_type = phase.get('type')
-    group_name, group_id = "N/A", None
+    group_name = "N/A"
     activity_name = "Transitioning"
     time_left = (int(phase.get('duration', 0)) * 60) - elapsed_in_phase
     duration = int(phase.get('duration', 0)) * 60
@@ -36,73 +34,90 @@ def get_activity_details(phase, court_id, elapsed_in_phase, player_groups_map, p
             rotation_duration_sec = rotation_duration_min * 60
             rotation_num = int(elapsed_in_phase // rotation_duration_sec)
             sub_blocks = phase.get('sub_blocks', [])
-            
             if rotation_num < len(sub_blocks):
                 current_assignments = sub_blocks[rotation_num].get('assignments', {})
                 group_id = current_assignments.get(court_id)
                 if group_id and group_id in player_groups_map:
                     group_name = player_groups_map[group_id].get('name', 'N/A')
                     player_ids = player_groups_map[group_id].get('player_ids', [])
-                    player_names = [players_map.get(pid, "Unknown Player") for pid in player_ids]
-
+                    player_names = [players_map.get(pid, "Unknown") for pid in player_ids]
                 for c in phase.get('courts', []):
-                    initial_group_for_court = c.get('assignedGroupIds', [None])[0]
-                    if initial_group_for_court == group_id and c.get('activities'):
+                    if c and c.get('assignedGroupIds', [None])[0] == group_id and c.get('activities'):
                         activity_name = c['activities'][0].get('name', 'Unnamed Drill')
                         break
-            
             time_left = rotation_duration_sec - (elapsed_in_phase % rotation_duration_sec)
             duration = rotation_duration_sec
     else:
-        court_info = next((c for c in phase.get('courts', []) if c.get('id') == court_id), None)
+        court_info = next((c for c in phase.get('courts', []) if c and c.get('id') == court_id), None)
         if court_info:
             assigned_group_ids = court_info.get('assignedGroupIds', [])
             group_names = [player_groups_map.get(gid, {}).get('name') for gid in assigned_group_ids]
             group_name = ', '.join(filter(None, group_names)) or 'N/A'
             player_ids = [pid for gid in assigned_group_ids for pid in player_groups_map.get(gid, {}).get('player_ids', [])]
             player_names = [players_map.get(pid, "Unknown") for pid in player_ids]
-            
             activities = court_info.get('activities', [])
-            if activities:
-                activity = activities[0]
-                activity_name = activity.get('name', 'Unnamed Activity')
-                duration = int(phase.get('duration', 0)) * 60
-                time_left = duration - elapsed_in_phase
-            else:
-                 activity_name = "General Activities"
+            activity_name = activities[0].get('name', 'General Activities') if activities else "General Activities"
 
-    return {
-        "name": activity_name, "group": group_name, "timeLeft": time_left,
-        "duration": duration, "players": sorted(player_names)
-    }
+    return {"name": activity_name, "group": group_name, "timeLeft": time_left, "duration": duration, "players": sorted(player_names)}
+
+def get_next_activity_for_court(plan, current_phase_index, court_name):
+    """
+    Finds the next activity by looking ahead in the timeline, matching by COURT NAME.
+    """
+    timeline = plan.get('timeline', [])
+    next_phase_index = current_phase_index + 1
+    if next_phase_index >= len(timeline):
+        return None
+
+    next_phase = timeline[next_phase_index]
+    
+    # Find the court in the next phase that has the same name (e.g., "Court 1")
+    next_court_info = next((c for c in next_phase.get('courts', []) if c and c.get('name') == court_name), None)
+    if not next_court_info:
+        return None # This court does not exist in the next phase.
+
+    # If the next phase is a Rotation, find the activity for the group that starts on that court.
+    if next_phase.get('type') == 'Rotation':
+        group_id_on_court = next_court_info.get('assignedGroupIds', [None])[0]
+        if group_id_on_court:
+            # The activity is defined in the court that "owns" the group initially.
+            for court_def in next_phase.get('courts', []):
+                if court_def and court_def.get('assignedGroupIds', [None])[0] == group_id_on_court:
+                    activities = court_def.get('activities', [])
+                    if activities:
+                        return {"name": activities[0].get('name')}
+    
+    # For standard phases, just get the activity directly from the court object.
+    else:
+        activities = next_court_info.get('activities', [])
+        if activities:
+            return {"name": activities[0].get('name')}
+        else:
+            return {"name": "General Activities"}
+            
+    return None
 
 @login_required
 def live_session_display(request, session_id):
     """Renders the main page, allowing access for superusers or assigned coaches."""
-    # *** THIS IS THE FIX ***
     if request.user.is_superuser:
         session = get_object_or_404(Session, pk=session_id)
     else:
         coach_profile = get_object_or_404(Coach, user=request.user)
         session = get_object_or_404(Session, pk=session_id, coaches_attending=coach_profile)
-    
     return render(request, 'live_session/live_session_display.html', {'session': session})
 
 @login_required
 def live_session_update_api(request, session_id):
     """API endpoint, allowing access for superusers or assigned coaches."""
-    # *** THIS IS THE FIX ***
     if request.user.is_superuser:
         session = get_object_or_404(Session, pk=session_id)
     else:
         coach_profile = get_object_or_404(Coach, user=request.user)
         session = get_object_or_404(Session, pk=session_id, coaches_attending=coach_profile)
 
-    if session.status == 'pending' or not session.start_time:
-        return JsonResponse({'sessionStatus': 'pending'})
-
-    if session.status == 'finished':
-        return JsonResponse({'sessionStatus': 'finished'})
+    if session.status == 'pending' or not session.start_time: return JsonResponse({'sessionStatus': 'pending'})
+    if session.status == 'finished': return JsonResponse({'sessionStatus': 'finished'})
 
     try:
         plan = session.plan if isinstance(session.plan, dict) else json.loads(session.plan)
@@ -117,17 +132,13 @@ def live_session_update_api(request, session_id):
     time_left_session = max(0, total_duration_seconds - elapsed_seconds)
 
     if total_duration_seconds > 0 and elapsed_seconds > total_duration_seconds:
-        session.status = 'finished'
-        session.end_time = now
-        session.save()
+        session.status = 'finished'; session.end_time = now; session.save()
         return JsonResponse({'sessionStatus': 'finished'})
 
-    current_phase, elapsed_in_phase = find_current_phase(plan, elapsed_seconds)
-    if not current_phase:
-        return JsonResponse({'sessionStatus': 'finished'})
+    current_phase, elapsed_in_phase, current_phase_index = find_current_phase(plan, elapsed_seconds)
+    if not current_phase: return JsonResponse({'sessionStatus': 'finished'})
 
     time_left_phase = max(0, (int(current_phase.get('duration', 0)) * 60) - elapsed_in_phase)
-    
     all_player_ids = {pid for grp in plan.get('playerGroups', []) for pid in grp.get('player_ids', [])}
     players_map = {p.id: p.full_name for p in Player.objects.filter(id__in=all_player_ids)}
     player_groups_map = {g['id']: g for g in plan.get('playerGroups', [])}
@@ -135,30 +146,21 @@ def live_session_update_api(request, session_id):
 
     for court in current_phase.get('courts', []):
         court_id = court.get('id')
+        court_name = court.get('name')
         activity_details = get_activity_details(current_phase, court_id, elapsed_in_phase, player_groups_map, players_map)
+        next_activity = get_next_activity_for_court(plan, current_phase_index, court_name)
         
         if activity_details:
             courts_data.append({
-                "courtName": court.get('name', 'Unknown Court'),
-                "playerGroup": activity_details['group'],
+                "courtName": court_name, "playerGroup": activity_details['group'],
                 "players": activity_details['players'],
-                "currentActivity": {
-                    "name": activity_details['name'],
-                    "timeLeft": activity_details['timeLeft'],
-                    "duration": activity_details['duration']
-                },
-                "nextActivity": None
+                "currentActivity": { "name": activity_details['name'], "timeLeft": activity_details['timeLeft'], "duration": activity_details['duration'] },
+                "nextActivity": next_activity
             })
 
     response_data = {
-        'sessionStatus': session.status,
-        'sessionTitle': str(session),
-        'totalTimeLeft': time_left_session,
-        'currentPhase': {
-            'name': current_phase.get('name', 'Unnamed Phase'),
-            'timeLeft': time_left_phase,
-            'duration': int(current_phase.get('duration', 0)) * 60
-        },
+        'sessionStatus': session.status, 'sessionTitle': str(session), 'totalTimeLeft': time_left_session,
+        'currentPhase': { 'name': current_phase.get('name', 'Unnamed Phase'), 'timeLeft': time_left_phase, 'duration': int(current_phase.get('duration', 0)) * 60 },
         'courts': courts_data
     }
     return JsonResponse(response_data)
