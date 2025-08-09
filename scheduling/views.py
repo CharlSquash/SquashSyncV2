@@ -143,6 +143,7 @@ def session_detail(request, session_id):
 
     context = {
         'session': session,
+        'coaches': session.coaches_attending.all(), 
         'players_with_status': players,
         'drills': drills_data,
         'all_tags': all_tags_data,  # Pass all tags to the template

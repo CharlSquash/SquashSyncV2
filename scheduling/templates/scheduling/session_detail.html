@@ -90,6 +90,15 @@
         <div>
             <h1 class="mb-0">{{ page_title }}</h1>
             <p class="text-muted">{{ session.session_date|date:"l, F j, Y" }} at {{ session.session_start_time|time:"H:i" }}</p>
+                {% if coaches %}
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-person-check-fill"></i>
+                        <strong>Coaches:</strong>
+                        {% for coach in coaches %}
+                            {{ coach.user.get_full_name|default:coach.name }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </p>
+                {% endif %}
         </div>
         <div>
             <a href="{% url 'live_session:live_session_display' session.id %}" class="btn btn-success"><i class="bi bi-play-circle-fill"></i> Go Live</a>
