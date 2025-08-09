@@ -89,7 +89,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="mb-0">{{ page_title }}</h1>
-            <p class="text-muted">{{ session.session_date|date:"l, F j, Y" }} at {{ session.session_start_time|time:"H:i" }}</p>
+            <p class="text-muted">{{ session.session_date|date:"l, F j, Y" }} at {{ session.session_start_time|time:"H:i" }} &bull; <i class="bi bi-clock"></i> {{ session.planned_duration_minutes }} min total</p>
                 {% if coaches %}
                     <p class="text-muted mb-0">
                         <i class="bi bi-person-check-fill"></i>
