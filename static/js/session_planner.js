@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         addEventListeners() {
+            // Listener for the main planner content
             this.elements.appContainer.addEventListener('click', this.handleAppClick.bind(this));
             this.elements.appContainer.addEventListener('change', this.handleAppChange.bind(this));
             this.elements.appContainer.addEventListener('dragstart', this.handleDragStart.bind(this));
@@ -74,28 +75,16 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.appContainer.addEventListener('dragleave', this.handleDragLeave.bind(this));
             this.elements.appContainer.addEventListener('drop', this.handleDrop.bind(this));
 
+            // Listener for the "Add Phase" modal
             this.elements.addPhaseModalEl.addEventListener('click', e => {
                 const phaseType = e.target.dataset.phaseType || e.target.closest('[data-phase-type]')?.dataset.phaseType;
                 if (phaseType) this.addPhase(phaseType);
             });
 
+            // Listeners for the "Add Activity" modal
             this.elements.activityModalEl.addEventListener('submit', this.handleActivityFormSubmit.bind(this));
-
-            // --- THIS IS THE FIX ---
-            // Add a dedicated click listener for the activity modal
-            this.elements.activityModalEl.addEventListener('click', (e) => {
-                const drillItem = e.target.closest('.drill-button-item');
-                if (drillItem) {
-                    if (e.target.classList.contains('preview-drill-icon')) {
-                        this.showYoutubePreview(drillItem.dataset.drillId);
-                    } else {
-                        this.selectDrill(drillItem.dataset.drillName, drillItem.dataset.drillId);
-                        // Highlight the selected drill
-                        this.elements.activityModalEl.querySelectorAll('.drill-button-item.selected').forEach(el => el.classList.remove('selected'));
-                        drillItem.classList.add('selected');
-                    }
-                }
-            });
+            this.elements.activityModalEl.addEventListener('click', this.handleModalClick.bind(this));
+            this.elements.activityModalEl.addEventListener('change', this.handleModalChange.bind(this));
         },
 
         // --- RENDERING FUNCTIONS ---
@@ -119,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.unassignedPlayers.innerHTML = '';
             const confirmedPlayers = this.players.filter(p => p.status === 'ATTENDING');
             const assignedPlayerIds = new Set((this.plan.playerGroups || []).flatMap(g => g.player_ids));
-
+            
             confirmedPlayers.forEach(player => {
                 if (!assignedPlayerIds.has(player.id)) {
                     this.elements.unassignedPlayers.appendChild(this.createPlayerCard(player));
@@ -143,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 this.elements.sessionGroupsContainer.appendChild(groupCol);
             });
-
+            
             const addGroupCol = document.createElement('div');
             addGroupCol.className = 'col-lg-4 col-md-6 mb-3 d-flex align-items-center justify-content-center';
             addGroupCol.innerHTML = `<button class="btn btn-secondary w-100 add-group-btn"><i class="bi bi-plus-lg"></i> Add Group</button>`;
@@ -161,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(phaseEl);
                 cumulativeTime += phase.duration;
             });
-
+            
             container.innerHTML += `
                 <div id="add-phase-btn-container">
                     <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#addPhaseModal">
@@ -178,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const phaseStartTime = this.minutesToTimeStr(startTimeOffset);
             const phaseEndTime = this.minutesToTimeStr(startTimeOffset + phase.duration);
-
+            
             phaseEl.innerHTML = `
                 <div class="planner-header">
                     <h4><i class="bi bi-grip-vertical"></i> ${phase.type}</h4>
@@ -202,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <hr>
                     <div class="phase-content-body">${this.getPhaseContentHTML(phase)}</div>
                 </div>`;
-
+            
             const header = phaseEl.querySelector('.planner-header');
             if (header) {
                 header.addEventListener('click', (e) => this.togglePhase(e, phase.id));
@@ -265,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
             courtsHTML += `</div>`;
             return courtsHTML;
         },
-
+        
         getRotationPhaseContentHTML(phase) {
             let html = `
                 <h6>Rotation Courts</h6>
@@ -310,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.renderActivityList();
             this.renderActivityForm();
         },
-
+        
         renderActivityList() {
             const { court } = this.getActiveContext();
             const listContainer = this.elements.activityListContainer;
@@ -325,16 +314,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.className = 'list-group-item d-flex justify-content-between align-items-center';
                     li.innerHTML = `
                         <span>${activity.name}</span>
-                        <div>
-                            <span class="badge bg-secondary me-2">${activity.duration} min</span>
-                            <button type="button" class="btn btn-sm btn-outline-danger remove-activity-btn" data-index="${index}">×</button>
+                        <div class="d-flex align-items-center">
+                            <input type="number" class="form-control form-control-sm duration-input" value="${activity.duration}" data-index="${index}" min="1">
+                            <span class="duration-unit ms-1">min</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-activity-btn ms-2" data-index="${index}">×</button>
                         </div>`;
                     ul.appendChild(li);
                 });
                 listContainer.appendChild(ul);
             }
         },
-
+        
         renderActivityForm() {
             const formContainer = this.elements.addActivityFormContainer;
             formContainer.innerHTML = `
@@ -346,14 +336,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div id="drill-list-container"></div>
                     </div>
                     <div class="row g-2 mt-3 align-items-end">
-                        <div class="col-md-5">
+                        <div class="col-md-9">
                             <label for="activity-name" class="form-label">Selected Drill</label>
                             <input type="text" id="activity-name" class="form-control" placeholder="Select a drill from the list" readonly>
                             <input type="hidden" id="selected-drill-id">
-                        </div>
-                        <div class="col-md-4">
-                            <label for="activity-duration" class="form-label">Duration (min)</label>
-                            <input type="number" id="activity-duration" class="form-control" value="10" min="1">
                         </div>
                         <div class="col-md-3">
                             <button type="submit" class="btn btn-primary w-100 mt-auto">Add to Plan</button>
@@ -370,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         buildFilterControlsHTML() {
             if (!this.allTags || this.allTags.length === 0) return '';
-
+            
             const secondaryCheckboxes = this.allTags.map(tag => `
                 <div class="form-check form-check-inline">
                     <input class="form-check-input secondary-tag-filter" type="checkbox" value="${tag.id}" id="tag-${tag.id}">
@@ -434,27 +420,32 @@ document.addEventListener('DOMContentLoaded', () => {
         showYoutubePreview(drillId) {
             const previewContainer = document.getElementById('youtube-preview-container');
             if (!previewContainer) return;
-
+        
             if (!drillId) {
                 previewContainer.innerHTML = `<p class="text-muted small mt-2">Please select a drill to preview.</p>`;
                 return;
             }
-
+        
             const drill = this.drills.find(d => d.id === parseInt(drillId));
-
+        
             if (drill && drill.youtube_link) {
                 let videoId = null;
                 const link = drill.youtube_link.trim();
-
+                
                 try {
                     const url = new URL(link);
                     if (url.hostname === 'youtu.be') {
                         videoId = url.pathname.slice(1);
                     } else if (url.hostname.includes('youtube.com') && url.searchParams.has('v')) {
                         videoId = url.searchParams.get('v');
-                    } else { // Fallback for simple links
+                    } else {
                         const parts = link.split('/');
-                        videoId = parts[parts.length - 1].split('?v=')[1] || parts[parts.length - 1];
+                        const potentialId = parts[parts.length - 1];
+                        if (potentialId.includes('watch?v=')) {
+                            videoId = new URLSearchParams(potentialId.split('?')[1]).get('v');
+                        } else {
+                            videoId = potentialId;
+                        }
                     }
                 } catch (e) {
                     console.error("Could not parse YouTube URL.", e);
@@ -519,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 }
-
+                
                 this.calculateAndApplyRotations(phase.id);
             });
         },
@@ -553,13 +544,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let cumulativeTimeInPhase = 0;
             for (let i = 0; i < numRotations; i++) { 
                 if (rotationDuration <= 0) continue;
-
+                
                 const assignments = {};
                 for (let j = 0; j < courtsInRotation.length; j++) { 
                     const court = courtsInRotation[j];
                     const groupIndex = ((j - i) % numRotations + numRotations) % numRotations;
                     const groupIdToAssign = initialGroupOrder[groupIndex];
-
+                    
                     assignments[court.id] = groupIdToAssign;
                 }
 
@@ -651,51 +642,51 @@ document.addEventListener('DOMContentLoaded', () => {
             this.renderActivityModalContent();
             this.elements.activityModal.show();
         },
-
+        
         handleActivityFormSubmit(e) {
             e.preventDefault();
             if (e.target.id !== 'add-activity-form') return;
-
+    
             const { court, phase } = this.getActiveContext();
             if (!court) return;
-
+    
             const drillId = parseInt(document.getElementById('selected-drill-id').value, 10);
             const name = document.getElementById('activity-name').value;
-
+    
             if (!drillId || !name) {
                 alert("Please select a drill from the list.");
                 return;
             }
-
+    
             if (!court.activities) court.activities = [];
             court.activities.push({ name: name, drill_id: drillId, duration: 0 });
-
+    
             this.redistributeCourtTime(court, phase);
-
+    
             this.renderActivityModalContent();
             this.render();
         },
-
+    
         redistributeCourtTime(court, phase) {
             const totalDurationForCourt = this.getDurationForCourt(court, phase);
             if (!court.activities || court.activities.length === 0) return;
-
+    
             const numActivities = court.activities.length;
             const evenDuration = Math.floor(totalDurationForCourt / numActivities);
             let remainder = totalDurationForCourt % numActivities;
-
+    
             court.activities.forEach((activity, index) => {
                 activity.duration = evenDuration + (index < remainder ? 1 : 0);
             });
         },
-
+    
         getDurationForCourt(court, phase) {
             if (phase.type === 'Rotation') {
                 return phase.rotationDuration || phase.duration;
             }
             return phase.duration;
         },
-
+    
         removeActivity(index) {
             const { court, phase } = this.getActiveContext();
             if (court && court.activities) {
@@ -707,14 +698,14 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- EVENT HANDLERS ---
-
+        
         togglePhase(event, phaseId) {
             if (event.target.closest('button, input')) {
                 return;
             }
             const phaseElement = document.querySelector(`.phase-block[data-phase-id="${phaseId}"]`);
             if (!phaseElement) return;
-
+            
             const phaseData = this.plan.timeline.find(p => p.id === phaseId);
             if (!phaseData) return;
 
@@ -725,19 +716,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         handleAppClick(e) {
             const target = e.target;
-
+    
             const attendanceItem = target.closest('.player-attendance-item');
             if (attendanceItem) {
                 this.cyclePlayerStatus(parseInt(attendanceItem.dataset.playerId));
                 return;
             }
-
+            
             const courtContainer = target.closest('.court-clickable');
             if (courtContainer) {
                 this.openActivityModal(courtContainer.dataset.phaseId, courtContainer.dataset.courtId);
                 return;
             }
-
+    
             const button = target.closest('button');
             if (button) {
                 if (button.matches('.delete-phase-btn')) {
@@ -746,17 +737,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.addNewGroup();
                 } else if (button.matches('.remove-group-btn')) {
                     if (confirm('Are you sure?')) this.removeGroup(button.dataset.groupId);
-                } else if (button.matches('.remove-activity-btn')) {
-                    this.removeActivity(parseInt(button.dataset.index, 10));
                 } else if (button.id === 'save-plan-btn') {
                     this.savePlan();
                 }
                 return;
             }
-
+    
             const header = target.closest('.planner-header');
             if(header && !header.parentElement.matches('.phase-block')) {
                 header.parentElement.classList.toggle('is-open');
+            }
+        },
+
+        handleModalClick(e) {
+            const target = e.target;
+            const drillItem = target.closest('.drill-button-item');
+            if (drillItem) {
+                if (target.classList.contains('preview-drill-icon')) {
+                    this.showYoutubePreview(drillItem.dataset.drillId);
+                } else {
+                    this.selectDrill(drillItem.dataset.drillName, drillItem.dataset.drillId);
+                    this.elements.activityModalEl.querySelectorAll('.drill-button-item.selected').forEach(el => el.classList.remove('selected'));
+                    drillItem.classList.add('selected');
+                }
+                return; // Prevent other handlers
+            }
+
+            const removeBtn = target.closest('.remove-activity-btn');
+            if (removeBtn) {
+                this.removeActivity(parseInt(removeBtn.dataset.index, 10));
+            }
+        },
+
+        handleModalChange(e) {
+            const target = e.target;
+            if (target.matches('.duration-input')) {
+                const index = parseInt(target.dataset.index, 10);
+                const newDuration = parseInt(target.value, 10);
+                this.handleDurationChange(index, newDuration);
             }
         },
 
@@ -776,12 +794,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         this.redistributeCourtTime(court, phase);
                     });
                 }
-
+                
                 this.calculateAndApplyRotations(phaseId);
                 this.render();
             }
         },
-
+        
         handleFilterChange() {
             this.activityFilters.secondaryTagIds.clear();
             document.querySelectorAll('.secondary-tag-filter:checked').forEach(el => {
@@ -790,6 +808,42 @@ document.addEventListener('DOMContentLoaded', () => {
             this.renderFilteredDrillList();
         },
 
+        handleDurationChange(changedIndex, newDuration) {
+            const { court, phase } = this.getActiveContext();
+            if (!court || !court.activities) return;
+    
+            const totalDuration = this.getDurationForCourt(court, phase);
+            const activities = court.activities;
+            const minDuration = 1;
+            let timeAccountedForBefore = 0;
+            for(let i = 0; i < changedIndex; i++) {
+                timeAccountedForBefore += activities[i].duration;
+            }
+    
+            const timeNeededForSubsequent = (activities.length - (changedIndex + 1)) * minDuration;
+            const maxAllowedDuration = totalDuration - timeAccountedForBefore - timeNeededForSubsequent;
+            
+            let cappedDuration = Math.max(minDuration, Math.min(newDuration, maxAllowedDuration));
+            activities[changedIndex].duration = cappedDuration;
+    
+            const timeAccountedForAfterChange = timeAccountedForBefore + cappedDuration;
+            const remainingTime = totalDuration - timeAccountedForAfterChange;
+            const remainingActivitiesCount = activities.length - (changedIndex + 1);
+    
+            if (remainingActivitiesCount > 0) {
+                const evenDuration = Math.floor(remainingTime / remainingActivitiesCount);
+                let remainder = remainingTime % remainingActivitiesCount;
+                
+                for (let i = changedIndex + 1; i < activities.length; i++) {
+                    activities[i].duration = evenDuration + (remainder > 0 ? 1 : 0);
+                    if(remainder > 0) remainder--;
+                }
+            }
+            
+            this.renderActivityList();
+            this.render();
+        },
+        
         handleDragStart(e) {
             const target = e.target;
             if (target.matches('.player-card')) {
