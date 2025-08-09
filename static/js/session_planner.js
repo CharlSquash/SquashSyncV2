@@ -206,10 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
         getStandardPhaseContentHTML(phase) {
             let courtsHTML = '<div class="courts-grid">';
             (phase.courts || []).forEach(court => {
-                let assignedGroupsHTML = ''; // Default to empty string
+                let assignedGroupsHTML = '';
 
-                // --- THIS IS THE NEW LOGIC ---
-                // Only create the group name display if it's NOT a Rotation phase.
                 if (phase.type !== 'Rotation') {
                     assignedGroupsHTML = (court.assignedGroupIds || [])
                         .map(gid => {
@@ -217,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             return group ? `<span class="group-chip-assigned">${group.name}</span>` : '';
                         }).join(' ');
                 }
-                // --- END OF NEW LOGIC ---
 
                 let activitiesHTML = '';
                 if (court.activities && court.activities.length > 0) {
@@ -232,6 +229,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ).join('')}
                             </ul>
                         </div>`;
+                } else {
+                    // --- THIS IS THE NEW PART ---
+                    // If there are no activities, show a helpful prompt.
+                    activitiesHTML = `
+                        <div class="court-activities-placeholder">
+                            <i class="bi bi-plus-circle-dotted"></i>
+                            <span>Add Activities</span>
+                        </div>
+                    `;
+                    // --- END OF NEW PART ---
                 }
 
                 courtsHTML += `
