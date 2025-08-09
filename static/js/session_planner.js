@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- APPLICATION FLOW ---
 
         init() {
-            console.log("Session Planner Initializing (Collapsible Fix)...");
+            console.log("Session Planner Initializing...");
             try {
                 this.plan = JSON.parse(document.getElementById('plan-data').textContent);
                 this.players = JSON.parse(document.getElementById('players-data').textContent);
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.allTags = JSON.parse(allTagsData.textContent);
                 } else {
                     this.allTags = [];
-                    console.warn("Warning: 'all-tags-data' script element not found. Filtering will be disabled.");
+                    console.warn("Warning: 'all-tags-data' script element not found.");
                 }
             } catch (e) {
                 console.error("Fatal Error: Could not parse data from Django.", e);
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.addEventListeners();
             this.updateCourtsBasedOnGroups(true);
             this.render();
-            console.log("Planner setup complete. UI should be interactive.");
+            console.log("Planner setup complete.");
         },
 
         render() {
@@ -67,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         addEventListeners() {
-            // General click handler for actions NOT handled by more specific listeners
             this.elements.appContainer.addEventListener('click', this.handleAppClick.bind(this));
             this.elements.appContainer.addEventListener('change', this.handleAppChange.bind(this));
             this.elements.appContainer.addEventListener('dragstart', this.handleDragStart.bind(this));
@@ -85,28 +84,27 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- RENDERING FUNCTIONS ---
-        
+
         renderAttendanceList() {
             const container = this.elements.attendanceList;
             if (!container) return;
             container.innerHTML = '';
             this.players.forEach(player => {
                 const badgeClass = player.status === 'ATTENDING' ? 'text-bg-success' : player.status === 'DECLINED' ? 'text-bg-danger' : 'text-bg-secondary';
-                // This is the new, cleaner HTML structure
                 container.innerHTML += `
                     <div class="player-attendance-item" data-player-id="${player.id}" title="Click to cycle status">
                         <span class="player-name">${player.name}</span>
                         <span class="badge rounded-pill ${badgeClass}">${player.status}</span>
                     </div>`;
             });
-},
+        },
 
         renderGroupingSection() {
             if (!this.elements.unassignedPlayers || !this.elements.sessionGroupsContainer) return;
             this.elements.unassignedPlayers.innerHTML = '';
             const confirmedPlayers = this.players.filter(p => p.status === 'ATTENDING');
             const assignedPlayerIds = new Set((this.plan.playerGroups || []).flatMap(g => g.player_ids));
-            
+
             confirmedPlayers.forEach(player => {
                 if (!assignedPlayerIds.has(player.id)) {
                     this.elements.unassignedPlayers.appendChild(this.createPlayerCard(player));
@@ -130,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 this.elements.sessionGroupsContainer.appendChild(groupCol);
             });
-            
+
             const addGroupCol = document.createElement('div');
             addGroupCol.className = 'col-lg-4 col-md-6 mb-3 d-flex align-items-center justify-content-center';
             addGroupCol.innerHTML = `<button class="btn btn-secondary w-100 add-group-btn"><i class="bi bi-plus-lg"></i> Add Group</button>`;
@@ -148,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(phaseEl);
                 cumulativeTime += phase.duration;
             });
-            
+
             container.innerHTML += `
                 <div id="add-phase-btn-container">
                     <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#addPhaseModal">
@@ -165,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const phaseStartTime = this.minutesToTimeStr(startTimeOffset);
             const phaseEndTime = this.minutesToTimeStr(startTimeOffset + phase.duration);
-            
+
             phaseEl.innerHTML = `
                 <div class="planner-header">
                     <h4><i class="bi bi-grip-vertical"></i> ${phase.type}</h4>
@@ -189,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <hr>
                     <div class="phase-content-body">${this.getPhaseContentHTML(phase)}</div>
                 </div>`;
-            
+
             const header = phaseEl.querySelector('.planner-header');
             if (header) {
                 header.addEventListener('click', (e) => this.togglePhase(e, phase.id));
@@ -199,72 +197,56 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         getPhaseContentHTML(phase) {
-            const groupChipsHTML = (this.plan.playerGroups || [])
-                .filter(g => g.player_ids.length > 0)
-                .map(g => this.createGroupChip(g, false, phase.id, null).outerHTML)
-                .join('');
-
-            const content = `<div class="d-flex flex-wrap gap-2 mb-4 group-chip-palette">${groupChipsHTML}</div>`;
-
             if (phase.type === 'Rotation') {
-                return content + this.getRotationPhaseContentHTML(phase);
+                return this.getRotationPhaseContentHTML(phase);
             }
-            return content + this.getStandardPhaseContentHTML(phase);
+            return this.getStandardPhaseContentHTML(phase);
         },
 
         getStandardPhaseContentHTML(phase) {
             let courtsHTML = '<div class="courts-grid">';
             (phase.courts || []).forEach(court => {
-                const assignedGroupsHTML = (court.assignedGroupIds || [])
-                    .map(gid => {
-                        const group = this.plan.playerGroups.find(g => g.id === gid);
-                        return group ? this.createGroupChip(group, true, phase.id, court.id).outerHTML : '';
-                    }).join('');
+                let assignedGroupsHTML = ''; // Default to empty string
+
+                // --- THIS IS THE NEW LOGIC ---
+                // Only create the group name display if it's NOT a Rotation phase.
+                if (phase.type !== 'Rotation') {
+                    assignedGroupsHTML = (court.assignedGroupIds || [])
+                        .map(gid => {
+                            const group = this.plan.playerGroups.find(g => g.id === gid);
+                            return group ? `<span class="group-chip-assigned">${group.name}</span>` : '';
+                        }).join(' ');
+                }
+                // --- END OF NEW LOGIC ---
 
                 let activitiesHTML = '';
                 if (court.activities && court.activities.length > 0) {
-                     activitiesHTML = `
+                    activitiesHTML = `
                         <div class="court-activities-container">
                             <ul class="court-activities-list list-unstyled mb-0">
-                                ${court.activities.map(act => {
-                                    let activityDisplay;
-                                    if (act.drill_id) {
-                                        const drill = this.drills.find(d => d.id === act.drill_id);
-                                        if (drill && drill.youtube_link) {
-                                            activityDisplay = `<a href="${drill.youtube_link}" target="_blank" title="Watch on YouTube">${act.name} <i class="bi bi-box-arrow-up-right small"></i></a>`;
-                                        } else {
-                                            activityDisplay = `<span>${act.name}</span>`;
-                                        }
-                                    } else {
-                                        activityDisplay = `<span>${act.name}</span>`;
-                                    }
-                                    return `
-                                        <li class="court-activity-item">
-                                            ${activityDisplay}
-                                            <span class="badge bg-light text-dark">${act.duration}m</span>
-                                        </li>`;
-                                }).join('')}
+                                ${court.activities.map(act => `
+                                    <li class="court-activity-item">
+                                        <span>${act.name}</span>
+                                        <span class="badge bg-light text-dark">${act.duration}m</span>
+                                    </li>`
+                                ).join('')}
                             </ul>
                         </div>`;
                 }
 
                 courtsHTML += `
-                    <div class="court-container" data-court-id="${court.id}" data-phase-id="${phase.id}">
+                    <div class="court-container court-clickable" data-court-id="${court.id}" data-phase-id="${phase.id}" title="Click to add or edit activities">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="court-name">${court.name}</div>
-                            <button class="btn-close btn-sm remove-court-btn" data-court-id="${court.id}" data-phase-id="${phase.id}" title="Remove Court"></button>
                         </div>
                         <div class="assigned-groups-container mt-2">${assignedGroupsHTML}</div>
-                        ${activitiesHTML} 
+                        ${activitiesHTML}
                     </div>`;
             });
-            courtsHTML += `
-                <button class="btn btn-outline-secondary btn-sm add-court-btn" data-phase-id="${phase.id}">
-                    <i class="bi bi-plus-lg"></i> Add Court
-                </button></div>`;
+            courtsHTML += `</div>`;
             return courtsHTML;
         },
-        
+
         getRotationPhaseContentHTML(phase) {
             let html = `
                 <h6>Rotation Courts</h6>
@@ -309,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.renderActivityList();
             this.renderActivityForm();
         },
-        
+
         renderActivityList() {
             const { court } = this.getActiveContext();
             const listContainer = this.elements.activityListContainer;
@@ -333,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 listContainer.appendChild(ul);
             }
         },
-        
+
         renderActivityForm() {
             const formContainer = this.elements.addActivityFormContainer;
             formContainer.innerHTML = `
@@ -388,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const primaryOptions = this.allTags.map(tag =>
                 `<option value="${tag.id}" ${tag.id === this.activityFilters.primaryTagId ? 'selected' : ''}>${tag.name}</option>`
             ).join('');
-            
+
             const secondaryCheckboxes = this.allTags.map(tag => `
                 <div class="form-check form-check-inline">
                     <input class="form-check-input secondary-tag-filter" type="checkbox" value="${tag.id}" id="tag-${tag.id}">
@@ -429,12 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             selectEl.innerHTML = filteredDrills.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
         },
-        
+
         // --- LOGIC & ACTIONS ---
-        
-        // ===================================================================
-        // START: REVERTED YOUTUBE PREVIEW FUNCTION
-        // ===================================================================
+
         showYoutubePreview() {
             const drillSelect = document.getElementById('drill-select');
             const previewContainer = document.getElementById('youtube-preview-container');
@@ -451,8 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (drill && drill.youtube_link) {
                 let videoId = null;
                 const link = drill.youtube_link.trim();
-                
-                // This simple method was working for the user's original data.
+
                 try {
                     const parts = link.split('/');
                     const potentialId = parts[parts.length - 1];
@@ -479,49 +457,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewContainer.innerHTML = `<p class="text-muted small mt-2">No video preview available for this drill.</p>`;
             }
         },
-        // ===================================================================
-        // END: REVERTED YOUTUBE PREVIEW FUNCTION
-        // ===================================================================
 
-        updateCourtsBasedOnGroups(isInitialSetup = false) {
+        updateCourtsBasedOnGroups() {
             const groups = this.plan.playerGroups || [];
-            const numGroups = groups.length > 0 ? groups.length : 1;
+            const numGroups = groups.length;
 
             (this.plan.timeline || []).forEach(phase => {
-                let targetCourtCount;
-                
-                if (phase.type === 'Warmup') {
-                    targetCourtCount = 1;
-                } else {
-                    targetCourtCount = numGroups;
+                let targetCourtCount = 0;
+                let autoAssign = false;
+
+                // Define rules for each phase type
+                if (phase.type === 'Warmup' || phase.type === 'Fitness') {
+                    targetCourtCount = 1; // Always one court for Warmup and Fitness
+                    autoAssign = true;
+                } else if (phase.type === 'Rotation' || phase.type === 'Freeplay') {
+                    targetCourtCount = numGroups > 0 ? numGroups : 1; // One court per group
+                    autoAssign = true;
                 }
 
+                // Synchronize the number of courts
                 let currentCourts = phase.courts || [];
                 while (currentCourts.length < targetCourtCount) {
                     currentCourts.push({
                         id: `court_${Date.now()}_${currentCourts.length + 1}`,
                         name: `Court ${currentCourts.length + 1}`,
-                        assignedGroupIds: [], activities: [], isDefault: true
+                        assignedGroupIds: [], activities: []
                     });
                 }
-                while (currentCourts.length > targetCourtCount && currentCourts.some(c => c.isDefault)) {
-                    const idxToRemove = currentCourts.findIndex(c => c.isDefault);
-                    if (idxToRemove > -1) currentCourts.splice(idxToRemove, 1);
-                    else break; 
+                if (currentCourts.length > targetCourtCount) {
+                    currentCourts.splice(targetCourtCount); // Remove extra courts
                 }
                 phase.courts = currentCourts;
-                
-                if (isInitialSetup) {
-                    if (phase.type === 'Warmup' && phase.courts.length > 0) {
+
+                // Perform automatic group assignment
+                if (autoAssign) {
+                    if ((phase.type === 'Warmup' || phase.type === 'Fitness') && phase.courts.length > 0) {
+                        // Assign all groups to the single court
                         phase.courts[0].assignedGroupIds = groups.map(g => g.id);
                     } else if (phase.type === 'Rotation' || phase.type === 'Freeplay') {
-                        const assignments = Math.min(groups.length, phase.courts.length);
-                        for (let i = 0; i < assignments; i++) {
-                            phase.courts[i].assignedGroupIds = [groups[i].id];
+                        // Assign groups one-to-one to courts
+                        for (let i = 0; i < phase.courts.length; i++) {
+                            if (groups[i]) {
+                                phase.courts[i].assignedGroupIds = [groups[i].id];
+                            } else {
+                                phase.courts[i].assignedGroupIds = [];
+                            }
                         }
                     }
                 }
-                
+
                 this.calculateAndApplyRotations(phase.id);
             });
         },
@@ -555,13 +539,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let cumulativeTimeInPhase = 0;
             for (let i = 0; i < numRotations; i++) { 
                 if (rotationDuration <= 0) continue;
-                
+
                 const assignments = {};
                 for (let j = 0; j < courtsInRotation.length; j++) { 
                     const court = courtsInRotation[j];
                     const groupIndex = ((j - i) % numRotations + numRotations) % numRotations;
                     const groupIdToAssign = initialGroupOrder[groupIndex];
-                    
+
                     assignments[court.id] = groupIdToAssign;
                 }
 
@@ -686,14 +670,14 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- EVENT HANDLERS ---
-        
+
         togglePhase(event, phaseId) {
             if (event.target.closest('button, input')) {
                 return;
             }
             const phaseElement = document.querySelector(`.phase-block[data-phase-id="${phaseId}"]`);
             if (!phaseElement) return;
-            
+
             const phaseData = this.plan.timeline.find(p => p.id === phaseId);
             if (!phaseData) return;
 
@@ -705,14 +689,18 @@ document.addEventListener('DOMContentLoaded', () => {
         handleAppClick(e) {
             const target = e.target;
 
-            // --- CORRECTED LOGIC ---
-            // First, check if an attendance item was clicked.
             const attendanceItem = target.closest('.player-attendance-item');
             if (attendanceItem) {
                 this.cyclePlayerStatus(parseInt(attendanceItem.dataset.playerId));
-                return; // Stop here if it was an attendance click.
+                return;
             }
-            // -----------------------
+
+            // NEW: Handle clicks on the court container to open the activity modal
+            const courtContainer = target.closest('.court-clickable');
+            if (courtContainer) {
+                this.openActivityModal(courtContainer.dataset.phaseId, courtContainer.dataset.courtId);
+                return;
+            }
 
             const button = target.closest('button');
             if (button) {
@@ -722,11 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.addNewGroup();
                 } else if (button.matches('.remove-group-btn')) {
                     if (confirm('Are you sure?')) this.removeGroup(button.dataset.groupId);
-                } else if (button.matches('.add-court-btn')) {
-                    this.addCourtToPhase(button.dataset.phaseId);
-                } else if (button.matches('.remove-court-btn')) {
-                    this.removeCourtFromPhase(button.dataset.phaseId, button.dataset.courtId);
-                } else if (button.matches('.remove-activity-btn')) {
+                } else if (button.matches('.remove-activity-btn')) { // This is inside the modal
                     this.removeActivity(parseInt(button.dataset.index, 10));
                 } else if (button.id === 'save-plan-btn') {
                     this.savePlan();
@@ -734,17 +718,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const assignedChip = target.closest('.group-chip.is-assigned');
-            if (assignedChip) {
-                this.openActivityModal(assignedChip.dataset.phaseId, assignedChip.dataset.courtId);
-                return;
-            }
-
             const header = target.closest('.planner-header');
-            if(header && !header.parentElement.matches('.phase-block')) {
+            if (header && !header.parentElement.matches('.phase-block')) {
                 header.parentElement.classList.toggle('is-open');
             }
-},
+        },
 
         handleAppChange(e) {
             const target = e.target;
@@ -754,28 +732,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 const phaseId = target.dataset.phaseId;
                 const phase = this.plan.timeline.find(p => p.id === phaseId);
                 if (!phase) return;
-                
+
                 if (target.matches('.phase-name-input')) phase.name = target.value;
                 else if (target.matches('.phase-duration-input')) phase.duration = parseInt(target.value, 10) || 0;
-                
+
                 this.calculateAndApplyRotations(phaseId);
                 this.render();
             }
         },
-        
+
         handleFilterChange() {
             const primaryFilter = document.getElementById('primary-tag-filter');
             if (!primaryFilter) return;
             this.activityFilters.primaryTagId = primaryFilter.value ? parseInt(primaryFilter.value) : null;
-            
+
             this.activityFilters.secondaryTagIds.clear();
             document.querySelectorAll('.secondary-tag-filter:checked').forEach(el => {
                 this.activityFilters.secondaryTagIds.add(parseInt(el.value));
             });
-            
+
             this.renderFilteredDrillList();
         },
-        
+
         handleActivityFormSubmit(e) {
             e.preventDefault();
             if (e.target.id !== 'add-activity-form') return;
@@ -785,7 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const select = document.getElementById('drill-select');
             const duration = parseInt(document.getElementById('activity-duration').value, 10);
-            
+
             if (!select.value) {
                 alert("No drill selected. Please select a drill from the list.");
                 return;
@@ -810,9 +788,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target;
             if (target.matches('.player-card')) {
                 this.draggedElement = { type: 'player', id: parseInt(target.dataset.playerId) };
-                target.classList.add('dragging');
-            } else if (target.matches('.group-chip') && target.draggable) {
-                this.draggedElement = { type: 'group', id: target.dataset.groupId };
                 target.classList.add('dragging');
             }
         },
@@ -844,23 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 this.updateCourtsBasedOnGroups();
                 this.render();
-            } else if (this.draggedElement.type === 'group') {
-                const phaseId = dropTarget.dataset.phaseId;
-                const courtId = dropTarget.dataset.courtId;
-                const phase = this.plan.timeline.find(p => p.id === phaseId);
-                const court = phase ? (phase.courts || []).find(c => c.id === courtId) : null;
-                if (court) {
-                    if (!court.assignedGroupIds) court.assignedGroupIds = [];
-                    if (phase.type !== 'Rotation') {
-                         if (!court.assignedGroupIds.includes(this.draggedElement.id)) {
-                            court.assignedGroupIds.push(this.draggedElement.id);
-                        }
-                    } else {
-                        court.assignedGroupIds = [this.draggedElement.id];
-                    }
-                    this.calculateAndApplyRotations(phaseId);
-                    this.render();
-                }
             }
         },
 
