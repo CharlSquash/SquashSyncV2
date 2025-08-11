@@ -605,37 +605,45 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         cyclePlayerStatus(playerId) {
-            // --- THIS IS THE FIX ---
-            // It now correctly finds the player in the master display list, not the filtered grouping list.
-            const player = this.allPlayersForDisplay.find(p => p.id === playerId);
-            if (!player) {
-                console.error("Player not found in allPlayersForDisplay list:", playerId);
-                return;
-            }
+            const playerForDisplay = this.allPlayersForDisplay.find(p => p.id === playerId);
+            if (!playerForDisplay) return;
 
-            const statusOrder = ['PENDING', 'ATTENDING', 'DECLINED'];
-            const currentStatusIndex = statusOrder.indexOf(player.status);
+            const statusOrder = ['PENDING', 'ATTENDING', 'NOT_ATTENDING'];
+            const currentStatusIndex = statusOrder.indexOf(playerForDisplay.status);
             const nextStatus = statusOrder[(currentStatusIndex + 1) % statusOrder.length];
             
-            // Update the status in the master list
-            player.status = nextStatus;
+            // --- THIS IS THE FIX ---
+            // 1. Update the display list (for the top section)
+            playerForDisplay.status = nextStatus;
 
-            // Re-render the UI to show the change immediately
+            // 2. Find and update the player in the grouping list (for the bottom section)
+            let playerForGrouping = this.players.find(p => p.id === playerId);
+            if (playerForGrouping) {
+                playerForGrouping.status = nextStatus;
+            } else if (nextStatus === 'ATTENDING') {
+                // If player was not in the grouping list (was 'DECLINED'), add them back
+                this.players.push({ id: playerForDisplay.id, name: playerForDisplay.name, status: 'ATTENDING' });
+            }
+
+            // 3. Re-render both sections to show the change immediately
             this.renderAttendanceList();
+            this.renderGroupingSection();
+            // --- END OF FIX ---
 
-            // Send the update to the server
+            // Send the update to the server in the background
             const url = this.elements.appContainer.dataset.updateAttendanceUrl;
             const csrfToken = document.querySelector('form#logout-form [name=csrfmiddlewaretoken]')?.value || '';
             
             fetch(url.replace('0', this.sessionId), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                body: JSON.stringify({ player_id: playerId, status: player.status }),
+                body: JSON.stringify({ player_id: playerId, status: nextStatus }),
             }).catch(error => {
                 console.error("Error saving attendance:", error);
                 // Optional: revert the change on error
-                player.status = statusOrder[currentStatusIndex];
-                this.renderAttendanceList();
+                playerForDisplay.status = statusOrder[currentStatusIndex];
+                if(playerForGrouping) playerForGrouping.status = statusOrder[currentStatusIndex];
+                this.render(); // Re-render everything to revert UI
             });
         },
 
