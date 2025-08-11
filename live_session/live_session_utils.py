@@ -15,9 +15,7 @@ def _calculate_skill_priority_groups(players_qs, num_courts):
         return {}
 
     # Sort players: Advanced > Intermediate > Beginner, then alphabetically
-    player_list = sorted(list(players_qs), key=lambda p: (
-        {'ADV': 0, 'INT': 1, 'BEG': 2}.get(p.skill_level, 3), p.last_name, p.first_name
-    ))
+    player_list = sorted(list(players_qs), key=lambda p: (p.last_name, p.first_name))
 
     assignments = defaultdict(list)
     player_count = len(player_list)

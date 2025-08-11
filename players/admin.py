@@ -12,8 +12,8 @@ class SchoolGroupAdmin(admin.ModelAdmin):
 
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'contact_number', 'parent_contact_number', 'skill_level', 'is_active')
-    list_filter = ('skill_level', 'is_active', 'school_groups')
+    list_display = ('full_name', 'contact_number', 'parent_contact_number', 'is_active')
+    list_filter = ('is_active', 'school_groups')
     search_fields = ('first_name', 'last_name')
     filter_horizontal = ('school_groups',)
 

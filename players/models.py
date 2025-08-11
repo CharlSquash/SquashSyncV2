@@ -23,11 +23,7 @@ class SchoolGroup(models.Model):
 
 # --- MODEL: Player ---
 class Player(models.Model):
-    class SkillLevel(models.TextChoices):
-        BEGINNER = 'BEG', 'Beginner'
-        INTERMEDIATE = 'INT', 'Intermediate'
-        ADVANCED = 'ADV', 'Advanced'
-
+    
     class GradeLevel(models.IntegerChoices):
         GRADE_R = 0, 'Grade R'
         GRADE_1 = 1, 'Grade 1'
@@ -52,12 +48,7 @@ class Player(models.Model):
         blank=True,
         verbose_name="School Grade"
     )
-    skill_level = models.CharField(
-        max_length=3,
-        choices=SkillLevel.choices,
-        default=SkillLevel.BEGINNER,
-        blank=True
-    )
+    
     school_groups = models.ManyToManyField('SchoolGroup', related_name='players', blank=True)
     contact_number = models.CharField(
         max_length=20,

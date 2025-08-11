@@ -33,7 +33,6 @@
                 <tr>
                     <th>Name</th>
                     <th>School Group(s)</th>
-                    <th>Skill Level</th>
                     <th></th>
                 </tr>
             </thead>
@@ -42,7 +41,6 @@
                 <tr>
                     <td>{{ player.full_name }}</td>
                     <td>{{ player.school_groups.all|join:", " }}</td>
-                    <td>{{ player.get_skill_level_display }}</td>
                     <td>
                         <a href="{% url 'players:player_profile' player.id %}" class="btn btn-sm btn-outline-primary">View Profile</a>
                     </td>

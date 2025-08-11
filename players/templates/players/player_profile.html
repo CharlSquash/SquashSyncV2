@@ -17,7 +17,6 @@
                     <h5 class="card-title">{{ player.full_name }}</h5>
                     <p class="card-text">
                         <strong>Grade:</strong> {{ player.get_grade_display|default:"N/A" }}<br>
-                        <strong>Skill Level:</strong> {{ player.get_skill_level_display|default:"N/A" }}<br>
                         <strong>Groups:</strong> {{ player.school_groups.all|join:", " }}
                     </p>
                     <a href="#" class="btn btn-primary">Edit Player</a>
