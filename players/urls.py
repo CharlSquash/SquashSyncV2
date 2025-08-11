@@ -11,4 +11,6 @@ urlpatterns = [
 
     path('groups/<int:group_id>/', views.school_group_profile, name='school_group_profile'),
     path('reports/discrepancy/', views.discrepancy_report, name='discrepancy_report'),
+
+    path('discrepancy/<int:discrepancy_id>/acknowledge/', views.acknowledge_discrepancy, name='acknowledge_discrepancy'),
 ]

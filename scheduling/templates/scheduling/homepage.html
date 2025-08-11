@@ -58,13 +58,34 @@
         {% if user.is_superuser %}
         <div class="dashboard-card">
             <div class="card-header">
-                <h3><i class="bi bi-person-exclamation"></i> Attendance Discrepancies</h3>
+                <h3><i class="bi bi-person-exclamation"></i> Attendance Actions</h3>
             </div>
             <div class="card-body">
-                {% if recent_discrepancy_count > 0 %}
-                    <p>There are <strong>{{ recent_discrepancy_count }}</strong> new attendance discrepancie(s) from recently completed sessions.</p>
+                {% if discrepancy_report %}
+                    <p>The following discrepancies require your attention:</p>
+                    <ul class="dashboard-list" id="discrepancy-list">
+                        {% for item in discrepancy_report %}
+                        <li data-id="{{ item.id }}" class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'players:player_profile' item.player.id %}" class="flex-grow-1">
+                                <strong>{{ item.player.full_name }}</strong>
+                                <span>{{ item.session.school_group.name|default:"General Session" }}</span>
+                                <span class="badge 
+                                    {% if item.discrepancy_type == 'NO_SHOW' %}bg-danger
+                                    {% else %}bg-warning text-dark{% endif %}">
+                                    {{ item.get_discrepancy_type_display }}
+                                </span>
+                            </a>
+                            <button class="btn btn-sm btn-outline-success ms-2 acknowledge-btn" 
+                                    data-id="{{ item.id }}" 
+                                    title="Acknowledge and remove from this list">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="no-data-message" id="no-discrepancy-message" style="display: none;"><i class="bi bi-check2-all text-success"></i> All discrepancies reviewed.</p>
                 {% else %}
-                    <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> No recent discrepancies.</p>
+                    <p class="no-data-message" id="no-discrepancy-message"><i class="bi bi-check2-all text-success"></i> No new discrepancies to review.</p>
                 {% endif %}
             </div>
             <div class="card-footer">
@@ -164,4 +185,50 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const discrepancyList = document.getElementById('discrepancy-list');
+    if (discrepancyList) {
+        discrepancyList.addEventListener('click', function(e) {
+            const button = e.target.closest('.acknowledge-btn');
+            if (!button) return;
+
+            const discrepancyId = button.dataset.id;
+            const listItem = button.closest('li');
+            const url = `/players/discrepancy/${discrepancyId}/acknowledge/`;
+            const csrfToken = document.querySelector('form#logout-form [name=csrfmiddlewaretoken]')?.value || '';
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    listItem.style.transition = 'opacity 0.5s';
+                    listItem.style.opacity = '0';
+                    setTimeout(() => {
+                        listItem.remove();
+                        if (discrepancyList.children.length === 0) {
+                            const cardBody = discrepancyList.parentElement;
+                            discrepancyList.remove();
+                            cardBody.innerHTML = '<p class="no-data-message" id="no-discrepancy-message"><i class="bi bi-check2-all text-success"></i> No new discrepancies to review.</p>';
+                        }
+                    }, 500);
+                } else {
+                    alert('Could not acknowledge the item. Please try again.');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    }
+});
+</script>
 {% endblock %}

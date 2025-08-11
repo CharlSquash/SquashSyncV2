@@ -32,7 +32,6 @@ from . import notifications
 from .notifications import verify_confirmation_token
 from accounts.models import Coach
 from assessments.models import SessionAssessment, GroupAssessment
-# --- End: Replacement block ---
 User = get_user_model()
 
 def is_staff(user):
@@ -47,25 +46,32 @@ def is_staff(user):
 def homepage(request):
     today = timezone.now().date()
     now = timezone.now()
-    yesterday = now - timedelta(days=1)
-    
+
     # Get upcoming sessions based on user role
     if request.user.is_superuser:
         upcoming_sessions = Session.objects.filter(
             session_date__in=[today, today + timedelta(days=1)]
         ).order_by('session_date', 'session_start_time')
         
-        # --- NEW DISCREPANCY LOGIC ---
-        # Get sessions that have finished in the last 24 hours
-        finished_sessions_since_yesterday = Session.objects.filter(
-            session_date__gte=yesterday.date()
-        )
+        # --- NEW & CORRECTED DISCREPANCY LOGIC ---
+        # Fetch sessions from the last 2 days to be safe
+        recent_sessions = Session.objects.filter(
+            session_date__gte=today - timedelta(days=1)
+        ).select_related('school_group')
         
-        # Filter for discrepancies only within those recent sessions
-        discrepancy_report = AttendanceDiscrepancy.objects.filter(
-            session__in=[s for s in finished_sessions_since_yesterday if s.end_datetime and s.end_datetime < now]
-        ).select_related('player', 'session', 'session__school_group')
+        # Filter them in Python to see which ones have actually ended
+        finished_session_ids = [
+            s.id for s in recent_sessions 
+            if s.end_datetime and s.end_datetime < now
+        ]
 
+        # Fetch unacknowledged discrepancies for the dashboard
+        discrepancy_report = AttendanceDiscrepancy.objects.filter(
+            session_id__in=finished_session_ids,
+            admin_acknowledged=False,
+            discrepancy_type__in=['NO_SHOW', 'UNEXPECTED']
+        ).select_related('player', 'session__school_group')
+        
     else:
         upcoming_sessions = Session.objects.filter(
             coaches_attending__user=request.user,
@@ -80,6 +86,7 @@ def homepage(request):
 
     # Render the homepage template from its new location
     return render(request, 'scheduling/homepage.html', context)
+
 
 
 def _get_default_plan(session):
@@ -630,12 +637,18 @@ def session_staffing(request):
                             'is_emergency': "emergency" in (avail.notes or "").lower()
                         })
             
-            # ==================== NEW LOGIC TO CALCULATE COUNTS (ADDITIVE CHANGE) ====================
+            # ==================== LOGIC TO CALCULATE COUNTS (CORRECTED) ====================
             total_players = session.school_group.players.filter(is_active=True).count() if session.school_group else 0
-            confirmed_players = AttendanceTracking.objects.filter(session=session, status='ATTENDING').count()
+            
+            # THIS IS THE FIX
+            confirmed_players = AttendanceTracking.objects.filter(
+                session=session, 
+                parent_response=AttendanceTracking.ParentResponse.ATTENDING
+            ).count()
+
             total_coaches = session.coaches_attending.count()
             confirmed_coaches = sum(1 for c in assigned_coaches_status if c['status'] == "Confirmed")
-            # ================================== END OF NEW LOGIC ===================================
+            # ================================== END OF FIX ===================================
 
             processed_sessions.append({
                 'session_obj': session,
@@ -643,12 +656,10 @@ def session_staffing(request):
                 'available_coaches_for_assignment': sorted(available_coaches, key=lambda x: x['is_emergency']),
                 'has_pending_confirmations': has_pending,
                 'has_declined_coaches': has_declined,
-                # ==================== ADD NEW DATA TO CONTEXT (ADDITIVE CHANGE) ====================
                 'total_players': total_players,
                 'confirmed_players_count': confirmed_players,
                 'total_coaches_assigned': total_coaches,
                 'confirmed_coaches_count': confirmed_coaches,
-                # ================================= END OF NEW DATA =================================
             })
             
         display_week.append({

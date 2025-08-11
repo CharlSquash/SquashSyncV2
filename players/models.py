@@ -169,6 +169,7 @@ class AttendanceDiscrepancy(models.Model):
     discrepancy_type = models.CharField(max_length=20, choices=DiscrepancyType.choices)
     parent_response = models.CharField(max_length=20)
     coach_marked_attendance = models.CharField(max_length=10)
+    admin_acknowledged = models.BooleanField(default=False)
     recorded_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

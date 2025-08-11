@@ -1,6 +1,8 @@
 # players/views.py
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
 from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
 from django.utils import timezone
 from datetime import timedelta, date
@@ -231,3 +233,18 @@ def discrepancy_report(request):
         'page_title': "Attendance Discrepancy Report"
     }
     return render(request, 'players/discrepancy_report.html', context)
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def acknowledge_discrepancy(request, discrepancy_id):
+    """
+    A view to mark a discrepancy as acknowledged via an AJAX request.
+    """
+    try:
+        discrepancy = get_object_or_404(AttendanceDiscrepancy, pk=discrepancy_id)
+        discrepancy.admin_acknowledged = True
+        discrepancy.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
