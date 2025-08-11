@@ -51,7 +51,22 @@
                                     <h2 class="card-title text-center display-4">{{ attendance_percentage }}%</h2>
                                     <p class="text-center text-muted">Attended {{ attended_sessions_count }} of {{ total_sessions_count }} sessions.</p>
                                     <hr>
-                                    <small class="text-muted d-block text-center">Expected vs. Actual Attendance (Coming Soon)</small>
+                                    <h5>Attendance Discrepancy History</h5>
+                                    <ul class="list-group list-group-flush">
+                                        {% for item in discrepancy_history %}
+                                        <li class="list-group-item">
+                                            {{ item.session.session_date|date:"d M Y" }}:
+                                            <span class="badge 
+                                                {% if item.discrepancy_type == 'NO_SHOW' %}bg-danger
+                                                {% elif item.discrepancy_type == 'UNEXPECTED' %}bg-warning text-dark
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ item.get_discrepancy_type_display }}
+                                            </span>
+                                        </li>
+                                        {% empty %}
+                                        <li class="list-group-item text-muted">No discrepancies recorded.</li>
+                                        {% endfor %}
+                                    </ul>
                                 </div>
                                 <div class="col-md-7">
                                     <form method="get" class="p-3 border rounded">

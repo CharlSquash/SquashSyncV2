@@ -1,7 +1,7 @@
 # players/views.py
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord
+from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
 from django.utils import timezone
 from datetime import timedelta, date
 from django.contrib import messages
@@ -13,6 +13,7 @@ from scheduling.models import Session, AttendanceTracking
 from assessments.models import SessionAssessment, GroupAssessment
 from django.db.models import Count, Q
 import json
+
 
 # Helper to convert date objects for JSON serialization
 class DateEncoder(json.JSONEncoder):
@@ -62,6 +63,7 @@ def player_profile(request, player_id):
     # Get related data for tabs
     assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by').order_by('-session__session_date')
     match_history = MatchResult.objects.filter(player=player).order_by('-date')
+    discrepancy_history = AttendanceDiscrepancy.objects.filter(player=player).select_related('session', 'session__school_group')
 
     # --- Attendance Calculation Logic ---
     current_year = timezone.now().year
@@ -90,6 +92,7 @@ def player_profile(request, player_id):
         'player': player,
         'assessments': assessments,
         'match_history': match_history,
+        'discrepancy_history': discrepancy_history,
         'attendance_percentage': round(attendance_percentage, 2),
         'total_sessions_count': total_sessions,
         'attended_sessions_count': attended_sessions,
@@ -196,3 +199,35 @@ def school_group_profile(request, group_id):
         'page_title': f"Profile: {school_group.name}"
     }
     return render(request, 'players/school_group_profile.html', context)
+
+@login_required
+def discrepancy_report(request):
+    """
+    Displays a filterable report of all attendance discrepancies.
+    """
+    today = timezone.now().date()
+    start_date_default = today - timedelta(days=30)
+    end_date_default = today
+
+    start_date = request.GET.get('start_date', start_date_default.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', end_date_default.strftime('%Y-%m-%d'))
+    school_group_id = request.GET.get('school_group')
+
+    discrepancies = AttendanceDiscrepancy.objects.filter(
+        session__session_date__range=[start_date, end_date]
+    ).select_related('player', 'session', 'session__school_group').order_by('-session__session_date')
+
+    if school_group_id:
+        discrepancies = discrepancies.filter(session__school_group__id=school_group_id)
+
+    context = {
+        'discrepancies': discrepancies,
+        'school_groups': SchoolGroup.objects.all(),
+        'filter_values': {
+            'start_date': start_date,
+            'end_date': end_date,
+            'school_group': int(school_group_id) if school_group_id else '',
+        },
+        'page_title': "Attendance Discrepancy Report"
+    }
+    return render(request, 'players/discrepancy_report.html', context)

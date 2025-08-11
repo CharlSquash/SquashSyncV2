@@ -158,6 +158,26 @@ class Player(models.Model):
     class Meta:
         ordering = ['last_name', 'first_name']
 
+class AttendanceDiscrepancy(models.Model):
+    class DiscrepancyType(models.TextChoices):
+        NO_SHOW = 'NO_SHOW', 'No-Show'
+        UNEXPECTED = 'UNEXPECTED', 'Unexpected'
+        NEVER_NOTIFIED = 'NEVER_NOTIFIED', 'Never Notified'
+
+    player = models.ForeignKey('Player', on_delete=models.CASCADE, related_name='attendance_discrepancies')
+    session = models.ForeignKey('scheduling.Session', on_delete=models.CASCADE, related_name='attendance_discrepancies')
+    discrepancy_type = models.CharField(max_length=20, choices=DiscrepancyType.choices)
+    parent_response = models.CharField(max_length=20)
+    coach_marked_attendance = models.CharField(max_length=10)
+    recorded_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.get_discrepancy_type_display()} for {self.player.full_name} on {self.session.session_date}"
+
+    class Meta:
+        ordering = ['-recorded_at']
+        unique_together = ('player', 'session')
+
 # --- METRIC MODELS ---
 
 class CourtSprintRecord(models.Model):

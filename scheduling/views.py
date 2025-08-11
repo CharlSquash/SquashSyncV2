@@ -27,7 +27,7 @@ from .forms import MonthYearFilterForm
 # Import models from their new app locations
 from .models import Session, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
-from players.models import Player, SchoolGroup
+from players.models import Player, SchoolGroup, AttendanceDiscrepancy
 from . import notifications
 from .notifications import verify_confirmation_token
 from accounts.models import Coach
@@ -46,23 +46,36 @@ def is_staff(user):
 @login_required
 def homepage(request):
     today = timezone.now().date()
-    tomorrow = today + timedelta(days=1)
-
+    now = timezone.now()
+    yesterday = now - timedelta(days=1)
+    
     # Get upcoming sessions based on user role
     if request.user.is_superuser:
         upcoming_sessions = Session.objects.filter(
-            session_date__in=[today, tomorrow]
+            session_date__in=[today, today + timedelta(days=1)]
         ).order_by('session_date', 'session_start_time')
+        
+        # --- NEW DISCREPANCY LOGIC ---
+        # Get sessions that have finished in the last 24 hours
+        finished_sessions_since_yesterday = Session.objects.filter(
+            session_date__gte=yesterday.date()
+        )
+        
+        # Filter for discrepancies only within those recent sessions
+        discrepancy_report = AttendanceDiscrepancy.objects.filter(
+            session__in=[s for s in finished_sessions_since_yesterday if s.end_datetime and s.end_datetime < now]
+        ).select_related('player', 'session', 'session__school_group')
+
     else:
         upcoming_sessions = Session.objects.filter(
             coaches_attending__user=request.user,
             session_date__gte=today
         ).order_by('session_date', 'session_start_time')[:5]
+        discrepancy_report = None
 
     context = {
         'upcoming_sessions': upcoming_sessions,
-        # We will add the other context variables (pending assessments, etc.)
-        # in a later step once we have ported those views.
+        'discrepancy_report': discrepancy_report,
     }
 
     # Render the homepage template from its new location
@@ -250,26 +263,43 @@ def visual_attendance(request, session_id):
     if request.method == 'POST':
         attending_player_ids = set(request.POST.getlist('attendees'))
         
-        # --- THIS IS THE CORRECTED LOGIC ---
-        # We will iterate through every player and ensure their record is handled correctly.
+        # --- NEW DISCREPANCY LOGIC ---
         for player in players_in_group:
-            # Get or create the record in memory without saving it immediately.
-            # This preserves the existing parent_response if the record already exists.
-            record, created = AttendanceTracking.objects.get_or_create(
-                session=session,
-                player=player
-            )
-
-            # Now, ONLY set the coach-marked attendance status.
-            if str(player.id) in attending_player_ids:
-                record.attended = AttendanceTracking.CoachAttended.YES
-            else:
-                record.attended = AttendanceTracking.CoachAttended.NO
+            record, _ = AttendanceTracking.objects.get_or_create(session=session, player=player)
             
-            # Save the record. If it was new, parent_response is the default 'PENDING'.
-            # If it existed, parent_response is whatever it was before.
-            record.save()
-        
+            final_attendance = AttendanceTracking.CoachAttended.YES if str(player.id) in attending_player_ids else AttendanceTracking.CoachAttended.NO
+            
+            # Only update if changed
+            if record.attended != final_attendance:
+                record.attended = final_attendance
+                record.save()
+
+            # Check for discrepancies
+            parent_response = record.parent_response
+            discrepancy_type = None
+
+            if parent_response == 'ATTENDING' and final_attendance == 'NO':
+                discrepancy_type = 'NO_SHOW'
+            elif parent_response == 'NOT_ATTENDING' and final_attendance == 'YES':
+                discrepancy_type = 'UNEXPECTED'
+            elif parent_response == 'PENDING' and final_attendance == 'NO':
+                discrepancy_type = 'NEVER_NOTIFIED'
+
+            # Create or update discrepancy record
+            if discrepancy_type:
+                AttendanceDiscrepancy.objects.update_or_create(
+                    player=player,
+                    session=session,
+                    defaults={
+                        'discrepancy_type': discrepancy_type,
+                        'parent_response': parent_response,
+                        'coach_marked_attendance': final_attendance,
+                    }
+                )
+            else:
+                # If there's no discrepancy, delete any existing record for this player/session
+                AttendanceDiscrepancy.objects.filter(player=player, session=session).delete()
+
         messages.success(request, "Final attendance has been recorded successfully.")
         return redirect('scheduling:session_detail', session_id=session.id)
 
@@ -302,6 +332,7 @@ def visual_attendance(request, session_id):
         'page_title': "Take Final Attendance"
     }
     return render(request, 'scheduling/visual_attendance.html', context)
+#... (rest of the file is unchanged)
 
 @login_required
 def session_calendar(request):

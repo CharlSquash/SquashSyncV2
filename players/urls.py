@@ -10,4 +10,5 @@ urlpatterns = [
     path('<int:player_id>/', views.player_profile, name='player_profile'),
 
     path('groups/<int:group_id>/', views.school_group_profile, name='school_group_profile'),
+    path('reports/discrepancy/', views.discrepancy_report, name='discrepancy_report'),
 ]

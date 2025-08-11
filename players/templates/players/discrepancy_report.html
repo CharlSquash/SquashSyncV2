@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ page_title|default:"Attendance Discrepancy Report" }}{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <h1><i class="bi bi-person-exclamation me-2"></i>{{ page_title }}</h1>
+
+    <form method="GET" class="filter-form mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" name="start_date" id="start_date" class="form-control" value="{{ filter_values.start_date }}">
+            </div>
+            <div class="col-md-4">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" name="end_date" id="end_date" class="form-control" value="{{ filter_values.end_date }}">
+            </div>
+            <div class="col-md-3">
+                <label for="school_group" class="form-label">School Group</label>
+                <select name="school_group" id="school_group" class="form-select">
+                    <option value="">All Groups</option>
+                    {% for group in school_groups %}
+                        <option value="{{ group.id }}" {% if group.id == filter_values.school_group %}selected{% endif %}>{{ group.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+        </div>
+    </form>
+
+    {% if discrepancies %}
+        <div class="table-responsive">
+            <table class="report-table table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Session Date</th>
+                        <th>Player</th>
+                        <th>Group</th>
+                        <th class="text-center">Discrepancy</th>
+                        <th>Parent Response</th>
+                        <th>Coach-Marked</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in discrepancies %}
+                        <tr>
+                            <td>{{ item.session.session_date|date:"Y-m-d" }}</td>
+                            <td><a href="{% url 'players:player_profile' item.player.id %}">{{ item.player.full_name }}</a></td>
+                            <td>{{ item.session.school_group.name }}</td>
+                            <td class="text-center">
+                                <span class="badge 
+                                    {% if item.discrepancy_type == 'NO_SHOW' %}bg-danger
+                                    {% elif item.discrepancy_type == 'UNEXPECTED' %}bg-warning text-dark
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ item.get_discrepancy_type_display }}
+                                </span>
+                            </td>
+                            <td>{{ item.parent_response }}</td>
+                            <td>{{ item.coach_marked_attendance }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="no-records-msg">
+            <p>No attendance discrepancies found for the selected filters.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
