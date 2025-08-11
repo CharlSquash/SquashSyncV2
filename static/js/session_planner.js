@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         init() {
             console.log("Session Planner Initializing...");
             try {
+                this.sessionId = this.elements.appContainer.dataset.sessionId;
                 this.plan = JSON.parse(document.getElementById('plan-data').textContent);
                 // This line now correctly targets the 'players-data' script for the grouping list
                 this.players = JSON.parse(document.getElementById('players-data').textContent);
@@ -604,19 +605,38 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         cyclePlayerStatus(playerId) {
-            const player = this.players.find(p => p.id === playerId);
-            if (!player) return;
-            const statusOrder = ['PENDING', 'ATTENDING', 'DECLINED'];
-            player.status = statusOrder[(statusOrder.indexOf(player.status) + 1) % statusOrder.length];
-            this.render();
+            // --- THIS IS THE FIX ---
+            // It now correctly finds the player in the master display list, not the filtered grouping list.
+            const player = this.allPlayersForDisplay.find(p => p.id === playerId);
+            if (!player) {
+                console.error("Player not found in allPlayersForDisplay list:", playerId);
+                return;
+            }
 
-            const sessionId = this.elements.appContainer.dataset.sessionId;
+            const statusOrder = ['PENDING', 'ATTENDING', 'DECLINED'];
+            const currentStatusIndex = statusOrder.indexOf(player.status);
+            const nextStatus = statusOrder[(currentStatusIndex + 1) % statusOrder.length];
+            
+            // Update the status in the master list
+            player.status = nextStatus;
+
+            // Re-render the UI to show the change immediately
+            this.renderAttendanceList();
+
+            // Send the update to the server
+            const url = this.elements.appContainer.dataset.updateAttendanceUrl;
             const csrfToken = document.querySelector('form#logout-form [name=csrfmiddlewaretoken]')?.value || '';
-            fetch(`/schedule/api/session/${sessionId}/update_attendance/`, {
+            
+            fetch(url.replace('0', this.sessionId), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                 body: JSON.stringify({ player_id: playerId, status: player.status }),
-            }).catch(error => console.error("Error saving attendance:", error));
+            }).catch(error => {
+                console.error("Error saving attendance:", error);
+                // Optional: revert the change on error
+                player.status = statusOrder[currentStatusIndex];
+                this.renderAttendanceList();
+            });
         },
 
         savePlan() {

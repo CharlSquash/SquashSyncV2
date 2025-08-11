@@ -84,6 +84,7 @@
      class="container-fluid" 
      data-session-id="{{ session.id }}" 
      data-save-url="{% url 'scheduling:save_session_plan' session.id %}"
+     data-update-attendance-url="{% url 'scheduling:update_attendance_status' 0 %}"
      data-session-start-time="{{ session.session_start_time|time:'H:i' }}">
     
     <div class="d-flex justify-content-between align-items-center mb-4">
