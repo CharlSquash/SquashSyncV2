@@ -5,7 +5,7 @@ from collections import defaultdict
 
 # Import models from their new app locations
 from players.models import Player
-from scheduling.models import ManualCourtAssignment
+from scheduling.models import 
 
 def _calculate_skill_priority_groups(players_qs, num_courts):
     """

@@ -150,68 +150,6 @@ class Session(models.Model):
         ordering = ['-session_date', '-session_start_time']
 
 
-# --- MODEL: TimeBlock ---
-class TimeBlock(models.Model):
-    session = models.ForeignKey('Session', on_delete=models.CASCADE, related_name='time_blocks')
-    start_offset_minutes = models.PositiveIntegerField(default=0, help_text="Minutes from session start time.")
-    duration_minutes = models.PositiveIntegerField(default=15, validators=[MinValueValidator(1)])
-    number_of_courts = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
-    rotation_interval_minutes = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)], help_text="Optional: Rotate players/activities every X minutes within this block.")
-    block_focus = models.CharField(max_length=200, blank=True, help_text="Specific focus for this time block (e.g., Warm-up, Drills, Match Play).")
-
-    @property
-    def block_start_datetime(self):
-        if self.session and self.session.start_datetime:
-            return self.session.start_datetime + datetime.timedelta(minutes=self.start_offset_minutes)
-        return None
-
-    @property
-    def block_end_datetime(self):
-        start = self.block_start_datetime
-        if start and self.duration_minutes:
-            return start + datetime.timedelta(minutes=self.duration_minutes)
-        return None
-
-    def __str__(self):
-        focus_str = f" - {self.block_focus}" if self.block_focus else ""
-        return f"Block for {self.session} ({self.duration_minutes} min){focus_str}"
-
-    class Meta:
-        ordering = ['session', 'start_offset_minutes']
-
-# --- MODEL: ActivityAssignment ---
-class ActivityAssignment(models.Model):
-    time_block = models.ForeignKey('TimeBlock', on_delete=models.CASCADE, related_name='activities')
-    court_number = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
-    drill = models.ForeignKey('Drill', on_delete=models.SET_NULL, null=True, blank=True)
-    custom_activity_name = models.CharField(max_length=150, blank=True, help_text="Use this if not selecting a pre-defined Drill.")
-    duration_minutes = models.PositiveIntegerField(default=10, validators=[MinValueValidator(1)], help_text="Estimated duration for this activity on this court.")
-    # IMPORTANT: Updated FK relationship
-    lead_coach = models.ForeignKey('accounts.Coach', on_delete=models.SET_NULL, null=True, blank=True, related_name='led_activities')
-    order = models.PositiveIntegerField(default=0, help_text="Order of activity on this court within the time block.")
-    activity_notes = models.TextField(blank=True, help_text="Specific notes for this activity instance (e.g., variations, player assignments).")
-
-    def __str__(self):
-        activity_name = self.drill.name if self.drill else self.custom_activity_name
-        return f"{activity_name} on Court {self.court_number} in {self.time_block}"
-    class Meta:
-        ordering = ['time_block', 'court_number', 'order']
-
-# --- MODEL: ManualCourtAssignment ---
-class ManualCourtAssignment(models.Model):
-    time_block = models.ForeignKey('TimeBlock', on_delete=models.CASCADE, related_name='manual_assignments')
-    # IMPORTANT: Updated FK relationship
-    player = models.ForeignKey('players.Player', on_delete=models.CASCADE, related_name='manual_court_assignments')
-    court_number = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-    last_updated = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.player} on Court {self.court_number} during {self.time_block}"
-    class Meta:
-        unique_together = ('time_block', 'player')
-        ordering = ['time_block', 'court_number', 'player__last_name']
-
-
 # --- MODEL: CoachAvailability ---
 class CoachAvailability(models.Model):
     coach = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='session_availabilities', limit_choices_to={'is_staff': True})

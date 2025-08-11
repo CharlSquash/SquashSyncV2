@@ -1,3 +1,4 @@
+/* charlsquash/squashsyncv2/SquashSyncV2-9fc5a553efc7a2924c0997725f420d440d0e5dc9/static/css/live_session.css */
 :root {
     --bg-dark: #121212; --surface-color: #1e1e1e; --primary-color: #00A3A6; 
     --text-color: #e0e0e0; --text-muted: #888; --font-sans: 'Segoe UI', 'Roboto', sans-serif;
@@ -70,3 +71,105 @@ body { background-color: var(--bg-dark); color: var(--text-color); font-family: 
 .timer-bg { stroke: #333; }
 .timer-progress { stroke: var(--primary-color); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
 .timer-text { position: absolute; font-weight: bold; }
+
+
+/* --- UPDATED WAITING SCREEN STYLES --- */
+#waiting-screen {
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    justify-content: center; /* Vertically center */
+    align-items: center; /* Horizontally center */
+    text-align: center;
+    padding: 1rem; /* Reduced padding */
+    height: 100%;
+    position: relative; /* Needed for positioning the fullscreen button */
+}
+#fullscreen-toggle-waiting {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+}
+#fullscreen-toggle-waiting:hover {
+    color: var(--text-color);
+}
+#waiting-screen h1 { 
+    font-size: clamp(1.8rem, 6vw, 3.5rem);
+    line-height: 1.1;
+    margin: 0 0 1rem 0; /* Add margin to the bottom */
+}
+
+.coaches-container {
+    margin-bottom: 1.5rem;
+}
+.coaches-container h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+.coach-name-list {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    font-size: clamp(1.1rem, 3vw, 1.4rem);
+}
+
+.countdown-timer { margin: 1rem 0; }
+.countdown-label { 
+    font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+    color: var(--text-muted); 
+    text-transform: uppercase; 
+    letter-spacing: 2px; 
+}
+#countdown-clock { 
+    display: block; 
+    font-size: clamp(3.5rem, 12vw, 7rem);
+    color: var(--primary-color); 
+    font-weight: bold; 
+    line-height: 1;
+}
+
+.attendees-container {
+    background-color: var(--surface-color);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 900px;
+    margin-top: 1.5rem;
+    flex-shrink: 1; /* Allow shrinking */
+    min-height: 0; /* Important for flexbox shrinking */
+    display: flex;
+    flex-direction: column;
+}
+.attendees-container h4 {
+    margin: 0 0 1rem 0;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+    flex-shrink: 0;
+}
+.attendees-container ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto; /* Make scrollable */
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) var(--surface-color);
+    columns: 2; /* Create columns */
+    column-gap: 2rem;
+}
+.attendees-container ul::-webkit-scrollbar { width: 8px; }
+.attendees-container ul::-webkit-scrollbar-track { background: var(--surface-color); }
+.attendees-container ul::-webkit-scrollbar-thumb { background-color: var(--primary-color); border-radius: 4px; }
+.attendees-container li { 
+    padding: 0.3rem 0; 
+    font-size: clamp(1rem, 2vw, 1.2rem);
+}

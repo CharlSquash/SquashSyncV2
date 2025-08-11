@@ -1,10 +1,11 @@
+# charlsquash/squashsyncv2/SquashSyncV2-9fc5a553efc7a2924c0997725f420d440d0e5dc9/live_session/views.py
 import json
 from datetime import datetime
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from scheduling.models import Session
+from scheduling.models import Session, AttendanceTracking
 from accounts.models import Coach
 from players.models import Player
 
@@ -114,10 +115,40 @@ def live_session_update_api(request, session_id):
         session = get_object_or_404(Session, pk=session_id)
     else:
         coach_profile = get_object_or_404(Coach, user=request.user)
-        session = get_object_or_404(Session, pk=session_id, coaches_attending=coach_profile)
+        session = get_object_or_404(Session.objects.prefetch_related('coaches_attending__user', 'attendees'), pk=session_id, coaches_attending=coach_profile)
 
-    if session.status == 'pending' or not session.start_time: return JsonResponse({'sessionStatus': 'pending'})
-    if session.status == 'finished': return JsonResponse({'sessionStatus': 'finished'})
+    # --- NEW: Simplified Title Generation ---
+    group_name = session.school_group.name if session.school_group else "General"
+    start_time_str = session.session_start_time.strftime('%H:%M')
+    end_time_str = (session.start_datetime + timezone.timedelta(minutes=session.planned_duration_minutes)).strftime('%H:%M')
+    session_title = f"{group_name} : {start_time_str} - {end_time_str}"
+
+    if session.status == 'pending' or not session.start_time:
+        now = timezone.now()
+        start_datetime = session.start_datetime
+        if now < start_datetime:
+            time_to_start = (start_datetime - now).total_seconds()
+            
+            # Fetch assigned coaches and confirmed attendees
+            coaches = [coach.user.get_full_name() or coach.user.username for coach in session.coaches_attending.all()]
+            attendees = [
+                player.full_name for player in
+                Player.objects.filter(attendance_records__session=session, attendance_records__status='ATTENDING')
+            ]
+            
+            return JsonResponse({
+                'sessionStatus': 'not_yet_started',
+                'sessionTitle': session_title,
+                'timeToStart': time_to_start,
+                'coaches': sorted(coaches),
+                'attendees': sorted(attendees),
+            })
+        else:
+             # If the session was supposed to start but isn't active, treat it as pending
+            return JsonResponse({'sessionStatus': 'pending', 'sessionTitle': session_title})
+
+    if session.status == 'finished': 
+        return JsonResponse({'sessionStatus': 'finished', 'sessionTitle': session_title})
 
     try:
         plan = session.plan if isinstance(session.plan, dict) else json.loads(session.plan)
@@ -159,7 +190,7 @@ def live_session_update_api(request, session_id):
             })
 
     response_data = {
-        'sessionStatus': session.status, 'sessionTitle': str(session), 'totalTimeLeft': time_left_session,
+        'sessionStatus': session.status, 'sessionTitle': session_title, 'totalTimeLeft': time_left_session,
         'currentPhase': { 'name': current_phase.get('name', 'Unnamed Phase'), 'timeLeft': time_left_phase, 'duration': int(current_phase.get('duration', 0)) * 60 },
         'courts': courts_data
     }

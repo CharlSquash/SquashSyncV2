@@ -25,7 +25,7 @@ from .utils import get_month_start_end # We will create this helper function nex
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
-from .models import Session, TimeBlock, ActivityAssignment, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag
+from .models import Session, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup
 from . import notifications

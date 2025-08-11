@@ -1,3 +1,4 @@
+// charlsquash/squashsyncv2/SquashSyncV2-9fc5a553efc7a2924c0997725f420d440d0e5dc9/static/js/live_session.js
 document.addEventListener('DOMContentLoaded', () => {
     // --- Application State ---
     const appState = {
@@ -5,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView: 'all-courts-view',
         selectedCourt: null,
         apiPollInterval: null,
+        countdownInterval: null,
         timers: {},
         lastKnownData: null
     };
@@ -13,12 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const elements = {
         container: document.getElementById('live-view-container'),
         loadingIndicator: document.getElementById('loading-indicator'),
+        waitingScreen: document.getElementById('waiting-screen'),
+        waitingTitle: document.getElementById('waiting-session-title'),
+        countdownClock: document.getElementById('countdown-clock'),
+        coachesList: document.getElementById('coaches-list'),
+        attendeesList: document.getElementById('attendees-list'),
+        liveHeader: document.getElementById('live-header'),
+        liveMain: document.getElementById('live-main-content'),
         masterTimer: document.getElementById('master-session-timer'),
-        sessionTitle: document.getElementById('session-title-header'), // This will now find the element
+        sessionTitle: document.getElementById('session-title-header'),
         phaseName: document.getElementById('current-phase-name'),
         phaseTimerContainer: document.getElementById('phase-timer-container'),
         viewToggle: document.getElementById('view-toggle'),
         fullscreenToggle: document.getElementById('fullscreen-toggle'),
+        fullscreenToggleWaiting: document.getElementById('fullscreen-toggle-waiting'),
         allCourtsView: document.getElementById('all-courts-view'),
         singleCourtView: document.getElementById('single-court-view'),
         singleCourtSelector: document.getElementById('single-court-selector'),
@@ -30,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cleanup = () => {
         if (appState.apiPollInterval) { clearInterval(appState.apiPollInterval); appState.apiPollInterval = null; }
+        if (appState.countdownInterval) { clearInterval(appState.countdownInterval); appState.countdownInterval = null; }
         for (const timerId in appState.timers) { clearInterval(appState.timers[timerId]); }
         appState.timers = {};
     };
@@ -58,8 +69,51 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateUI = (data) => {
-        if (elements.container.classList.contains('loading')) elements.container.classList.remove('loading');
-        if (data.sessionStatus === 'finished' || !data.currentPhase) { displaySessionFinished(); return; }
+        if (elements.container.classList.contains('loading')) {
+            elements.container.classList.remove('loading');
+        }
+
+        if (data.sessionStatus === 'not_yet_started') {
+            displayWaitingScreen(data);
+        } else if (data.sessionStatus === 'finished' || !data.currentPhase) {
+            displaySessionFinished();
+        } else {
+            displayLiveSession(data);
+        }
+    };
+
+    const displayWaitingScreen = (data) => {
+        elements.liveHeader.style.display = 'none';
+        elements.liveMain.style.display = 'none';
+        elements.waitingScreen.style.display = 'flex';
+
+        elements.waitingTitle.textContent = data.sessionTitle;
+        updateCoachList(elements.coachesList, data.coaches);
+        updateAttendeeList(elements.attendeesList, data.attendees);
+        
+        if (!appState.countdownInterval) {
+            let remaining = data.timeToStart;
+            const renderCountdown = () => {
+                if (remaining <= 0) {
+                    elements.countdownClock.textContent = 'Starting...';
+                    clearInterval(appState.countdownInterval);
+                    appState.countdownInterval = null;
+                    fetchSessionState(); // Re-fetch immediately when time is up
+                } else {
+                    elements.countdownClock.textContent = formatCountdown(remaining);
+                    remaining--;
+                }
+            };
+            renderCountdown();
+            appState.countdownInterval = setInterval(renderCountdown, 1000);
+        }
+    };
+    
+    const displayLiveSession = (data) => {
+        cleanupCountdown();
+        elements.waitingScreen.style.display = 'none';
+        elements.liveHeader.style.display = 'grid';
+        elements.liveMain.style.display = 'block';
 
         elements.masterTimer.textContent = formatTime(data.totalTimeLeft);
         elements.sessionTitle.textContent = data.sessionTitle;
@@ -72,6 +126,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!appState.selectedCourt && data.courts.length > 0) appState.selectedCourt = data.courts[0].courtName;
             updateSingleCourtSelector(data.courts);
             updateSingleCourtView(data.courts);
+        }
+    };
+
+    const updateCoachList = (divElement, items) => {
+        divElement.innerHTML = '';
+        if (items && items.length > 0) {
+            divElement.innerHTML = items.map(item => `<span>${item}</span>`).join('');
+        } else {
+            divElement.innerHTML = '<span class="text-muted">None Assigned</span>';
+        }
+    };
+
+    const updateAttendeeList = (listElement, items) => {
+        listElement.innerHTML = '';
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                listElement.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.textContent = 'None yet';
+            li.className = 'text-muted';
+            listElement.appendChild(li);
+        }
+    };
+    
+    const cleanupCountdown = () => {
+        if (appState.countdownInterval) {
+            clearInterval(appState.countdownInterval);
+            appState.countdownInterval = null;
         }
     };
 
@@ -117,6 +203,28 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.singleCourtContent.appendChild(display);
     };
 
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            elements.container.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    };
+
+    const updateFullscreenIcons = () => {
+        const isFullscreen = !!document.fullscreenElement;
+        [elements.fullscreenToggle, elements.fullscreenToggleWaiting].forEach(btn => {
+            if (btn) {
+                const enterIcon = btn.querySelector('.bi-fullscreen');
+                const exitIcon = btn.querySelector('.bi-fullscreen-exit');
+                enterIcon.classList.toggle('d-none', isFullscreen);
+                exitIcon.classList.toggle('d-none', !isFullscreen);
+            }
+        });
+    };
+
     const setupEventListeners = () => {
         elements.viewToggle.addEventListener('click', (e) => {
             const button = e.target.closest('button');
@@ -132,23 +240,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        elements.fullscreenToggle.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                elements.container.requestFullscreen().catch(err => {
-                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-                });
-            } else {
-                document.exitFullscreen();
-            }
-        });
-
-        document.addEventListener('fullscreenchange', () => {
-            const isFullscreen = !!document.fullscreenElement;
-            const enterIcon = elements.fullscreenToggle.querySelector('.bi-fullscreen');
-            const exitIcon = elements.fullscreenToggle.querySelector('.bi-fullscreen-exit');
-            enterIcon.classList.toggle('d-none', isFullscreen);
-            exitIcon.classList.toggle('d-none', !isFullscreen);
-        });
+        elements.fullscreenToggle.addEventListener('click', toggleFullscreen);
+        elements.fullscreenToggleWaiting.addEventListener('click', toggleFullscreen);
+        document.addEventListener('fullscreenchange', updateFullscreenIcons);
     };
     
     const updateCircleTimer = (container, timeLeft, totalDuration, timerId) => {
@@ -187,6 +281,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const mins = Math.floor(seconds / 60);
         const secs = Math.round(seconds % 60);
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+    
+    const formatCountdown = (totalSeconds) => {
+        if (isNaN(totalSeconds) || totalSeconds < 0) return '00:00:00';
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = Math.floor(totalSeconds % 60);
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     };
 
     const displaySessionFinished = () => {

@@ -2,13 +2,35 @@
 {% load static %}
 
 {% block title %}Live Session{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'css/live_session.css' %}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/live_session.css' %}?v=1.2">{% endblock %}
 
 {% block content %}
 <div id="live-view-container" class="loading" data-session-id="{{ session.id }}">
     
     <div id="loading-indicator"><div class="spinner"></div><p>Preparing Live Session...</p></div>
 
+    <div id="waiting-screen" style="display: none;">
+        <button id="fullscreen-toggle-waiting" class="btn btn-link nav-link" title="Toggle Fullscreen">
+            <i class="bi bi-fullscreen"></i>
+            <i class="bi bi-fullscreen-exit d-none"></i>
+        </button>
+        
+        <h1 id="waiting-session-title"></h1>
+        
+        <div class="coaches-container">
+            <h4><i class="bi bi-person-check-fill"></i> Coaches</h4>
+            <div id="coaches-list" class="coach-name-list"></div>
+        </div>
+        
+        <div class="countdown-timer">
+            <span class="countdown-label">Starts In</span>
+            <span id="countdown-clock">--:--:--</span>
+        </div>
+        <div class="attendees-container">
+            <h4><i class="bi bi-people-fill"></i> Confirmed Players</h4>
+            <ul id="attendees-list"></ul>
+        </div>
+    </div>
     <header id="live-header">
         <div class="header-left">
             <div class="timer-block">
@@ -89,4 +111,4 @@
 </template>
 {% endblock %}
 
-{% block extra_js %}<script src="{% static 'js/live_session.js' %}?v=1.5"></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/live_session.js' %}?v=1.8"></script>{% endblock %}
