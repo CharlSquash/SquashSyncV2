@@ -31,6 +31,9 @@
                     <button class="nav-link active" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab">Attendance</button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="metrics-tab" data-bs-toggle="tab" data-bs-target="#metrics" type="button" role="tab">Metrics</button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="assessments-tab" data-bs-toggle="tab" data-bs-target="#assessments" type="button" role="tab">Assessments</button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -66,7 +69,72 @@
                                         </div>
                                         <button type="submit" class="btn btn-secondary w-100 mt-2">Apply Filter</button>
                                     </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="metrics" role="tabpanel">
+                    <div class="accordion mt-3" id="metricsAccordion">
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingSprints">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSprints">Court Sprints</button>
+                            </h2>
+                            <div id="collapseSprints" class="accordion-collapse collapse" data-bs-parent="#metricsAccordion">
+                                <div class="accordion-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="sprintChart"></canvas>
                                     </div>
+                                    <hr>
+                                    <h5>Add New Sprint Record</h5>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        {{ sprint_form|crispy }}
+                                        <button type="submit" name="add_sprint_record" class="btn btn-primary mt-2">Save Record</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingVolleys">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVolleys">Volleys</button>
+                            </h2>
+                            <div id="collapseVolleys" class="accordion-collapse collapse" data-bs-parent="#metricsAccordion">
+                                <div class="accordion-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="volleyChart"></canvas>
+                                    </div>
+                                    <hr>
+                                    <h5>Add New Volley Record</h5>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        {{ volley_form|crispy }}
+                                        <button type="submit" name="add_volley_record" class="btn btn-primary mt-2">Save Record</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingDrives">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDrives">Backwall Drives</button>
+                            </h2>
+                            <div id="collapseDrives" class="accordion-collapse collapse" data-bs-parent="#metricsAccordion">
+                                <div class="accordion-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="driveChart"></canvas>
+                                    </div>
+                                    <hr>
+                                    <h5>Add New Drive Record</h5>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        {{ drive_form|crispy }}
+                                        <button type="submit" name="add_drive_record" class="btn btn-primary mt-2">Save Record</button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -101,4 +169,78 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+    {{ block.super }} {# This includes the Chart.js from base.html #}
+
+    <script id="sprint-data" type="application/json">{{ sprint_records_json|safe }}</script>
+    <script id="volley-data" type="application/json">{{ volley_records_json|safe }}</script>
+    <script id="drive-data" type="application/json">{{ drive_records_json|safe }}</script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- THIS IS THE FIX ---
+            const chartOptions = {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'day' },
+                        title: { display: true, text: 'Date' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Score' }
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false // This allows the chart to fit the container's height
+            };
+
+            // --- Sprint Chart ---
+            const sprintCtx = document.getElementById('sprintChart');
+            if (sprintCtx) {
+                const sprintData = JSON.parse(document.getElementById('sprint-data').textContent);
+                const datasets = {};
+                sprintData.forEach(r => {
+                    const label = r.duration_choice; // 3m, 5m etc.
+                    if (!datasets[label]) {
+                        datasets[label] = { label: `Sprint (${label})`, data: [], tension: 0.1 };
+                    }
+                    datasets[label].data.push({ x: r.date_recorded, y: r.score });
+                });
+                new Chart(sprintCtx, { type: 'line', data: { datasets: Object.values(datasets) }, options: chartOptions });
+            }
+
+            // --- Volley Chart ---
+            const volleyCtx = document.getElementById('volleyChart');
+            if (volleyCtx) {
+                const volleyData = JSON.parse(document.getElementById('volley-data').textContent);
+                const datasets = {};
+                volleyData.forEach(r => {
+                    const label = r.shot_type === 'FH' ? 'Forehand' : 'Backhand';
+                    if (!datasets[label]) {
+                        datasets[label] = { label: `Volley (${label})`, data: [], tension: 0.1 };
+                    }
+                    datasets[label].data.push({ x: r.date_recorded, y: r.consecutive_count });
+                });
+                new Chart(volleyCtx, { type: 'line', data: { datasets: Object.values(datasets) }, options: chartOptions });
+            }
+
+            // --- Drive Chart ---
+            const driveCtx = document.getElementById('driveChart');
+            if (driveCtx) {
+                const driveData = JSON.parse(document.getElementById('drive-data').textContent);
+                const datasets = {};
+                driveData.forEach(r => {
+                    const label = r.shot_type === 'FH' ? 'Forehand' : 'Backhand';
+                    if (!datasets[label]) {
+                        datasets[label] = { label: `Drive (${label})`, data: [], tension: 0.1 };
+                    }
+                    datasets[label].data.push({ x: r.date_recorded, y: r.consecutive_count });
+                });
+                new Chart(driveCtx, { type: 'line', data: { datasets: Object.values(datasets) }, options: chartOptions });
+            }
+        });
+    </script>
 {% endblock %}

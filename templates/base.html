@@ -160,8 +160,10 @@
         })();
     </script>
     
-    {# *** THIS IS THE FIX: Changed 'scripts_extra' to 'extra_js' *** #}
-    {% block extra_js %}{% endblock %}
+    {% block extra_js %}
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    {% endblock %}
 
 </body>
 </html>
