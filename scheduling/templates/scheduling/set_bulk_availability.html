@@ -54,11 +54,14 @@
                             <div class="availability-item status-no-change" 
                                  data-rule-id="{{ rule.id }}" 
                                  data-status="NO_CHANGE"
+                                 data-group-description="{{ rule.school_group.description|escapejs }}"
+                                 data-group-name="{{ rule.school_group.name }}"
                                  role="button">
                                 
+                                <i class="bi bi-info-circle-fill description-trigger" title="View group description"></i>
                                 <strong>{{ rule.start_time|time:"H:i" }}</strong>
                                 <span>{{ rule.school_group.name }}</span>
-                            </div>
+                                </div>
                             <input type="hidden" name="availability_rule_{{ rule.id }}" id="input_rule_{{ rule.id }}" value="NO_CHANGE">
                         {% endfor %}
                     </div>
@@ -73,12 +76,26 @@
         </div>
     </form>
 </div>
+
+<div id="descriptionModal" class="custom-modal-overlay">
+    <div class="custom-modal-content">
+        <button id="descriptionModalClose" class="custom-modal-close" aria-label="Close">&times;</button>
+        <h4 id="modalGroupName">Group Description</h4>
+        <p id="modalGroupDescription"></p>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const availabilityItems = document.querySelectorAll('.availability-item');
+    const descriptionModal = document.getElementById('descriptionModal');
+    const descriptionModalClose = document.getElementById('descriptionModalClose');
+    const modalGroupName = document.getElementById('modalGroupName');
+    const modalGroupDescription = document.getElementById('modalGroupDescription');
+
     const states = [
         { value: 'AVAILABLE',   cssClass: 'status-available' },
         { value: 'UNAVAILABLE', cssClass: 'status-unavailable' },
@@ -100,12 +117,35 @@ document.addEventListener('DOMContentLoaded', function () {
             hiddenInput.value = nextState.value;
         }
     }
+    
+    // THIS IS THE FIX: Added the logic to show the description modal
+    function showDescription(item) {
+        const description = item.dataset.groupDescription;
+        const groupName = item.dataset.groupName;
+        modalGroupName.textContent = `Description for: ${groupName}`;
+        modalGroupDescription.textContent = description || "No description provided.";
+        if(descriptionModal) descriptionModal.style.display = 'flex';
+    }
 
     availabilityItems.forEach(item => {
-        item.addEventListener('click', function() {
-            cycleStatus(this);
+        item.addEventListener('click', function(event) {
+            // Check if the icon was clicked
+            if (event.target.classList.contains('description-trigger')) {
+                event.stopPropagation();
+                showDescription(this);
+            } else {
+                cycleStatus(this);
+            }
         });
     });
+
+    function closeModal(modal) {
+        if (modal) modal.style.display = 'none';
+    }
+
+    if (descriptionModalClose) {
+        descriptionModalClose.addEventListener('click', () => closeModal(descriptionModal));
+    }
 });
 </script>
 {% endblock %}
