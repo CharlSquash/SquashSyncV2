@@ -8,8 +8,8 @@ from .forms import GenerateSessionsForm
 from .session_generation_service import generate_sessions_for_rules
 
 from .models import (
-    Venue, Drill, DrillTag, Session, TimeBlock, ScheduledClass,
-    ActivityAssignment, ManualCourtAssignment, CoachAvailability, Event
+    Venue, Drill, DrillTag, Session, ScheduledClass,
+    CoachAvailability, Event
 )
 
 @admin.register(Venue)
@@ -30,22 +30,18 @@ class DrillAdmin(admin.ModelAdmin):
     search_fields = ('name', 'description', 'tags__name')
     filter_horizontal = ('tags',)
 
-# --- MOVED THIS BLOCK UP ---
-class TimeBlockInline(admin.TabularInline):
-    model = TimeBlock
-    extra = 1
-
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
-    # This class now comes AFTER TimeBlockInline is defined
     list_display = ('__str__', 'session_date', 'session_start_time', 'school_group', 'venue', 'is_cancelled', 'status')
     list_filter = ('session_date', 'is_cancelled', 'venue', 'school_group', 'status')
     search_fields = ('notes', 'school_group__name', 'venue__name')
     date_hierarchy = 'session_date'
     filter_horizontal = ('coaches_attending', 'attendees',)
-    inlines = [TimeBlockInline] # This will now work correctly
     autocomplete_fields = ['venue', 'school_group']
     actions = ['start_session_now']
+    
+    # HIDE the plan field and other legacy fields if you don't need them in the admin
+    exclude = ('plan',)
 
     @admin.action(description="Start selected sessions now")
     def start_session_now(self, request, queryset):
@@ -83,10 +79,8 @@ class SessionAdmin(admin.ModelAdmin):
             level=messages.SUCCESS,
         )
 
-# Register the other models to make them visible
+# Register only the necessary models
 admin.site.register(Event)
-admin.site.register(ActivityAssignment)
-admin.site.register(ManualCourtAssignment)
 admin.site.register(CoachAvailability)
 
 @admin.register(ScheduledClass)

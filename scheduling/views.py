@@ -45,14 +45,19 @@ def is_staff(user):
 
 @login_required
 def homepage(request):
-    # We'll keep the logic simple for now and can add the full context later
     today = timezone.now().date()
+    tomorrow = today + timedelta(days=1)
 
-    # Get upcoming sessions for the logged-in coach
-    upcoming_sessions = Session.objects.filter(
-        coaches_attending__user=request.user,
-        session_date__gte=today
-    ).order_by('session_date', 'session_start_time')[:5]
+    # Get upcoming sessions based on user role
+    if request.user.is_superuser:
+        upcoming_sessions = Session.objects.filter(
+            session_date__in=[today, tomorrow]
+        ).order_by('session_date', 'session_start_time')
+    else:
+        upcoming_sessions = Session.objects.filter(
+            coaches_attending__user=request.user,
+            session_date__gte=today
+        ).order_by('session_date', 'session_start_time')[:5]
 
     context = {
         'upcoming_sessions': upcoming_sessions,
@@ -735,6 +740,3 @@ def player_attendance_response(request, token):
         }
 
     return render(request, 'scheduling/confirmation_response.html', context)
-
-
-
