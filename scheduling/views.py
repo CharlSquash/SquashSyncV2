@@ -1,5 +1,3 @@
-# scheduling/views.py
-
 # --- Start: Replace your existing imports with this block ---
 import json
 from datetime import timedelta, datetime
@@ -14,14 +12,14 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
-from django.db.models import Prefetch
+from django.db.models import Prefetch, F, ExpressionWrapper, DateTimeField
 from django.db import IntegrityError
 import time 
 
 from django.contrib.auth import get_user_model
 
 import calendar
-from .utils import get_month_start_end # We will create this helper function next
+from .utils import get_month_start_end
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
@@ -32,6 +30,8 @@ from . import notifications
 from .notifications import verify_confirmation_token
 from accounts.models import Coach
 from assessments.models import SessionAssessment, GroupAssessment
+from finance.models import CoachSessionCompletion
+# --- End: Replacement block ---
 User = get_user_model()
 
 def is_staff(user):
@@ -46,45 +46,82 @@ def is_staff(user):
 def homepage(request):
     today = timezone.now().date()
     now = timezone.now()
+    
+    upcoming_sessions = None
+    discrepancy_report = None
+    recent_sessions_for_feedback = None
 
-    # Get upcoming sessions based on user role
     if request.user.is_superuser:
         upcoming_sessions = Session.objects.filter(
             session_date__in=[today, today + timedelta(days=1)]
         ).order_by('session_date', 'session_start_time')
         
-        # --- NEW & CORRECTED DISCREPANCY LOGIC ---
-        # Fetch sessions from the last 2 days to be safe
         recent_sessions = Session.objects.filter(
             session_date__gte=today - timedelta(days=1)
         ).select_related('school_group')
         
-        # Filter them in Python to see which ones have actually ended
         finished_session_ids = [
             s.id for s in recent_sessions 
             if s.end_datetime and s.end_datetime < now
         ]
 
-        # Fetch unacknowledged discrepancies for the dashboard
         discrepancy_report = AttendanceDiscrepancy.objects.filter(
             session_id__in=finished_session_ids,
             admin_acknowledged=False,
             discrepancy_type__in=['NO_SHOW', 'UNEXPECTED']
         ).select_related('player', 'session__school_group')
         
-    else:
+    elif request.user.is_staff: # This covers non-superuser staff (coaches)
         upcoming_sessions = Session.objects.filter(
             coaches_attending__user=request.user,
             session_date__gte=today
         ).order_by('session_date', 'session_start_time')[:5]
-        discrepancy_report = None
+
+        # --- NEW LOGIC FOR PENDING ASSESSMENT NOTIFICATION ---
+        try:
+            coach = request.user.coach_profile
+            four_weeks_ago = now - timedelta(weeks=4)
+
+            candidate_sessions = Session.objects.filter(
+                coaches_attending=coach,
+                is_cancelled=False,
+                session_date__gte=four_weeks_ago.date()
+            )
+            
+            finished_sessions = [s for s in candidate_sessions if s.end_datetime and s.end_datetime < now]
+            finished_session_ids = [s.id for s in finished_sessions]
+
+            if finished_session_ids:
+                player_assessments_done = set(CoachSessionCompletion.objects.filter(
+                    coach=coach, 
+                    session_id__in=finished_session_ids, 
+                    assessments_submitted=True
+                ).values_list('session_id', flat=True))
+
+                group_assessments_done = set(GroupAssessment.objects.filter(
+                    assessing_coach=request.user, 
+                    session_id__in=finished_session_ids
+                ).values_list('session_id', flat=True))
+                
+                # Find any session that is finished but not in BOTH completed sets
+                pending_sessions = [
+                    s for s in finished_sessions 
+                    if s.id not in player_assessments_done or s.id not in group_assessments_done
+                ]
+                
+                if pending_sessions:
+                    recent_sessions_for_feedback = pending_sessions
+
+        except Coach.DoesNotExist:
+            pass # No coach profile, so no sessions
 
     context = {
+        'page_title': 'Dashboard',
         'upcoming_sessions': upcoming_sessions,
         'discrepancy_report': discrepancy_report,
+        'recent_sessions_for_feedback': recent_sessions_for_feedback,
     }
 
-    # Render the homepage template from its new location
     return render(request, 'scheduling/homepage.html', context)
 
 

@@ -100,11 +100,20 @@
                     <h3><i class="bi bi-pencil-square"></i> Pending Assessments</h3>
                 </div>
                 <div class="card-body">
-                     {% if recent_sessions_for_feedback %}
-                        <p>You have player and/or group assessments to complete for recent sessions.</p>
-                     {% else %}
+                    {% if recent_sessions_for_feedback %}
+                        <ul class="dashboard-list dashboard-list-condensed">
+                            {% for session in recent_sessions_for_feedback %}
+                                <li>
+                                    <a href="{% url 'assessments:pending_assessments' %}">
+                                        <strong>{{ session.school_group.name|default:"General Session" }}</strong>
+                                        <span>{{ session.session_date|date:"D, d M" }}</span>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
                         <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Great job! No pending assessments.</p>
-                     {% endif %}
+                    {% endif %}
                 </div>
                  <div class="card-footer">
                     <a href="{% url 'assessments:pending_assessments' %}" class="card-action-link">Go to My Assessments <i class="bi bi-box-arrow-up-right"></i></a>
@@ -123,7 +132,6 @@
             </div>
         {% endif %}
 
-
         {% if user.is_superuser %}
             <div class="dashboard-card">
                 <div class="card-header">
@@ -136,7 +144,7 @@
                             {% for assessment in all_coach_assessments|slice:":3" %}
                                 <li>
                                     <a href="{% url 'players:player_profile' assessment.player.id %}#assessment-{{assessment.id}}">
-                                        <strong>{{ assessment.player.user.get_full_name }}</strong>
+                                        <strong>{{ assessment.player.full_name }}</strong>
                                         <span>by {{ assessment.submitted_by.get_full_name|default:assessment.submitted_by.username }}</span>
                                     </a>
                                 </li>
