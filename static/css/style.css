@@ -669,6 +669,7 @@ tr:last-child td {
     border: 1px solid;
     transition: all 0.2s ease;
     font-size: 0.9em;
+    position: relative;
 }
 .availability-item.status-no-change { background-color: #6c757d; border-color: #565e64; color: white; }
 .availability-item.status-available { background-color: #198754; border-color: #146c43; color: white; }
@@ -1301,4 +1302,97 @@ html.dark-mode .btn-unconfirm:hover { background-color: #b88a00; border-color: #
 .duration-unit {
     color: var(--subheading-color);
     font-size: 0.9em;
+}
+
+/* ... (keep all existing CSS above this line) ... */
+
+/*
+=================================
+Availability Page Key & Modals
+=================================
+*/
+
+.page-actions {
+    margin-bottom: 1.5rem;
+}
+
+.color-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.75rem;
+    background-color: var(--container-light-bg);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    font-size: 0.9em;
+}
+
+.color-key-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.color-key-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.2);
+}
+
+.helptext {
+    margin-bottom: 1.5rem;
+    color: var(--subheading-color);
+}
+
+.assigned-indicator {
+    display: block;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: var(--heading-color);
+}
+
+.description-trigger {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 1.1em;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: help;
+    transition: color 0.2s ease;
+}
+
+.availability-item:hover .description-trigger {
+    color: white;
+}
+
+.custom-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 1.8rem;
+    background: none;
+    border: none;
+    color: var(--subheading-color);
+    cursor: pointer;
+}
+.custom-modal-close:hover {
+    color: var(--text-color);
+}
+.custom-modal-actions {
+    text-align: right;
+    margin-top: 1rem;
+}
+
+.main-submit-button-container {
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.month-year-selector-form {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
 }

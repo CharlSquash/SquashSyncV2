@@ -4,8 +4,7 @@
 {% block title %}{{ page_title|default:"Set My Bulk Availability" }}{% endblock %}
 
 {% block extra_head %}
-    <!-- This page uses the same styles as my_availability.css, which are in the main style.css file -->
-{% endblock %}
+    {% endblock %}
 
 {% block content %}
 <div class="content-wrapper">
@@ -76,7 +75,7 @@
 </div>
 {% endblock %}
 
-{% block scripts_extra %}
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const availabilityItems = document.querySelectorAll('.availability-item');
@@ -110,4 +109,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endblock %}
-

@@ -4,15 +4,13 @@
 {% block title %}{{ page_title|default:"My Availability" }} - SquashSync{% endblock %}
 
 {% block extra_head %}
-    <!-- All styling for this page should be moved to your main style.css file -->
-{% endblock %}
+    {% endblock %}
 
 {% block content %}
 <div class="content-wrapper">
     <h1><i class="bi bi-calendar-check-fill"></i> {{ page_title }}</h1>
     
     <div class="page-actions">
-        <!-- We will create this 'set_bulk_availability' URL in a future step -->
         <a href="{% url 'scheduling:set_bulk_availability' %}" class="btn-outline-primary">
             <i class="bi bi-calendar2-week"></i> Set Monthly Bulk Availability
         </a>
@@ -79,7 +77,6 @@
     </form>
 </div>
 
-<!-- Modals for interactivity -->
 <div id="descriptionModal" class="custom-modal-overlay">
     <div class="custom-modal-content">
         <button id="descriptionModalClose" class="custom-modal-close" aria-label="Close">&times;</button>
@@ -104,7 +101,7 @@
 </div>
 {% endblock %}
 
-{% block scripts_extra %}
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const availabilityItems = document.querySelectorAll('.availability-item');
