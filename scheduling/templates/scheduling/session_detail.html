@@ -101,6 +101,8 @@
                 {% endif %}
         </div>
         <div>
+            <a href="{% url 'scheduling:visual_attendance' session.id %}" class="btn btn-info"><i class="bi bi-person-check"></i> Take Attendance</a>
+            
             <a href="{% url 'live_session:live_session_display' session.id %}" class="btn btn-success"><i class="bi bi-play-circle-fill"></i> Go Live</a>
             <button id="save-plan-btn" class="btn btn-primary"><i class="bi bi-save-fill"></i> Save Plan</button>
         </div>
@@ -173,10 +175,14 @@
 
 {{ plan|json_script:"plan-data" }}
 {{ drills|json_script:"drills-data" }}
-{{ all_tags|json_script:"all-tags-data" }} {{ players_with_status|json_script:"players-data" }}
+{{ all_tags|json_script:"all-tags-data" }}
+
+{{ all_players_for_display|json_script:"all-players-data" }}
+
+{{ players_for_grouping|json_script:"players-data" }}
+
 {% endblock %}
 
-{# *** THIS IS THE FIX: Changed 'scripts_extra' to 'extra_js' *** #}
 {% block extra_js %}
     <script src="{% static 'js/session_planner.js' %}?v=1.1"></script>
 {% endblock %}

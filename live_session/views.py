@@ -131,9 +131,21 @@ def live_session_update_api(request, session_id):
             
             # Fetch assigned coaches and confirmed attendees
             coaches = [coach.user.get_full_name() or coach.user.username for coach in session.coaches_attending.all()]
+            
+            # --- MODIFICATION ---
+            # Prioritize coach-marked attendance. Fallback to parent-confirmed.
+            coach_marked_qs = AttendanceTracking.objects.filter(session=session, attended=AttendanceTracking.CoachAttended.YES)
+            
+            if coach_marked_qs.exists():
+                # Use players the coach marked as present
+                attendee_pks = coach_marked_qs.values_list('player_id', flat=True)
+            else:
+                # Fallback to players whose parents confirmed they are attending
+                attendee_pks = AttendanceTracking.objects.filter(session=session, parent_response=AttendanceTracking.ParentResponse.ATTENDING).values_list('player_id', flat=True)
+            
             attendees = [
                 player.full_name for player in
-                Player.objects.filter(attendance_records__session=session, attendance_records__status='ATTENDING')
+                Player.objects.filter(pk__in=attendee_pks)
             ]
             
             return JsonResponse({

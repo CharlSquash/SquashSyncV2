@@ -108,50 +108,81 @@ def session_detail(request, session_id):
         pk=session_id
     )
 
-    players = []
+    # --- THIS IS THE NEW CORE LOGIC ---
+    players_for_grouping = []
+    all_players_for_display = []
+
     if session.school_group:
-        all_players_in_group = session.school_group.players.filter(is_active=True).order_by('last_name', 'first_name')
-        attendance_map = {
-            att.player_id: att.status
-            for att in AttendanceTracking.objects.filter(session=session)
-        }
+        all_players_in_group = list(session.school_group.players.filter(is_active=True).order_by('last_name', 'first_name'))
+        player_ids = [p.id for p in all_players_in_group]
+
+        # Ensure records exist for all players to avoid errors
+        existing_player_ids = set(
+            AttendanceTracking.objects.filter(session=session, player_id__in=player_ids).values_list('player_id', flat=True)
+        )
+        new_records = [
+            AttendanceTracking(session=session, player_id=pid)
+            for pid in player_ids if pid not in existing_player_ids
+        ]
+        if new_records:
+            AttendanceTracking.objects.bulk_create(new_records)
+
+        # Fetch all attendance records for the session
+        attendance_records = AttendanceTracking.objects.filter(session=session, player_id__in=player_ids)
+        attendance_map = {att.player_id: att for att in attendance_records}
+
+        # Check if final attendance has been taken for ANY player in this session
+        has_final_attendance = any(att.attended != AttendanceTracking.CoachAttended.UNSET for att in attendance_map.values())
+
+        # Populate the two different player lists
         for player in all_players_in_group:
-            players.append({
+            record = attendance_map.get(player.id)
+            
+            # 1. This list is ONLY for display in the top "Attendance" section
+            all_players_for_display.append({
                 'id': player.id,
                 'name': player.full_name,
-                'status': attendance_map.get(player.id, 'PENDING')
+                'status': record.parent_response if record else 'PENDING'
             })
 
-    # *** NEW: Fetch drills and their tags in a structured way ***
+            # 2. This list is for the "Form Player Groups" section
+            if has_final_attendance:
+                # If final attendance has started, ONLY include players marked as YES
+                if record and record.attended == AttendanceTracking.CoachAttended.YES:
+                    players_for_grouping.append({
+                        'id': player.id,
+                        'name': player.full_name,
+                        'status': 'ATTENDING' # Status for JS must be ATTENDING
+                    })
+            else:
+                # Before final attendance, include PENDING and ATTENDING players
+                parent_status = record.parent_response if record else 'PENDING'
+                if parent_status in ['ATTENDING', 'PENDING']:
+                    players_for_grouping.append({
+                        'id': player.id,
+                        'name': player.full_name,
+                        'status': parent_status
+                    })
+
+    # The rest of the view remains the same...
     drills_queryset = Drill.objects.prefetch_related('tags').all()
     drills_data = []
     for drill in drills_queryset:
         drills_data.append({
-            'id': drill.id,
-            'name': drill.name,
-            'youtube_link': drill.youtube_link,
+            'id': drill.id, 'name': drill.name, 'youtube_link': drill.youtube_link,
             'tag_ids': list(drill.tags.values_list('id', flat=True))
         })
-
-    # *** NEW: Fetch all available tags for the filter controls ***
     all_tags_data = list(DrillTag.objects.all().values('id', 'name'))
-
-    plan_data = session.plan if isinstance(session.plan, dict) and 'timeline' in session.plan else None
-
-    if not plan_data:
-        plan_data = _get_default_plan(session)
-
-    if session.school_group:
-        display_name = f"{session.school_group.name} Session"
-    else:
-        display_name = f"Custom Session on {session.session_date.strftime('%Y-%m-%d')}"
+    plan_data = session.plan if isinstance(session.plan, dict) and 'timeline' in session.plan else _get_default_plan(session)
+    display_name = f"{session.school_group.name} Session" if session.school_group else f"Custom Session on {session.session_date.strftime('%Y-%m-%d')}"
 
     context = {
         'session': session,
-        'coaches': session.coaches_attending.all(), 
-        'players_with_status': players,
+        'coaches': session.coaches_attending.all(),
+        'all_players_for_display': all_players_for_display, # For the top attendance list
+        'players_for_grouping': players_for_grouping, # For the JS planner
         'drills': drills_data,
-        'all_tags': all_tags_data,  # Pass all tags to the template
+        'all_tags': all_tags_data,
         'plan': plan_data,
         'page_title': f"Plan for {display_name}"
     }
@@ -189,21 +220,22 @@ def update_attendance_status(request, session_id):
         if not all([player_id, new_status]):
             return JsonResponse({'status': 'error', 'message': 'Missing player_id or status.'}, status=400)
         
-        if new_status not in ['PENDING', 'ATTENDING', 'DECLINED']:
+        # --- THIS IS THE FIX ---
+        # Ensure the status from the planner UI is a valid ParentResponse choice
+        if new_status not in AttendanceTracking.ParentResponse.values:
             return JsonResponse({'status': 'error', 'message': 'Invalid status provided.'}, status=400)
 
+        # Use update_or_create to handle both new and existing records gracefully.
+        # This will ONLY modify the 'parent_response' field.
         AttendanceTracking.objects.update_or_create(
             session_id=session_id,
             player_id=player_id,
-            defaults={'status': new_status}
+            defaults={'parent_response': new_status}
         )
         return JsonResponse({'status': 'success', 'message': f'Attendance for player {player_id} set to {new_status}.'})
+        
     except (json.JSONDecodeError, IntegrityError, Exception) as e:
-        # Log the error for debugging
-        # logger.error(f"Error updating attendance: {e}")
         return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred.'}, status=500)
-
-
 
 @login_required
 def visual_attendance(request, session_id):
@@ -211,53 +243,65 @@ def visual_attendance(request, session_id):
     
     if not session.school_group:
         messages.error(request, "This session is not linked to a school group.")
-        return redirect('scheduling:session_list') # Or wherever is appropriate
+        return redirect('scheduling:session_calendar')
 
-    players_in_group = session.school_group.players.all().order_by('first_name')
+    players_in_group = session.school_group.players.filter(is_active=True).order_by('last_name', 'first_name')
 
     if request.method == 'POST':
-        # This part handles the submission from the coach
-        attending_player_ids = request.POST.getlist('attendees')
+        attending_player_ids = set(request.POST.getlist('attendees'))
         
+        # --- THIS IS THE CORRECTED LOGIC ---
+        # We will iterate through every player and ensure their record is handled correctly.
         for player in players_in_group:
-            status = 'ATTENDING' if str(player.id) in attending_player_ids else 'NOT_ATTENDING'
-            AttendanceTracking.objects.update_or_create(
+            # Get or create the record in memory without saving it immediately.
+            # This preserves the existing parent_response if the record already exists.
+            record, created = AttendanceTracking.objects.get_or_create(
                 session=session,
-                player=player,
-                defaults={'status': status}
+                player=player
             )
+
+            # Now, ONLY set the coach-marked attendance status.
+            if str(player.id) in attending_player_ids:
+                record.attended = AttendanceTracking.CoachAttended.YES
+            else:
+                record.attended = AttendanceTracking.CoachAttended.NO
+            
+            # Save the record. If it was new, parent_response is the default 'PENDING'.
+            # If it existed, parent_response is whatever it was before.
+            record.save()
         
-        messages.success(request, "Final attendance has been recorded.")
+        messages.success(request, "Final attendance has been recorded successfully.")
         return redirect('scheduling:session_detail', session_id=session.id)
 
-    # --- This is the key part for displaying the page initially ---
-    # Get IDs of players whose parents have already confirmed 'ATTENDING'
-    confirmed_attending_ids = set(
-        AttendanceTracking.objects.filter(
-            session=session,
-            status=AttendanceTracking.Status.ATTENDING
-        ).values_list('player_id', flat=True)
-    )
+    # --- The GET request logic remains the same, as it was correct ---
+    tracking_records = {
+        record.player_id: record for record in
+        AttendanceTracking.objects.filter(session=session, player__in=players_in_group)
+    }
 
-    # Build the list in the format your template expects
     player_list = []
     for player in players_in_group:
+        record = tracking_records.get(player.id)
+        is_attending = False
+
+        if record:
+            if record.attended != AttendanceTracking.CoachAttended.UNSET:
+                is_attending = (record.attended == AttendanceTracking.CoachAttended.YES)
+            else:
+                is_attending = (record.parent_response == AttendanceTracking.ParentResponse.ATTENDING)
+        
         player_list.append({
             'player': player,
-            # Pre-select the player if their ID is in the confirmed set
-            'is_attending': player.id in confirmed_attending_ids
+            'is_attending': is_attending
         })
 
     context = {
         'session': session,
         'school_group': session.school_group,
         'player_list': player_list,
-        'page_title': "Take Attendance"
+        'page_title': "Take Final Attendance"
     }
     return render(request, 'scheduling/visual_attendance.html', context)
-
-
-# Replace the existing session_calendar view in scheduling/views.py with this cleaner version
 
 @login_required
 def session_calendar(request):
@@ -714,14 +758,16 @@ def player_attendance_response(request, token):
     try:
         tracking_record = AttendanceTracking.objects.select_related('player', 'session').get(pk=record_id)
         
-        if new_status in AttendanceTracking.Status.values:
-            tracking_record.status = new_status
+        # --- MODIFICATION ---
+        # Update the parent_response field instead of the old status field
+        if new_status in AttendanceTracking.ParentResponse.values:
+            tracking_record.parent_response = new_status
             tracking_record.save()
             
             player_name = tracking_record.player.first_name
             session_date_str = tracking_record.session.session_date.strftime('%A, %d %B')
             
-            if new_status == AttendanceTracking.Status.ATTENDING:
+            if new_status == AttendanceTracking.ParentResponse.ATTENDING:
                 message = f"Thank you! {player_name}'s attendance for the session on {session_date_str} has been confirmed."
                 message_type = 'success'
             else:

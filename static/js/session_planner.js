@@ -37,8 +37,13 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Session Planner Initializing...");
             try {
                 this.plan = JSON.parse(document.getElementById('plan-data').textContent);
+                // This line now correctly targets the 'players-data' script for the grouping list
                 this.players = JSON.parse(document.getElementById('players-data').textContent);
                 this.drills = JSON.parse(document.getElementById('drills-data').textContent);
+                
+                // This will parse the full attendance list for the top display section
+                this.allPlayersForDisplay = JSON.parse(document.getElementById('all-players-data').textContent);
+
                 const allTagsData = document.getElementById('all-tags-data');
                 if (allTagsData) {
                     this.allTags = JSON.parse(allTagsData.textContent);
@@ -93,7 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const container = this.elements.attendanceList;
             if (!container) return;
             container.innerHTML = '';
-            this.players.forEach(player => {
+            // Use the new variable to render the top attendance list
+            this.allPlayersForDisplay.forEach(player => {
                 const badgeClass = player.status === 'ATTENDING' ? 'text-bg-success' : player.status === 'DECLINED' ? 'text-bg-danger' : 'text-bg-secondary';
                 container.innerHTML += `
                     <div class="player-attendance-item" data-player-id="${player.id}" title="Click to cycle status">
