@@ -16,13 +16,62 @@ from assessments.models import SessionAssessment, GroupAssessment
 from django.db.models import Count, Q
 import json
 
-
 # Helper to convert date objects for JSON serialization
 class DateEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, date):
             return obj.isoformat()
         return super().default(obj)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def discrepancy_report(request):
+    """
+    Displays a filterable report of all attendance discrepancies.
+    """
+    today = timezone.now().date()
+    start_date_default = today - timedelta(days=30)
+    end_date_default = today
+
+    start_date = request.GET.get('start_date', start_date_default.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', end_date_default.strftime('%Y-%m-%d'))
+    school_group_id = request.GET.get('school_group')
+
+    discrepancies = AttendanceDiscrepancy.objects.filter(
+        session__session_date__range=[start_date, end_date]
+    ).select_related('player', 'session', 'session__school_group').order_by('-session__session_date')
+
+    if school_group_id:
+        discrepancies = discrepancies.filter(session__school_group__id=school_group_id)
+
+    context = {
+        'discrepancies': discrepancies,
+        'school_groups': SchoolGroup.objects.all(),
+        'filter_values': {
+            'start_date': start_date,
+            'end_date': end_date,
+            'school_group': int(school_group_id) if school_group_id else '',
+        },
+        'page_title': "Attendance Discrepancy Report"
+    }
+    return render(request, 'players/discrepancy_report.html', context)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def acknowledge_discrepancy(request, discrepancy_id):
+    """
+    A view to mark a discrepancy as acknowledged via an AJAX request.
+    """
+    try:
+        discrepancy = get_object_or_404(AttendanceDiscrepancy, pk=discrepancy_id)
+        discrepancy.admin_acknowledged = True
+        discrepancy.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 
 @login_required
 def player_profile(request, player_id):
@@ -191,6 +240,23 @@ def school_group_profile(request, group_id):
         start_date_filter = filter_form.cleaned_data.get('start_date', default_start_date)
         end_date_filter = filter_form.cleaned_data.get('end_date', default_end_date)
 
+    # --- NEW ATTENDANCE CALCULATION LOGIC ---
+    sessions_in_range = Session.objects.filter(
+        school_group=school_group,
+        session_date__range=[start_date_filter, end_date_filter],
+        is_cancelled=False
+    )
+    
+    total_possible_attendances = sessions_in_range.count() * players_in_group.count()
+    
+    actual_attendances = AttendanceTracking.objects.filter(
+        session__in=sessions_in_range,
+        player__in=players_in_group,
+        attended=AttendanceTracking.CoachAttended.YES
+    ).count()
+    
+    attendance_percentage = (actual_attendances / total_possible_attendances * 100) if total_possible_attendances > 0 else 0
+
     context = {
         'school_group': school_group,
         'players_in_group': players_in_group,
@@ -198,53 +264,9 @@ def school_group_profile(request, group_id):
         'filter_form': filter_form,
         'start_date_filter': start_date_filter,
         'end_date_filter': end_date_filter,
+        'attendance_percentage': round(attendance_percentage, 2),
+        'total_possible_attendances': total_possible_attendances,
+        'actual_attendances': actual_attendances,
         'page_title': f"Profile: {school_group.name}"
     }
     return render(request, 'players/school_group_profile.html', context)
-
-@login_required
-def discrepancy_report(request):
-    """
-    Displays a filterable report of all attendance discrepancies.
-    """
-    today = timezone.now().date()
-    start_date_default = today - timedelta(days=30)
-    end_date_default = today
-
-    start_date = request.GET.get('start_date', start_date_default.strftime('%Y-%m-%d'))
-    end_date = request.GET.get('end_date', end_date_default.strftime('%Y-%m-%d'))
-    school_group_id = request.GET.get('school_group')
-
-    discrepancies = AttendanceDiscrepancy.objects.filter(
-        session__session_date__range=[start_date, end_date]
-    ).select_related('player', 'session', 'session__school_group').order_by('-session__session_date')
-
-    if school_group_id:
-        discrepancies = discrepancies.filter(session__school_group__id=school_group_id)
-
-    context = {
-        'discrepancies': discrepancies,
-        'school_groups': SchoolGroup.objects.all(),
-        'filter_values': {
-            'start_date': start_date,
-            'end_date': end_date,
-            'school_group': int(school_group_id) if school_group_id else '',
-        },
-        'page_title': "Attendance Discrepancy Report"
-    }
-    return render(request, 'players/discrepancy_report.html', context)
-
-@require_POST
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def acknowledge_discrepancy(request, discrepancy_id):
-    """
-    A view to mark a discrepancy as acknowledged via an AJAX request.
-    """
-    try:
-        discrepancy = get_object_or_404(AttendanceDiscrepancy, pk=discrepancy_id)
-        discrepancy.admin_acknowledged = True
-        discrepancy.save()
-        return JsonResponse({'status': 'success'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

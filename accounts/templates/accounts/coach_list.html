@@ -8,7 +8,6 @@
     <div class="page-header d-flex justify-content-between align-items-center">
         <h1><i class="bi bi-person-badge me-2"></i>{{ page_title|default:"Coaches" }}</h1>
         {% if request.user.is_superuser %}
-            {# This link correctly points to the admin page for adding a coach in the 'accounts' app #}
             <a href="{% url 'admin:accounts_coach_add' %}" class="btn btn-primary btn-sm">
                 <i class="bi bi-plus-circle me-1"></i>Add New Coach
             </a>
@@ -18,13 +17,11 @@
     {% if coaches %}
         <div class="list-group coach-list">
             {% for coach in coaches %}
-                {# This URL now correctly points to the coach_profile view in the 'accounts' app #}
                 <a href="{% url 'accounts:coach_profile' coach.id %}" class="list-group-item list-group-item-action">
                     <div class="coach-photo">
-                        {% if coach.photo %}
-                            <img src="{{ coach.photo.url }}" alt="Photo of {{ coach.user.get_full_name }}">
+                        {% if coach.profile_photo %}
+                            <img src="{{ coach.profile_photo.url }}" alt="Photo of {{ coach.user.get_full_name }}">
                         {% else %}
-                            {# Make sure you have a default avatar at this path in your static files #}
                             <img src="{% static 'images/default_avatar.png' %}" alt="Default avatar">
                         {% endif %}
                     </div>

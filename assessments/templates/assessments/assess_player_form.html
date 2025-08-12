@@ -3,6 +3,48 @@
 
 {% block title %}{{ page_title }} - SquashSync{% endblock %}
 
+{% block extra_head %}
+<style>
+    .star-rating-widget {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+        font-size: 2.5rem; /* Increased star size */
+        line-height: 1;
+        color: var(--bs-secondary-color);
+        cursor: pointer;
+    }
+
+    .star-rating-widget input[type="radio"] {
+        display: none;
+    }
+
+    .star-rating-widget label {
+        transition: color 0.2s;
+        -webkit-user-select: none; /* Prevents text selection */
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+
+    /* This is the key fix to remove the "cursor" or outline */
+    .star-rating-widget label:focus {
+        outline: 0;
+    }
+
+    .star-rating-widget label:hover,
+    .star-rating-widget label:hover ~ label,
+    .star-rating-widget input[type="radio"]:checked ~ label {
+        color: #ffc107; /* Bootstrap's warning/yellow color */
+    }
+
+    html[data-bs-theme="dark"] .star-rating-widget {
+        color: var(--bs-gray-600);
+    }
+</style>
+{% endblock %}
+
+
 {% block content %}
 <div class="container mt-4" style="max-width: 800px;">
     <div class="page-header">
@@ -17,20 +59,29 @@
                 
                 <div class="mb-4">
                     <h5 class="form-section-title">Rate player performance (1=Poor, 5=Excellent)</h5>
-                    {{ form.effort_rating|as_crispy_field }}
-                    {{ form.focus_rating|as_crispy_field }}
-                    {{ form.resilience_rating|as_crispy_field }}
-                    {{ form.composure_rating|as_crispy_field }}
-                    {{ form.decision_making_rating|as_crispy_field }}
+                    
+                    {% for field in form %}
+                        {% if field.name in "effort_rating focus_rating resilience_rating composure_rating decision_making_rating" %}
+                            <div class="mb-3">
+                                <label class="form-label">{{ field.label }}</label>
+                                <div class="star-rating-widget" id="{{ field.id_for_label }}_stars">
+                                    {% comment %} FIX: Loop through a string "54321" to ensure exactly 5 stars are rendered in reverse order for the CSS. {% endcomment %}
+                                    {% for i in "54321" %}
+                                        <input type="radio" name="{{ field.name }}" id="id_{{ field.name }}_{{ i }}" value="{{ i }}" {% if field.value|stringformat:"s" == i %}checked{% endif %}>
+                                        <label for="id_{{ field.name }}_{{ i }}" title="{{ i }} Stars">&#9733;</label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% elif field.name == "coach_notes" %}
+                             <hr class="my-4">
+                             <div class="mt-4">
+                                 <h5 class="form-section-title">Comments</h5>
+                                {{ field|as_crispy_field }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
                 </div>
                 
-                <hr class="my-4">
-
-                <div class="mt-4">
-                     <h5 class="form-section-title">Comments</h5>
-                    {{ form.coach_notes|as_crispy_field }}
-                </div>
-
                 <div class="d-flex justify-content-between mt-4 pt-3 border-top">
                     <a href="{% url 'assessments:pending_assessments' %}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Back to Pending List

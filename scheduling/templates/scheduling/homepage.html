@@ -199,6 +199,24 @@
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- THIS IS THE FIX: A robust function to get the CSRF token from cookies ---
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    // --- END OF FIX ---
+
     const discrepancyList = document.getElementById('discrepancy-list');
     if (discrepancyList) {
         discrepancyList.addEventListener('click', function(e) {
@@ -208,7 +226,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const discrepancyId = button.dataset.id;
             const listItem = button.closest('li');
             const url = `/players/discrepancy/${discrepancyId}/acknowledge/`;
-            const csrfToken = document.querySelector('form#logout-form [name=csrfmiddlewaretoken]')?.value || '';
+            const csrfToken = getCookie('csrftoken'); // Use the new function here
 
             fetch(url, {
                 method: 'POST',

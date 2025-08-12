@@ -859,10 +859,13 @@ Dashboard / Homepage Styles
     color: var(--heading-color);
     font-weight: 600;
     transition: color 0.2s ease;
+    flex-shrink: 0; /* Prevents the date from shrinking */
 }
 .dashboard-list li a span {
     font-size: 0.85rem;
     color: var(--subheading-color);
+    flex-grow: 1; /* Allows the group name to take available space */
+    text-align: right; /* Aligns the group name to the right */
 }
 .dashboard-list li .badge-cancelled {
     color: var(--action-del-text);
@@ -888,11 +891,6 @@ Dashboard / Homepage Styles
     text-decoration: none;
 }
 
-*
-=================================
-Pending Assessments Page Styles
-=================================
-*/
 
 .pending-session-card {
     background-color: var(--container-bg, #fff);
@@ -1396,3 +1394,4 @@ Availability Page Key & Modals
     align-items: center;
     margin-bottom: 1rem;
 }
+

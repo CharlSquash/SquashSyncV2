@@ -10,8 +10,8 @@
             <div class="card-body">
                 <div class="profile-header">
                     <div class="profile-photo-lg">
-                        {% if coach.photo %}
-                            <img src="{{ coach.photo.url }}" alt="Photo of {{ coach.user.get_full_name }}">
+                        {% if coach.profile_photo %}
+                            <img src="{{ coach.profile_photo.url }}" alt="Photo of {{ coach.user.get_full_name }}">
                         {% else %}
                             <div class="no-photo"><i class="bi bi-person-fill"></i></div>
                         {% endif %}
@@ -19,17 +19,17 @@
                     <div class="profile-info">
                         <h1>{{ coach.user.get_full_name|default:"Coach Profile" }}</h1>
                         <p class="coach-username text-muted">@{{ coach.user.username }}</p>
-                        
+
                         <div class="contact-details">
                             <p><i class="bi bi-envelope-fill"></i> {{ coach.user.email|default:"No email provided" }}</p>
-                            <p><i class="bi bi-telephone-fill"></i> {{ coach.phone_number|default:"No phone provided" }}</p>
+                            <p><i class="bi bi-telephone-fill"></i> {{ coach.phone|default:"No phone provided" }}</p>
                             {% if coach.whatsapp_phone_number %}
                             <p><i class="bi bi-whatsapp"></i> {{ coach.whatsapp_phone_number }}
                                 {% if coach.whatsapp_opt_in %}(Opted-in){% else %}(Not opted-in){% endif %}
                             </p>
                             {% endif %}
                         </div>
-                        
+
                         <p><strong>Status:</strong>
                             {% if coach.is_active %}
                                 <span class="status-active">Active</span>
@@ -37,7 +37,7 @@
                                 <span class="status-inactive">Inactive</span>
                             {% endif %}
                         </p>
-                        
+
                         {% if request.user.is_superuser or viewing_own_profile %}
                             <p><strong>Hourly Rate:</strong> R{{ coach.hourly_rate|default:"N/A" }}</p>
                         {% endif %}
@@ -56,7 +56,6 @@
 
         <div class="row">
             <div class="col-md-6">
-                <!-- Sessions and Assessments Column -->
                 <div class="card shadow-sm profile-section-card">
                     <details>
                         <summary>
@@ -68,7 +67,7 @@
                                 {% for session in sessions_attended %}
                                     <li>
                                         <a href="{% url 'scheduling:session_detail' session.id %}">
-                                            {{ session.session_date|date:"D, d M Y" }} - {{ session.start_time|time:"H:i" }}
+                                            {{ session.session_date|date:"D, d M Y" }} - {{ session.session_start_time|time:"H:i" }}
                                         </a><br>
                                         <small class="text-muted">
                                             {{ session.school_group.name|default:"General" }}
@@ -93,7 +92,7 @@
                             <ul style="max-height: 300px; overflow-y: auto;">
                                 {% for assessment in player_assessments_made %}
                                     <li>
-                                        For <strong><a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.user.get_full_name }}</a></strong>
+                                        For <strong><a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.full_name }}</a></strong>
                                         <br><small class="text-muted">Session: {{ assessment.session.session_date|date:"d M Y" }}</small>
                                         {% if assessment.coach_notes %}
                                             <p class="assessment-snippet mt-1">{{assessment.coach_notes|truncatewords:10}}</p>
@@ -132,8 +131,7 @@
             </div>
 
             <div class="col-md-6">
-                <!-- Qualifications and Other Info Column -->
-                 <div class="card shadow-sm profile-section-card">
+                <div class="card shadow-sm profile-section-card">
                     <details>
                         <summary>
                             <span class="summary-title"><i class="bi bi-award-fill"></i>Qualifications & Experience</span>
