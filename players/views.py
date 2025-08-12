@@ -13,7 +13,8 @@ from .forms import (
 )
 from scheduling.models import Session, AttendanceTracking
 from assessments.models import SessionAssessment, GroupAssessment
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Value
+from django.db.models.functions import Concat
 import json
 
 # Helper to convert date objects for JSON serialization
@@ -112,9 +113,35 @@ def player_profile(request, player_id):
     drive_form = BackwallDriveRecordForm()
 
     # Get related data for tabs
-    assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by').order_by('-session__session_date')
+    assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date')
     match_history = MatchResult.objects.filter(player=player).order_by('-date')
     discrepancy_history = AttendanceDiscrepancy.objects.filter(player=player).select_related('session', 'session__school_group')
+
+    # --- NEW: Calculate Average Performance Ratings ---
+    rating_fields = ['effort_rating', 'focus_rating', 'resilience_rating', 'composure_rating', 'decision_making_rating']
+    rating_labels = {
+        'effort_rating': 'Effort', 'focus_rating': 'Focus', 'resilience_rating': 'Resilience',
+        'composure_rating': 'Composure', 'decision_making_rating': 'Decision Making'
+    }
+    
+    totals = {field: 0 for field in rating_fields}
+    counts = {field: 0 for field in rating_fields}
+    
+    for assessment in assessments:
+        for field in rating_fields:
+            value = getattr(assessment, field)
+            if value is not None:
+                totals[field] += value
+                counts[field] += 1
+    
+    average_ratings = {}
+    for field in rating_fields:
+        if counts[field] > 0:
+            average_ratings[field] = {
+                'label': rating_labels[field],
+                'avg': totals[field] / counts[field],
+                'count': counts[field]
+            }
 
     # --- Attendance Calculation Logic ---
     current_year = timezone.now().year
@@ -142,6 +169,7 @@ def player_profile(request, player_id):
         'page_title': f"Profile: {player.full_name}",
         'player': player,
         'assessments': assessments,
+        'average_ratings': average_ratings,
         'match_history': match_history,
         'discrepancy_history': discrepancy_history,
         'attendance_percentage': round(attendance_percentage, 2),
@@ -174,7 +202,12 @@ def players_list(request):
         player_list = player_list.filter(school_groups__id=school_group_id)
 
     if search_query:
-        player_list = player_list.filter(full_name__icontains=search_query)
+        # --- THIS IS THE FIX ---
+        # Annotate the queryset with a concatenated full name to search on.
+        player_list = player_list.annotate(
+            search_name=Concat('first_name', Value(' '), 'last_name')
+        ).filter(search_name__icontains=search_query)
+        # --- END OF FIX ---
 
     # Get all school groups for the filter dropdown
     school_groups = SchoolGroup.objects.all()
