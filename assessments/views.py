@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Prefetch
 from collections import defaultdict
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.contrib.auth.models import User
 
 from accounts.models import Coach
@@ -186,3 +186,19 @@ def add_edit_group_assessment(request, session_id):
         'sub_title': f"For session on {session.session_date.strftime('%d %b %Y')}"
     }
     return render(request, 'assessments/add_edit_group_assessment.html', context)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def acknowledge_assessment(request, assessment_id):
+    """
+    Marks a player session assessment as reviewed by a superuser.
+    """
+    try:
+        assessment = get_object_or_404(SessionAssessment, pk=assessment_id)
+        assessment.superuser_reviewed = True
+        assessment.save(update_fields=['superuser_reviewed'])
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

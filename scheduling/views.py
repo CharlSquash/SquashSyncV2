@@ -50,6 +50,7 @@ def homepage(request):
     upcoming_sessions = None
     discrepancy_report = None
     recent_sessions_for_feedback = None
+    all_coach_assessments = None # Define variable for superuser
 
     if request.user.is_superuser:
         upcoming_sessions = Session.objects.filter(
@@ -70,6 +71,13 @@ def homepage(request):
             admin_acknowledged=False,
             discrepancy_type__in=['NO_SHOW', 'UNEXPECTED']
         ).select_related('player', 'session__school_group')
+
+        # --- THIS IS THE FIX ---
+        # Fetch all player assessments that have not been reviewed by a superuser.
+        all_coach_assessments = SessionAssessment.objects.filter(
+            superuser_reviewed=False
+        ).select_related('player', 'session', 'submitted_by').order_by('-date_recorded')
+        # --- END OF FIX ---
         
     elif request.user.is_staff: # This covers non-superuser staff (coaches)
         upcoming_sessions = Session.objects.filter(
@@ -120,6 +128,7 @@ def homepage(request):
         'upcoming_sessions': upcoming_sessions,
         'discrepancy_report': discrepancy_report,
         'recent_sessions_for_feedback': recent_sessions_for_feedback,
+        'all_coach_assessments': all_coach_assessments, # Pass assessments to the template
     }
 
     return render(request, 'scheduling/homepage.html', context)
