@@ -27,9 +27,9 @@ SECRET_KEY = 'django-insecure-p7iiq&puhy6#xxm@+t$6)1jay^xwvkyj39$i3*+(%p^efqs23!
 DEBUG = True
 
 # THIS IS THE LINE TO CHANGE
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.3.6', 'cc4378c4834c.ngrok-free.app']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.3.6', 'cde25984f98a.ngrok-free.app']
 
-CSRF_TRUSTED_ORIGINS = ['https://cc4378c4834c.ngrok-free.app']
+CSRF_TRUSTED_ORIGINS = ['https://cde25984f98a.ngrok-free.app']
 
 APP_SITE_URL = 'http://127.0.0.1:8000'
 

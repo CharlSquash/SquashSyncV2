@@ -611,7 +611,6 @@ def set_bulk_availability_view(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def session_staffing(request):
-    # --- POST request logic remains the same ---
     if request.method == 'POST':
         session_id = request.POST.get('session_id')
         assigned_coach_ids = request.POST.getlist(f'coaches_for_session_{session_id}')
@@ -623,7 +622,6 @@ def session_staffing(request):
             messages.error(request, "Invalid session ID.")
         return redirect(f"{reverse('scheduling:session_staffing')}?week={request.GET.get('week', '0')}")
 
-    # --- Corrected GET request logic ---
     now = timezone.now()
     today = now.date()
     
@@ -654,14 +652,18 @@ def session_staffing(request):
         
         processed_sessions = []
         for session in sessions_for_day:
-            availability_map = {avail.coach.id: avail for avail in session.coach_availabilities.all()}
+            availability_map = {avail.coach_id: avail for avail in session.coach_availabilities.all()}
             
             assigned_coaches_status = []
             has_pending = False
             has_declined = False
             
             for coach in session.coaches_attending.all():
-                avail = availability_map.get(coach.id)
+                # --- THIS IS THE FIX ---
+                # Use coach.user.id for the lookup, not coach.id
+                avail = availability_map.get(coach.user.id)
+                # --- END OF FIX ---
+                
                 status = "Pending"
                 if avail:
                     if avail.last_action == 'CONFIRM':
@@ -676,17 +678,15 @@ def session_staffing(request):
             available_coaches = []
             for coach in all_active_coaches:
                 if coach not in session.coaches_attending.all():
-                    avail = availability_map.get(coach.id)
+                    avail = availability_map.get(coach.user.id) # Also fix here for consistency
                     if avail and avail.is_available:
                         available_coaches.append({
                             'coach': coach,
                             'is_emergency': "emergency" in (avail.notes or "").lower()
                         })
             
-            # ==================== LOGIC TO CALCULATE COUNTS (CORRECTED) ====================
             total_players = session.school_group.players.filter(is_active=True).count() if session.school_group else 0
             
-            # THIS IS THE FIX
             confirmed_players = AttendanceTracking.objects.filter(
                 session=session, 
                 parent_response=AttendanceTracking.ParentResponse.ATTENDING
@@ -694,7 +694,6 @@ def session_staffing(request):
 
             total_coaches = session.coaches_attending.count()
             confirmed_coaches = sum(1 for c in assigned_coaches_status if c['status'] == "Confirmed")
-            # ================================== END OF FIX ===================================
 
             processed_sessions.append({
                 'session_obj': session,
