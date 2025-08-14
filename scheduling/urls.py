@@ -1,3 +1,4 @@
+# squashsyncv2/scheduling/urls.py
 # Example for one of the new urls.py files
 from django.urls import path
 from . import views
@@ -18,6 +19,9 @@ urlpatterns = [
 
     path('confirm/<int:session_id>/<str:token>/', views.confirm_attendance, name='confirm_attendance'),
     path('decline/<int:session_id>/<str:token>/', views.decline_attendance, name='decline_attendance'),
+    
+    path('dashboard/confirm/<int:session_id>/', views.dashboard_confirm, name='dashboard_confirm'),
+    path('dashboard/decline/<int:session_id>/', views.dashboard_decline, name='dashboard_decline'),
 
     path('player-response/<str:token>/', views.player_attendance_response, name='player_attendance_response'),
 

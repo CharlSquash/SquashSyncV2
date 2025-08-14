@@ -1,3 +1,4 @@
+# squashsyncv2/scheduling/views.py
 # --- Start: Replace your existing imports with this block ---
 import json
 from datetime import timedelta, datetime
@@ -8,7 +9,7 @@ from django.core.signing import BadSignature, SignatureExpired
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
@@ -47,13 +48,15 @@ def homepage(request):
     today = timezone.now().date()
     now = timezone.now()
     
-    upcoming_sessions = None
+    # Common context variables
+    upcoming_sessions_for_admin = None
     discrepancy_report = None
     recent_sessions_for_feedback = None
-    all_coach_assessments = None # Define variable for superuser
+    all_coach_assessments = None
+    sessions_for_coach_card = [] # Unified list for the new coach card
 
     if request.user.is_superuser:
-        upcoming_sessions = Session.objects.filter(
+        upcoming_sessions_for_admin = Session.objects.filter(
             session_date__in=[today, today + timedelta(days=1)]
         ).order_by('session_date', 'session_start_time')
         
@@ -72,51 +75,61 @@ def homepage(request):
             discrepancy_type__in=['NO_SHOW', 'UNEXPECTED']
         ).select_related('player', 'session__school_group')
 
-        # --- THIS IS THE FIX ---
-        # Fetch all player assessments that have not been reviewed by a superuser.
         all_coach_assessments = SessionAssessment.objects.filter(
             superuser_reviewed=False
         ).select_related('player', 'session', 'submitted_by').order_by('-date_recorded')
-        # --- END OF FIX ---
         
     elif request.user.is_staff: # This covers non-superuser staff (coaches)
-        upcoming_sessions = Session.objects.filter(
-            coaches_attending__user=request.user,
-            session_date__gte=today
-        ).order_by('session_date', 'session_start_time')[:5]
-
-        # --- NEW LOGIC FOR PENDING ASSESSMENT NOTIFICATION ---
         try:
             coach = request.user.coach_profile
-            four_weeks_ago = now - timedelta(weeks=4)
+            
+            # --- UNIFIED CARD LOGIC ---
+            # Get the next 5 upcoming sessions, regardless of confirmation status
+            upcoming_coach_sessions = Session.objects.filter(
+                coaches_attending=coach,
+                session_date__gte=today,
+                is_cancelled=False
+            ).prefetch_related(
+                Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability')
+            ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')[:5]
 
+            for session in upcoming_coach_sessions:
+                availability = session.my_availability[0] if session.my_availability else None
+                status = "PENDING"
+                if availability and availability.last_action:
+                    status = availability.last_action  # Will be 'CONFIRM' or 'DECLINE'
+                
+                # Determine if actions should be shown (only for today and tomorrow)
+                show_actions = session.session_date <= (today + timedelta(days=1))
+
+                sessions_for_coach_card.append({
+                    'session': session,
+                    'status': status,
+                    'show_actions': show_actions,
+                })
+
+            # --- PENDING ASSESSMENT LOGIC (remains the same) ---
+            four_weeks_ago = now - timedelta(weeks=4)
             candidate_sessions = Session.objects.filter(
                 coaches_attending=coach,
                 is_cancelled=False,
                 session_date__gte=four_weeks_ago.date()
             )
-            
             finished_sessions = [s for s in candidate_sessions if s.end_datetime and s.end_datetime < now]
             finished_session_ids = [s.id for s in finished_sessions]
 
             if finished_session_ids:
                 player_assessments_done = set(CoachSessionCompletion.objects.filter(
-                    coach=coach, 
-                    session_id__in=finished_session_ids, 
-                    assessments_submitted=True
+                    coach=coach, session_id__in=finished_session_ids, assessments_submitted=True
                 ).values_list('session_id', flat=True))
-
                 group_assessments_done = set(GroupAssessment.objects.filter(
-                    assessing_coach=request.user, 
-                    session_id__in=finished_session_ids
+                    assessing_coach=request.user, session_id__in=finished_session_ids
                 ).values_list('session_id', flat=True))
                 
-                # Find any session that is finished but not in BOTH completed sets
                 pending_sessions = [
                     s for s in finished_sessions 
                     if s.id not in player_assessments_done or s.id not in group_assessments_done
                 ]
-                
                 if pending_sessions:
                     recent_sessions_for_feedback = pending_sessions
 
@@ -125,10 +138,11 @@ def homepage(request):
 
     context = {
         'page_title': 'Dashboard',
-        'upcoming_sessions': upcoming_sessions,
+        'upcoming_sessions_for_admin': upcoming_sessions_for_admin,
         'discrepancy_report': discrepancy_report,
         'recent_sessions_for_feedback': recent_sessions_for_feedback,
-        'all_coach_assessments': all_coach_assessments, # Pass assessments to the template
+        'all_coach_assessments': all_coach_assessments,
+        'sessions_for_coach_card': sessions_for_coach_card,
     }
 
     return render(request, 'scheduling/homepage.html', context)
@@ -255,7 +269,48 @@ def session_detail(request, session_id):
 
     return render(request, 'scheduling/session_detail.html', context)
 
+@require_POST
+@login_required
+def dashboard_confirm(request, session_id):
+    if not request.user.is_staff:
+        return HttpResponseForbidden()
+    session = get_object_or_404(Session, pk=session_id)
+    CoachAvailability.objects.update_or_create(
+        coach=request.user,
+        session=session,
+        defaults={
+            'is_available': True,
+            'last_action': 'CONFIRM',
+            'status_updated_at': timezone.now()
+        }
+    )
+    messages.success(request, f"Confirmed attendance for session on {session.session_date.strftime('%d %b')}.")
+    return redirect('homepage')
 
+@require_POST
+@login_required
+def dashboard_decline(request, session_id):
+    if not request.user.is_staff:
+        return HttpResponseForbidden()
+    session = get_object_or_404(Session, pk=session_id)
+    reason = request.POST.get('reason', 'Declined via dashboard.')
+    
+    if not reason:
+        messages.error(request, "A reason is required to decline an assigned session.")
+        return redirect('homepage')
+
+    CoachAvailability.objects.update_or_create(
+        coach=request.user,
+        session=session,
+        defaults={
+            'is_available': False,
+            'last_action': 'DECLINE',
+            'status_updated_at': timezone.now(),
+            'notes': reason
+        }
+    )
+    messages.warning(request, f"Declined attendance for session on {session.session_date.strftime('%d %b')}.")
+    return redirect('homepage')
 @login_required
 @require_POST
 @user_passes_test(is_staff)
