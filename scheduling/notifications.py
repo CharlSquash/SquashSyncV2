@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
+from django.contrib.auth import get_user_model
 
 import datetime
 from datetime import timedelta
@@ -24,6 +25,8 @@ from .models import Session, CoachAvailability
 
 # Salt can be customized for better security between apps
 confirmation_signer = TimestampSigner(salt='scheduling.confirmation')
+User = get_user_model()
+
 
 def create_confirmation_token(user_id, session_id):
     """Creates a signed, timestamped token for a user and session."""
@@ -50,14 +53,14 @@ def send_session_confirmation_email(user, session, is_reminder=False):
 
     # Ensure you are using the correct namespace for your urls
     confirm_url = site_url + reverse('scheduling:confirm_attendance', args=[session.id, token])
-    decline_url = site_url + reverse('scheduling:decline_attendance', args=[session.id, token])
+    decline_url = site_url + reverse('scheduling:decline_attendance_reason', args=[session.id, token])
     
     subject_verb = "Reminder" if is_reminder else "Confirmation Required"
     subject = f"Session {subject_verb}: {session.school_group.name} on {session.session_date.strftime('%a, %d %b')}"
     
     context = {
         'coach_name': user.first_name or user.username,
-        'session_date': session.session_date.strftime('%A, %d %B %Y'),
+        'session_date': session.session_date.strftime('%A, %d B %Y'),
         'session_time': session.session_start_time.strftime('%H:%M'),
         'session_group': session.school_group.name if session.school_group else "N/A",
         'session_venue': session.venue.name if session.venue else "N/A",
@@ -75,6 +78,41 @@ def send_session_confirmation_email(user, session, is_reminder=False):
         return True
     except Exception as e:
         print(f"Error sending confirmation email to {user.email}: {e}")
+        return False
+
+def send_coach_decline_notification_email(declining_coach, session, reason):
+    """
+    Sends a notification to all superusers when a coach declines a session.
+    """
+    superusers = User.objects.filter(is_superuser=True, is_active=True)
+    recipient_list = [user.email for user in superusers if user.email]
+
+    if not recipient_list:
+        print("Admin notification not sent: No superusers with email addresses found.")
+        return False
+
+    site_url = getattr(settings, 'APP_SITE_URL', 'http://127.0.0.1:8000')
+    staffing_url = site_url + reverse('scheduling:session_staffing')
+    subject = f"ALERT: Coach Declined Session for {session.session_date.strftime('%a, %d %b')}"
+
+    context = {
+        'declining_coach_name': declining_coach.get_full_name() or declining_coach.username,
+        'session_date': session.session_date.strftime('%A, %d B %Y'),
+        'session_time': session.session_start_time.strftime('%H:%M'),
+        'session_group': session.school_group.name if session.school_group else "N/A",
+        'reason': reason,
+        'staffing_url': staffing_url,
+        'site_name': getattr(settings, 'SITE_NAME', 'SquashSync'),
+    }
+    
+    html_message = render_to_string('scheduling/emails/admin_decline_notification.html', context)
+
+    try:
+        send_mail(subject, '', settings.DEFAULT_FROM_EMAIL, recipient_list, html_message=html_message)
+        print(f"Sent decline notification to {len(recipient_list)} admin(s) for session {session.id}.")
+        return True
+    except Exception as e:
+        print(f"Error sending admin decline notification: {e}")
         return False
 
 # Your views seem correct but ensure they are in a `views.py` file within the `scheduling` app

@@ -262,7 +262,7 @@
 </div>
 
 {% for item in sessions_for_coach_card %}
-{% if item.status == 'PENDING' %}
+{% if item.show_actions and item.status == 'PENDING' %}
 <div class="modal fade" id="declineReasonModal-{{ item.session.id }}" tabindex="-1" aria-labelledby="declineReasonModalLabel-{{ item.session.id }}" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">

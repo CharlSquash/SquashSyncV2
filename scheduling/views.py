@@ -1,4 +1,4 @@
-# squashsyncv2/scheduling/views.py
+# scheduling/views.py
 # --- Start: Replace your existing imports with this block ---
 import json
 from datetime import timedelta, datetime
@@ -28,7 +28,7 @@ from .models import Session, CoachAvailability, Venue, ScheduledClass, Attendanc
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup, AttendanceDiscrepancy
 from . import notifications
-from .notifications import verify_confirmation_token
+from .notifications import verify_confirmation_token, send_coach_decline_notification_email
 from accounts.models import Coach
 from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
@@ -293,7 +293,7 @@ def dashboard_decline(request, session_id):
     if not request.user.is_staff:
         return HttpResponseForbidden()
     session = get_object_or_404(Session, pk=session_id)
-    reason = request.POST.get('reason', 'Declined via dashboard.')
+    reason = request.POST.get('reason', '').strip()
     
     if not reason:
         messages.error(request, "A reason is required to decline an assigned session.")
@@ -309,6 +309,13 @@ def dashboard_decline(request, session_id):
             'notes': reason
         }
     )
+
+    # --- ADMIN NOTIFICATION ---
+    today = timezone.now().date()
+    tomorrow = today + timedelta(days=1)
+    if session.session_date in [today, tomorrow]:
+        send_coach_decline_notification_email(request.user, session, reason)
+    
     messages.warning(request, f"Declined attendance for session on {session.session_date.strftime('%d %b')}.")
     return redirect('homepage')
 @login_required
@@ -786,7 +793,7 @@ def confirm_attendance(request, session_id, token):
     Does not require login; authentication is handled by the token.
     """
     payload = notifications.verify_confirmation_token(token)
-    
+
     if not payload:
         context = {
             'message_type': 'error',
@@ -797,7 +804,7 @@ def confirm_attendance(request, session_id, token):
     try:
         user_id, token_session_id = payload.split(':')
         user_id = int(user_id)
-        
+
         # Security check: ensure the session_id in the token matches the one in the URL
         if int(token_session_id) != session_id:
              raise ValueError("Token-URL mismatch.")
@@ -812,14 +819,14 @@ def confirm_attendance(request, session_id, token):
     # Fetch the user and session from the database using IDs from the token/URL
     user = get_object_or_404(User, pk=user_id)
     session = get_object_or_404(Session, pk=session_id)
-    
+
     # Update the availability record
     CoachAvailability.objects.update_or_create(
-        coach=user, 
+        coach=user,
         session=session,
         defaults={
-            'is_available': True, 
-            'last_action': 'CONFIRM', 
+            'is_available': True,
+            'last_action': 'CONFIRM',
             'status_updated_at': timezone.now()
         }
     )
@@ -832,13 +839,11 @@ def confirm_attendance(request, session_id, token):
     return render(request, 'scheduling/confirmation_response.html', context)
 
 
-def decline_attendance(request, session_id, token):
+def decline_attendance_reason(request, session_id, token):
     """
-    Handles attendance decline from an email link.
-    Does not require login; authentication is handled by the token.
+    Handles attendance decline from an email link, requiring a reason.
     """
     payload = notifications.verify_confirmation_token(token)
-    
     if not payload:
         context = {
             'message_type': 'error',
@@ -860,23 +865,40 @@ def decline_attendance(request, session_id, token):
 
     user = get_object_or_404(User, pk=user_id)
     session = get_object_or_404(Session, pk=session_id)
-    
-    CoachAvailability.objects.update_or_create(
-        coach=user, 
-        session=session,
-        defaults={
-            'is_available': False, 
-            'last_action': 'DECLINE', 
-            'status_updated_at': timezone.now(), 
-            'notes': 'Declined via email link.'
+
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '').strip()
+        if not reason:
+            messages.error(request, "A reason is required to decline.")
+            return redirect(request.path) # Redirect back to the same page
+
+        CoachAvailability.objects.update_or_create(
+            coach=user,
+            session=session,
+            defaults={
+                'is_available': False,
+                'last_action': 'DECLINE',
+                'status_updated_at': timezone.now(),
+                'notes': reason
+            }
+        )
+        
+        today = timezone.now().date()
+        if session.session_date in [today, today + timedelta(days=1)]:
+            notifications.send_coach_decline_notification_email(user, session, reason)
+
+        context = {
+            'message_type': 'warning',
+            'message': f"Thank you, {user.first_name}. We have recorded that you are unavailable for the session on {session.session_date.strftime('%A, %d %B')}."
         }
-    )
+        return render(request, 'scheduling/confirmation_response.html', context)
 
     context = {
-        'message_type': 'warning',
-        'message': f"Thank you, {user.first_name}. We have recorded that you are unavailable for the session on {session.session_date.strftime('%A, %d %B')}."
+        'session': session,
+        'coach_name': user.first_name,
     }
-    return render(request, 'scheduling/confirmation_response.html', context)
+    return render(request, 'scheduling/decline_reason_form.html', context)
+
 
 def player_attendance_response(request, token):
     """ Handles a parent's attendance response from an email link. """
@@ -899,16 +921,16 @@ def player_attendance_response(request, token):
 
     try:
         tracking_record = AttendanceTracking.objects.select_related('player', 'session').get(pk=record_id)
-        
+
         # --- MODIFICATION ---
         # Update the parent_response field instead of the old status field
         if new_status in AttendanceTracking.ParentResponse.values:
             tracking_record.parent_response = new_status
             tracking_record.save()
-            
+
             player_name = tracking_record.player.first_name
             session_date_str = tracking_record.session.session_date.strftime('%A, %d %B')
-            
+
             if new_status == AttendanceTracking.ParentResponse.ATTENDING:
                 message = f"Thank you! {player_name}'s attendance for the session on {session_date_str} has been confirmed."
                 message_type = 'success'

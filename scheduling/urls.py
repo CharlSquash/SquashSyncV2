@@ -18,7 +18,7 @@ urlpatterns = [
     path('bulk-availability/', views.set_bulk_availability_view, name='set_bulk_availability'),
 
     path('confirm/<int:session_id>/<str:token>/', views.confirm_attendance, name='confirm_attendance'),
-    path('decline/<int:session_id>/<str:token>/', views.decline_attendance, name='decline_attendance'),
+    path('decline-with-reason/<int:session_id>/<str:token>/', views.decline_attendance_reason, name='decline_attendance_reason'),
     
     path('dashboard/confirm/<int:session_id>/', views.dashboard_confirm, name='dashboard_confirm'),
     path('dashboard/decline/<int:session_id>/', views.dashboard_decline, name='dashboard_decline'),

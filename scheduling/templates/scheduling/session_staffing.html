@@ -63,7 +63,7 @@
                                                 {% endif %}
                                                 {{ assigned.coach.name }} 
                                                 <span class="text-muted">({{ assigned.status }})</span>
-                                                {% if assigned.notes %}<span class="availability-notes"> - {{ assigned.notes }}</span>{% endif %}
+                                                {% if assigned.notes %}<span class="availability-notes"> - <em>{{ assigned.notes }}</em></span>{% endif %}
                                             </p>
                                         {% empty %}
                                             <p class="text-muted">None assigned.</p>

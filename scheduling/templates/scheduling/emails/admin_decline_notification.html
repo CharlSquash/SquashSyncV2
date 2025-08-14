@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Coach Decline Notification</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { width: 100%; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { color: #dc3545; margin: 0; }
+        .content p { margin-bottom: 15px; }
+        .session-details, .reason-box { background-color: #fff; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #eee; }
+        .session-details strong, .reason-box strong { color: #004085; }
+        .reason-box { border-left: 4px solid #dc3545; }
+        .actions { text-align: center; margin-top: 25px; }
+        .button { display: inline-block; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; background-color: #007bff; color: white !important; }
+        .footer { text-align: center; font-size: 0.9em; color: #777; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Staffing Alert</h1>
+        </div>
+        <div class="content">
+            <p>This is an automated notification to inform you that a coach has declined an upcoming session.</p>
+
+            <div class="session-details">
+                <p><strong>Coach:</strong> {{ declining_coach_name }}</p>
+                <p><strong>Group:</strong> {{ session_group }}</p>
+                <p><strong>Date:</strong> {{ session_date }}</p>
+                <p><strong>Time:</strong> {{ session_time }}</p>
+            </div>
+
+            <div class="reason-box">
+                <p><strong>Reason Provided:</strong></p>
+                <p><em>{{ reason|linebreaksbr }}</em></p>
+            </div>
+
+            <p>Please review the session staffing to assign a replacement coach if necessary.</p>
+        </div>
+        <div class="actions">
+            <a href="{{ staffing_url }}" class="button">Go to Staffing Page</a>
+        </div>
+        <div class="footer">
+            <p>&copy; {% now "Y" %} {{ site_name }}</p>
+        </div>
+    </div>
+</body>
+</html>
