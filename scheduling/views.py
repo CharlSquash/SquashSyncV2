@@ -47,25 +47,26 @@ def is_staff(user):
 def homepage(request):
     today = timezone.now().date()
     now = timezone.now()
-    
+
     # Common context variables
     upcoming_sessions_for_admin = None
     discrepancy_report = None
     recent_sessions_for_feedback = None
     all_coach_assessments = None
+    recent_group_assessments = None # Add this
     sessions_for_coach_card = [] # Unified list for the new coach card
 
     if request.user.is_superuser:
         upcoming_sessions_for_admin = Session.objects.filter(
             session_date__in=[today, today + timedelta(days=1)]
         ).order_by('session_date', 'session_start_time')
-        
+
         recent_sessions = Session.objects.filter(
             session_date__gte=today - timedelta(days=1)
         ).select_related('school_group')
-        
+
         finished_session_ids = [
-            s.id for s in recent_sessions 
+            s.id for s in recent_sessions
             if s.end_datetime and s.end_datetime < now
         ]
 
@@ -78,11 +79,16 @@ def homepage(request):
         all_coach_assessments = SessionAssessment.objects.filter(
             superuser_reviewed=False
         ).select_related('player', 'session', 'submitted_by').order_by('-date_recorded')
-        
+
+        # NEW LOGIC FOR GROUP ASSESSMENTS
+        recent_group_assessments = GroupAssessment.objects.filter(
+            superuser_reviewed=False
+        ).select_related('session__school_group', 'assessing_coach__coach_profile').order_by('-assessment_datetime')
+
     elif request.user.is_staff: # This covers non-superuser staff (coaches)
         try:
             coach = request.user.coach_profile
-            
+
             # --- UNIFIED CARD LOGIC ---
             # Get the next 5 upcoming sessions, regardless of confirmation status
             upcoming_coach_sessions = Session.objects.filter(
@@ -98,7 +104,7 @@ def homepage(request):
                 status = "PENDING"
                 if availability and availability.last_action:
                     status = availability.last_action  # Will be 'CONFIRM' or 'DECLINE'
-                
+
                 # Determine if actions should be shown (only for today and tomorrow)
                 show_actions = session.session_date <= (today + timedelta(days=1))
 
@@ -125,9 +131,9 @@ def homepage(request):
                 group_assessments_done = set(GroupAssessment.objects.filter(
                     assessing_coach=request.user, session_id__in=finished_session_ids
                 ).values_list('session_id', flat=True))
-                
+
                 pending_sessions = [
-                    s for s in finished_sessions 
+                    s for s in finished_sessions
                     if s.id not in player_assessments_done or s.id not in group_assessments_done
                 ]
                 if pending_sessions:
@@ -142,6 +148,7 @@ def homepage(request):
         'discrepancy_report': discrepancy_report,
         'recent_sessions_for_feedback': recent_sessions_for_feedback,
         'all_coach_assessments': all_coach_assessments,
+        'recent_group_assessments': recent_group_assessments, # Add to context
         'sessions_for_coach_card': sessions_for_coach_card,
     }
 

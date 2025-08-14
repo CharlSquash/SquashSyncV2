@@ -28,59 +28,10 @@
     {% endif %}
 
     <div class="dashboard-grid">
-        
-        {% if user.is_staff and not user.is_superuser %}
-        <div class="dashboard-card" id="coach-upcoming-sessions-card">
-            <div class="card-header">
-                <h3><i class="bi bi-calendar-event"></i> My Upcoming Sessions</h3>
-            </div>
-            <div class="card-body">
-                {% if sessions_for_coach_card %}
-                    <ul class="list-unstyled">
-                        {% for item in sessions_for_coach_card %}
-                            <li class="confirmation-item">
-                                <div class="session-info">
-                                    <a href="{% url 'scheduling:session_detail' item.session.id %}" class="session-info-link">
-                                        <strong>{{ item.session.session_date|date:"l, d M" }} @ {{ item.session.session_start_time|time:"H:i" }}</strong>
-                                        <span class="group-name">{{ item.session.school_group.name }}</span>
-                                        <small class="venue-name text-muted">{{ item.session.venue.name }}</small>
-                                    </a>
-                                </div>
 
-                                {% if item.show_actions %}
-                                    {% if item.status == 'PENDING' %}
-                                    <div class="confirmation-actions">
-                                        <form action="{% url 'scheduling:dashboard_confirm' item.session.id %}" method="post" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-success">Confirm</button>
-                                        </form>
-                                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#declineReasonModal-{{ item.session.id }}">
-                                            Decline
-                                        </button>
-                                    </div>
-                                    {% elif item.status == 'CONFIRM' %}
-                                    <div class="confirmation-status">
-                                        <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Confirmed</span>
-                                    </div>
-                                    {% elif item.status == 'DECLINE' %}
-                                    <div class="confirmation-status">
-                                        <span class="badge bg-danger"><i class="bi bi-x-circle-fill"></i> Declined</span>
-                                    </div>
-                                    {% endif %}
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> No upcoming assigned sessions.</p>
-                {% endif %}
-            </div>
-            <div class="card-footer">
-                <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">View Full Availability <i class="bi bi-box-arrow-up-right"></i></a>
-            </div>
-        </div>
+        {% if user.is_staff and not user.is_superuser %}
         {% endif %}
-        
+
         {% if user.is_superuser %}
         <div class="dashboard-card">
             <div class="card-header">
@@ -107,9 +58,7 @@
                 <a href="{% url 'scheduling:session_calendar' %}" class="card-action-link">View Full Calendar <i class="bi bi-box-arrow-up-right"></i></a>
             </div>
         </div>
-        {% endif %}
 
-        {% if user.is_superuser %}
         <div class="dashboard-card">
             <div class="card-header">
                 <h3><i class="bi bi-person-exclamation"></i> Attendance Actions</h3>
@@ -123,14 +72,14 @@
                             <a href="{% url 'players:player_profile' item.player.id %}" class="flex-grow-1">
                                 <strong>{{ item.player.full_name }}</strong>
                                 <span>{{ item.session.school_group.name|default:"General Session" }}</span>
-                                <span class="badge 
+                                <span class="badge
                                     {% if item.discrepancy_type == 'NO_SHOW' %}bg-danger
                                     {% else %}bg-warning text-dark{% endif %}">
                                     {{ item.get_discrepancy_type_display }}
                                 </span>
                             </a>
-                            <button class="btn btn-sm btn-outline-success ms-2 acknowledge-btn" 
-                                    data-id="{{ item.id }}" 
+                            <button class="btn btn-sm btn-outline-success ms-2 acknowledge-btn"
+                                    data-id="{{ item.id }}"
                                     title="Acknowledge and remove from this list">
                                 <i class="bi bi-check-lg"></i>
                             </button>
@@ -149,42 +98,7 @@
         {% endif %}
 
         {% if user.is_staff and not user.is_superuser %}
-            <div class="dashboard-card">
-                <div class="card-header">
-                    <h3><i class="bi bi-pencil-square"></i> Pending Assessments</h3>
-                </div>
-                <div class="card-body">
-                    {% if recent_sessions_for_feedback %}
-                        <ul class="dashboard-list dashboard-list-condensed">
-                            {% for session in recent_sessions_for_feedback %}
-                                <li>
-                                    <a href="{% url 'assessments:pending_assessments' %}">
-                                        <strong>{{ session.school_group.name|default:"General Session" }}</strong>
-                                        <span>{{ session.session_date|date:"D, d M" }}</span>
-                                    </a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Great job! No pending assessments.</p>
-                    {% endif %}
-                </div>
-                 <div class="card-footer">
-                    <a href="{% url 'assessments:pending_assessments' %}" class="card-action-link">Go to My Assessments <i class="bi bi-box-arrow-up-right"></i></a>
-                </div>
-            </div>
-             <div class="dashboard-card">
-                <div class="card-header">
-                    <h3><i class="bi bi-calendar-check"></i> My Availability</h3>
-                </div>
-                <div class="card-body">
-                     <p>View your schedule and confirm your attendance for upcoming sessions.</p>
-                </div>
-                 <div class="card-footer">
-                    <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Update My Availability <i class="bi bi-box-arrow-up-right"></i></a>
-                </div>
-            </div>
-        {% endif %}
+            {% endif %}
 
         {% if user.is_superuser %}
             <div class="dashboard-card">
@@ -207,8 +121,8 @@
                                                 <p class="mb-0 mt-1 fst-italic border-start border-2 ps-2">"{{ assessment.coach_notes|truncatewords:20 }}"</p>
                                             {% endif %}
                                         </div>
-                                        <button class="btn btn-sm btn-outline-success ms-2 acknowledge-assessment-btn" 
-                                                data-id="{{ assessment.id }}" 
+                                        <button class="btn btn-sm btn-outline-success ms-2 acknowledge-assessment-btn"
+                                                data-id="{{ assessment.id }}"
                                                 title="Acknowledge and remove from this list">
                                             <i class="bi bi-check-lg"></i>
                                         </button>
@@ -233,15 +147,37 @@
                  <div class="card-body">
                     {% if recent_group_assessments %}
                         <p>There are <strong>{{ recent_group_assessments.count }}</strong> new group assessment(s) waiting for your review.</p>
+                        <ul class="dashboard-list dashboard-list-condensed" id="group-assessment-list">
+                            {% for assessment in recent_group_assessments %}
+                                <li data-id="{{ assessment.id }}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">
+                                                <strong>{{ assessment.session.school_group.name|default:"N/A" }}</strong>
+                                                <small class="text-muted d-block">by {{ assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username }} on {{ assessment.assessment_datetime|date:"d M Y" }}</small>
+                                            </a>
+                                            {% if assessment.general_notes %}
+                                                <p class="mb-0 mt-1 fst-italic border-start border-2 ps-2">"{{ assessment.general_notes|truncatewords:20 }}"</p>
+                                            {% endif %}
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-success ms-2 acknowledge-group-assessment-btn"
+                                                data-id="{{ assessment.id }}"
+                                                title="Acknowledge and remove from this list">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                         </ul>
+                         <p class="no-data-message" id="no-group-assessment-message" style="display: none;"><i class="bi bi-check2-all text-success"></i> All group assessments reviewed.</p>
                     {% else %}
-                        <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All group assessments are reviewed.</p>
+                        <p class="no-data-message" id="no-group-assessment-message"><i class="bi bi-check2-all text-success"></i> All group assessments are reviewed.</p>
                     {% endif %}
                 </div>
                 <div class="card-footer">
                      <a href="{% url 'admin:assessments_groupassessment_changelist' %}" class="card-action-link">Manage All <i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
             </div>
-
             <div class="dashboard-card">
                 <div class="card-header">
                     <h3><i class="bi bi-gear-fill"></i> Quick Links</h3>
@@ -293,7 +229,7 @@
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -312,45 +248,67 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleAcknowledgeClick(listId, buttonClass, urlPrefix, noItemsMessageId) {
         const list = document.getElementById(listId);
-        if (list) {
-            list.addEventListener('click', function(e) {
-                const button = e.target.closest(buttonClass);
-                if (!button) return;
+        if (!list) return;
 
-                const itemId = button.dataset.id;
-                const listItem = button.closest('li');
-                const url = `${urlPrefix}${itemId}/acknowledge/`;
+        list.addEventListener('click', function(e) {
+            const button = e.target.closest(buttonClass);
+            if (!button) return;
 
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        listItem.style.transition = 'opacity 0.5s';
-                        listItem.style.opacity = '0';
-                        setTimeout(() => {
-                            listItem.remove();
-                            if (list.children.length === 0) {
-                                document.getElementById(noItemsMessageId).style.display = 'block';
-                                list.style.display = 'none';
+            const itemId = button.dataset.id;
+            const listItem = button.closest('li');
+            if (!itemId || !listItem) {
+                console.error("Could not find item ID or list item for button:", button);
+                return;
+            }
+
+            const url = `${urlPrefix}${itemId}/acknowledge/`;
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Network response was not ok: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    listItem.style.transition = 'opacity 0.5s, transform 0.5s';
+                    listItem.style.opacity = '0';
+                    listItem.style.transform = 'translateX(-20px)';
+                    setTimeout(() => {
+                        listItem.remove();
+                        if (list.children.length === 0) {
+                            const listContainer = list.closest('.card-body');
+                            const noItemsMessage = document.getElementById(noItemsMessageId);
+                            if (listContainer) {
+                                const countMessage = listContainer.querySelector('p:first-child');
+                                if (countMessage) countMessage.style.display = 'none';
                             }
-                        }, 500);
-                    } else {
-                        alert(`Could not acknowledge the item. Error: ${data.message}`);
-                    }
-                })
-                .catch(error => console.error('Error:', error));
+                            if (noItemsMessage) noItemsMessage.style.display = 'block';
+                            list.style.display = 'none';
+                        }
+                    }, 500);
+                } else {
+                    alert(`Could not acknowledge the item. Error: ${data.message || 'Unknown error'}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error during fetch:', error);
+                alert('An error occurred while trying to acknowledge the item. Please check the browser console for details.');
             });
-        }
+        });
     }
 
     handleAcknowledgeClick('discrepancy-list', '.acknowledge-btn', '/players/discrepancy/', 'no-discrepancy-message');
     handleAcknowledgeClick('assessment-list', '.acknowledge-assessment-btn', '/assessments/assessment/', 'no-assessment-message');
+    // *** ADDED JAVASCRIPT HANDLER FOR GROUP ASSESSMENTS ***
+    handleAcknowledgeClick('group-assessment-list', '.acknowledge-group-assessment-btn', '/assessments/group-assessment/', 'no-group-assessment-message');
 });
 </script>
 {% endblock %}

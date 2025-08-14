@@ -1,3 +1,4 @@
+# assessments/views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
@@ -23,7 +24,7 @@ def is_coach(user):
 @user_passes_test(is_coach, login_url='scheduling:homepage')
 def pending_assessments(request):
     """
-    Displays a list of past sessions for a coach that are pending either 
+    Displays a list of past sessions for a coach that are pending either
     player assessments or a group assessment, using a robust multi-query approach.
     """
     try:
@@ -42,7 +43,7 @@ def pending_assessments(request):
         session_date__lte=today,
         is_cancelled=False
     ).select_related('school_group', 'venue').order_by('-session_date', '-session_start_time')
-    
+
     session_ids = [s.id for s in sessions_qs]
     player_assessments_done = set(
         CoachSessionCompletion.objects.filter(
@@ -58,13 +59,13 @@ def pending_assessments(request):
         session_id__in=session_ids
     ).values_list('session_id', 'player_id')
     player_pks_to_fetch = {player_pk for _, player_pk in session_attendees}
-    
+
     # FIX: Removing the failing .select_related('user') call.
     # We will rely on Django's default behavior to fetch the user when needed.
     players_by_pk = {
         p.pk: p for p in Player.objects.filter(pk__in=player_pks_to_fetch)
     }
-    
+
     attendees_by_session = defaultdict(list)
     for session_id, player_pk in session_attendees:
         if player_pk in players_by_pk:
@@ -129,11 +130,11 @@ def assess_player(request, session_id, player_id):
     Displays a form for a coach to assess a single player for a given session.
     """
     session = get_object_or_404(Session, id=session_id)
-    
+
     # FIX: Reverting to the simplest possible way to get the player.
     # The template will use `player.full_name`, which handles accessing the user.
     player = get_object_or_404(Player, pk=player_id)
-    
+
     assessment_instance = SessionAssessment.objects.filter(
         session=session, player=player, submitted_by=request.user
     ).first()
@@ -197,6 +198,22 @@ def acknowledge_assessment(request, assessment_id):
     """
     try:
         assessment = get_object_or_404(SessionAssessment, pk=assessment_id)
+        assessment.superuser_reviewed = True
+        assessment.save(update_fields=['superuser_reviewed'])
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# --- NEW VIEW ---
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def acknowledge_group_assessment(request, group_assessment_id):
+    """
+    Marks a group assessment as reviewed by a superuser.
+    """
+    try:
+        assessment = get_object_or_404(GroupAssessment, pk=group_assessment_id)
         assessment.superuser_reviewed = True
         assessment.save(update_fields=['superuser_reviewed'])
         return JsonResponse({'status': 'success'})
