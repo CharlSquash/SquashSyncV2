@@ -17,3 +17,6 @@ mediafiles/
 .vscode/
 .idea/
 *.swp
+
+# NEW: Add this line to ignore your environment variables file
+.env
