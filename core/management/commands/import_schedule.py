@@ -20,10 +20,12 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        import_dir = os.path.join(settings.BASE_DIR, 'data_imports')
+        # --- THIS IS THE ONLY LINE THAT HAS CHANGED ---
+        import_dir = os.path.join(settings.BASE_DIR, 'data_imports', 'data_imports')
+        
         if not os.path.isdir(import_dir):
             self.stdout.write(self.style.ERROR(f"Import directory not found: {import_dir}"))
-            self.stdout.write(self.style.WARNING("Please create a 'data_imports' directory in your project root."))
+            self.stdout.write(self.style.WARNING("Please create a 'data_imports/data_imports' directory in your project root."))
             return
 
         day_mapping = {
@@ -109,4 +111,3 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('\n--- Import Complete ---'))
         for key, value in stats.items():
             self.stdout.write(f"{key.replace('_', ' ').title()}: {value}")
-
