@@ -24,8 +24,8 @@ def is_coach(user):
 @user_passes_test(is_coach, login_url='scheduling:homepage')
 def pending_assessments(request):
     """
-    Displays a list of past sessions for a coach that are pending either
-    player assessments or a group assessment, using a robust multi-query approach.
+    Displays a list of past sessions for a coach that are pending assessments
+    or were completed within the last week.
     """
     try:
         coach = request.user.coach_profile
@@ -33,39 +33,44 @@ def pending_assessments(request):
         messages.error(request, "Your user account is not linked to a Coach profile.")
         return redirect('scheduling:homepage')
 
-    date_limit_past = timezone.now().date() - timedelta(weeks=4)
+    four_weeks_ago = timezone.now().date() - timedelta(weeks=4)
+    one_week_ago = timezone.now().date() - timedelta(weeks=1)
     today = timezone.now().date()
 
-    # --- Multi-Query Processing Approach ---
     sessions_qs = Session.objects.filter(
         coaches_attending=coach,
-        session_date__gte=date_limit_past,
+        session_date__gte=four_weeks_ago,
         session_date__lte=today,
         is_cancelled=False
     ).select_related('school_group', 'venue').order_by('-session_date', '-session_start_time')
 
     session_ids = [s.id for s in sessions_qs]
-    player_assessments_done = set(
+
+    assessments_submitted_ids = set(
         CoachSessionCompletion.objects.filter(
             coach=coach, session_id__in=session_ids, assessments_submitted=True
         ).values_list('session_id', flat=True)
     )
-    group_assessments_done = set(
+
+    group_assessments_done_ids = set(
         GroupAssessment.objects.filter(
             assessing_coach=request.user, session_id__in=session_ids
         ).values_list('session_id', flat=True)
     )
+
+    player_assessments_started_ids = set(
+        SessionAssessment.objects.filter(
+            submitted_by=request.user, session_id__in=session_ids
+        ).values_list('session_id', flat=True)
+    )
+    
     session_attendees = Session.attendees.through.objects.filter(
         session_id__in=session_ids
     ).values_list('session_id', 'player_id')
+    
     player_pks_to_fetch = {player_pk for _, player_pk in session_attendees}
-
-    # FIX: Removing the failing .select_related('user') call.
-    # We will rely on Django's default behavior to fetch the user when needed.
-    players_by_pk = {
-        p.pk: p for p in Player.objects.filter(pk__in=player_pks_to_fetch)
-    }
-
+    players_by_pk = {p.pk: p for p in Player.objects.filter(pk__in=player_pks_to_fetch)}
+    
     attendees_by_session = defaultdict(list)
     for session_id, player_pk in session_attendees:
         if player_pk in players_by_pk:
@@ -80,27 +85,32 @@ def pending_assessments(request):
 
     pending_items_for_template = []
     for session in sessions_qs:
-        is_player_assessment_done = session.id in player_assessments_done
-        is_group_assessment_done = session.id in group_assessments_done
-        if is_player_assessment_done and is_group_assessment_done:
+        session_id = session.id
+        is_marked_complete = session_id in assessments_submitted_ids
+
+        if is_marked_complete and session.session_date < one_week_ago:
             continue
+            
         if session.end_datetime and session.end_datetime > timezone.now():
             continue
+
+        has_group_assessment = session_id in group_assessments_done_ids
+        has_started_player_assessments = session_id in player_assessments_started_ids
+        can_mark_complete = has_group_assessment or has_started_player_assessments
+
         players_in_session = attendees_by_session.get(session.id, [])
         assessments_for_this_session = assessments_by_session_id.get(session.id, [])
         assessed_player_pks = {a.player_id for a in assessments_for_this_session}
         players_to_assess = [p for p in players_in_session if p.pk not in assessed_player_pks]
-        can_mark_complete = False
-        if not is_player_assessment_done and players_in_session:
-            if not players_to_assess or len(assessed_player_pks) > 0:
-                can_mark_complete = True
+
         pending_items_for_template.append({
             'session': session,
             'players_to_assess': players_to_assess,
-            'player_assessments_pending': not is_player_assessment_done,
-            'group_assessment_pending': not is_group_assessment_done,
-            'can_mark_player_assessments_complete': can_mark_complete,
+            'is_marked_complete': is_marked_complete,
+            'group_assessment_pending': not has_group_assessment,
+            'can_mark_complete': can_mark_complete,
         })
+
     context = {
         'pending_items': pending_items_for_template,
         'page_title': "My Pending Assessments"
@@ -114,13 +124,17 @@ def pending_assessments(request):
 def mark_my_assessments_complete(request, session_id):
     session = get_object_or_404(Session, id=session_id)
     coach = get_object_or_404(Coach, user=request.user)
+    
+    # MODIFICATION: This action is now one-way. It only marks as complete.
     completion, created = CoachSessionCompletion.objects.get_or_create(coach=coach, session=session)
+    
     if not completion.assessments_submitted:
         completion.assessments_submitted = True
         completion.save()
-        messages.success(request, f"Player assessments for session on {session.session_date.strftime('%d %b')} marked as complete.")
+        messages.success(request, f"Assessments for session on {session.session_date.strftime('%d %b')} marked as complete.")
     else:
-        messages.info(request, "Player assessments for this session were already marked as complete.")
+        messages.info(request, "Assessments for this session were already marked as complete.")
+
     return redirect('assessments:pending_assessments')
 
 @login_required
@@ -130,9 +144,6 @@ def assess_player(request, session_id, player_id):
     Displays a form for a coach to assess a single player for a given session.
     """
     session = get_object_or_404(Session, id=session_id)
-
-    # FIX: Reverting to the simplest possible way to get the player.
-    # The template will use `player.full_name`, which handles accessing the user.
     player = get_object_or_404(Player, pk=player_id)
 
     assessment_instance = SessionAssessment.objects.filter(
@@ -204,7 +215,6 @@ def acknowledge_assessment(request, assessment_id):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-# --- NEW VIEW ---
 @require_POST
 @login_required
 @user_passes_test(lambda u: u.is_superuser)

@@ -1458,3 +1458,123 @@ Coach Confirmation Card Styles
 .confirmation-status .badge i {
     margin-right: 4px;
 }
+
+/*
+=================================
+Pending Assessments Page Updates
+=================================
+*/
+
+/* REMOVE this old style */
+.pending-session-card.is-complete {
+    border-color: #198754;
+    opacity: 0.85;
+}
+
+/* REMOVE this old style */
+html.dark-mode .pending-session-card.is-complete {
+    border-color: #20c997;
+}
+
+/* REMOVE this old style */
+.pending-session-card.is-complete .pending-session-header {
+    background-color: var(--action-add-bg);
+}
+
+/* Keep this section */
+.card-footer-action {
+    padding: 1rem 1.25rem;
+    background-color: var(--container-light-bg);
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+}
+
+/* Keep and slightly modify this section */
+.btn-mark-complete-main {
+    display: inline-block;
+    padding: 10px 20px;
+    font-size: 1.1em;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    background-color: #28a745; 
+    color: #fff;
+    border-color: #198754;
+}
+
+.btn-mark-complete-main:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* REMOVE the .btn-reopen styles, they are no longer needed */
+
+.btn-mark-complete-main i {
+    margin-right: 8px;
+}
+
+.card-footer-action .form-text {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.85em;
+}
+
+.players-to-assess-list-container {
+    max-height: 200px; 
+    overflow-y: auto; 
+    border: 1px solid var(--border-color); 
+    border-radius: 5px; 
+    padding: 10px;
+}
+
+/* --- ADD these NEW styles for the collapsible card --- */
+.pending-session-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.pending-session-header {
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    list-style: none; /* Hide default details marker */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+.pending-session-header::-webkit-details-marker {
+    display: none; /* Hide default details marker for Chrome */
+}
+
+.pending-session-header:hover {
+    background-color: var(--container-light-bg);
+}
+
+.pending-session-card[open] > .pending-session-header {
+    border-bottom: 1px solid var(--border-light);
+}
+
+.pending-session-header .header-content {
+    flex-grow: 1;
+}
+
+.pending-session-header .arrow {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+.pending-session-header .arrow::before {
+    content: '►'; /* Right-pointing triangle */
+    display: inline-block;
+}
+
+.pending-session-card[open] > .pending-session-header .arrow::before {
+    transform: rotate(90deg); /* Point down when open */
+}
