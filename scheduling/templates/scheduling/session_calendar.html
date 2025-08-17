@@ -4,6 +4,26 @@
 
 {% block title %}{{ page_title }} - SquashSync{% endblock %}
 
+{% block extra_head %}
+<style>
+    /* Responsive styling for the calendar */
+    @media (max-width: 767px) {
+        .calendar-container {
+            padding: 0 .5rem; /* Reduce side padding on mobile */
+        }
+        /* Clean up toolbar on mobile */
+        .fc .fc-toolbar-title {
+            font-size: 1.25em; /* Make title smaller */
+        }
+        .fc .fc-toolbar.fc-header-toolbar {
+            /* Allow button groups to wrap onto a new line if needed */
+            flex-wrap: wrap;
+            margin-bottom: 1em;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-3">
     <div class="page-header">
@@ -36,12 +56,11 @@
             {% if request.user.is_superuser %}
                 <a id="adminLink" href="#" class="btn btn-sm btn-secondary" target="_blank">Edit (Admin)</a>
             {% endif %}
-    </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
-{# *** THIS IS THE FIX: Changed 'scripts_extra' to 'extra_js' *** #}
 {% block extra_js %}
 <script src="{% static 'vendor/fullcalendar/index.global.min.js' %}"></script>
 <script>
@@ -52,13 +71,20 @@ document.addEventListener('DOMContentLoaded', function() {
         eventsJson = JSON.parse('{{ events_json|escapejs }}');
     } catch (e) { console.error("Error parsing calendar_events_json:", e); }
 
+    const isMobile = window.innerWidth < 768;
+
     const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
+        initialView: isMobile ? 'listWeek' : 'dayGridMonth',
+        
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,listWeek'
         },
+
+        // This makes the calendar use the vertical space it needs, avoiding internal scrollbars.
+        height: 'auto',
+
         events: eventsJson,
         eventClick: function(info) {
             info.jsEvent.preventDefault();
@@ -73,8 +99,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('modalStatus').textContent = props.status_display;
 
             document.getElementById('sessionPlanLink').href = event.url;
-
-            // This is the important change to prevent errors for non-admins
+            
+            // Safely handle the admin link, which only exists for superusers
             const adminLink = document.getElementById('adminLink');
             if (adminLink) {
                 adminLink.href = props.admin_url;
@@ -86,6 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     calendar.render();
 
+    // Modal closing logic
     const modal = document.getElementById('sessionDetailModal');
     modal.querySelector('.close-button').onclick = () => modal.style.display = "none";
     window.onclick = (event) => {

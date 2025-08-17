@@ -1578,3 +1578,4 @@ html.dark-mode .pending-session-card.is-complete {
 .pending-session-card[open] > .pending-session-header .arrow::before {
     transform: rotate(90deg); /* Point down when open */
 }
+
