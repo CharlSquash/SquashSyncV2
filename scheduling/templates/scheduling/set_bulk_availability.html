@@ -3,36 +3,25 @@
 
 {% block title %}{{ page_title|default:"Set My Bulk Availability" }}{% endblock %}
 
-{% block extra_head %}
-    {% endblock %}
-
 {% block content %}
 <div class="content-wrapper">
     <h1><i class="bi bi-calendar2-week"></i> {{ page_title }}</h1>
 
     <div class="color-key">
         <strong>Key:</strong>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #198754;"></div> Available</span>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #dc3545;"></div> Unavailable</span>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #0d6efd;"></div> Emergency Only</span>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #6c757d;"></div> No Preference</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #198754;"></div> Available (Green)</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #0d6efd;"></div> Emergency Only (Blue)</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #6c757d;"></div> Not Available (Grey)</span>
     </div>
 
     <p class="helptext">
-        <small>Tap a block to cycle its status. Your preference will be applied to all sessions generated from that rule for the selected month.</small>
+        <small>Select a month, then tap a block to cycle its status. Your preference will be applied to all sessions for that recurring schedule within the selected month.</small>
     </p>
 
-    <form method="GET" action="{% url 'scheduling:set_bulk_availability' %}" class="month-year-selector-form">
-        <div class="form-group">
-            <label for="{{ month_year_form.month.id_for_label }}">{{ month_year_form.month.label }}:</label>
-            {{ month_year_form.month }}
-        </div>
-        <div class="form-group">
-            <label for="{{ month_year_form.year.id_for_label }}">{{ month_year_form.year.label }}:</label>
-            {{ month_year_form.year }}
-        </div>
-        <button type="submit" class="btn btn-sm btn-secondary">View Schedules</button>
-    </form>
+    <div class="month-selector-form">
+        <a href="?month={{ this_month_str }}" class="btn {% if selected_month_str == this_month_str %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ this_month_name }} {{ this_month_year }}</a>
+        <a href="?month={{ next_month_str }}" class="btn {% if selected_month_str == next_month_str %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ next_month_name }} {{ next_month_year }}</a>
+    </div>
     <hr>
 
     <form method="POST" action="{% url 'scheduling:set_bulk_availability' %}">
@@ -51,18 +40,19 @@
                     </summary>
                     <div class="sessions-grid">
                         {% for rule in classes %}
-                            <div class="availability-item status-no-change" 
+                            <div class="availability-item status-{{ rule.current_status|lower }}" 
                                  data-rule-id="{{ rule.id }}" 
-                                 data-status="NO_CHANGE"
+                                 data-status="{{ rule.current_status }}"
                                  data-group-description="{{ rule.school_group.description|escapejs }}"
                                  data-group-name="{{ rule.school_group.name }}"
-                                 role="button">
+                                 role="button"
+                                 tabindex="0">
                                 
                                 <i class="bi bi-info-circle-fill description-trigger" title="View group description"></i>
                                 <strong>{{ rule.start_time|time:"H:i" }}</strong>
                                 <span>{{ rule.school_group.name }}</span>
                                 </div>
-                            <input type="hidden" name="availability_rule_{{ rule.id }}" id="input_rule_{{ rule.id }}" value="NO_CHANGE">
+                            <input type="hidden" name="availability_rule_{{ rule.id }}" id="input_rule_{{ rule.id }}" value="{{ rule.current_status }}">
                         {% endfor %}
                     </div>
                 </details>
@@ -98,9 +88,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const states = [
         { value: 'AVAILABLE',   cssClass: 'status-available' },
-        { value: 'UNAVAILABLE', cssClass: 'status-unavailable' },
         { value: 'EMERGENCY',   cssClass: 'status-emergency' },
-        { value: 'NO_CHANGE',   cssClass: 'status-no-change' }
+        { value: 'PENDING',     cssClass: 'status-pending' } // Corresponds to Not Available (Grey)
     ];
 
     function cycleStatus(item) {
@@ -118,7 +107,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     
-    // THIS IS THE FIX: Added the logic to show the description modal
     function showDescription(item) {
         const description = item.dataset.groupDescription;
         const groupName = item.dataset.groupName;
@@ -129,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     availabilityItems.forEach(item => {
         item.addEventListener('click', function(event) {
-            // Check if the icon was clicked
             if (event.target.classList.contains('description-trigger')) {
                 event.stopPropagation();
                 showDescription(this);
@@ -148,4 +135,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+<style>
+    /* Add this style to make the new pending status grey */
+    .availability-item.status-pending {
+        background-color: #6c757d;
+        border-color: #565e64;
+        color: white;
+    }
+    .month-selector-form {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+</style>
 {% endblock %}

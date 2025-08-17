@@ -42,16 +42,13 @@ class SessionForm(forms.ModelForm):
 class CoachAvailabilityForm(forms.ModelForm):
     class Meta:
         model = CoachAvailability
-        fields = ['is_available', 'notes']
+        fields = ['status', 'notes']
         widgets = {
-            'is_available': forms.RadioSelect(choices=[
-                (True, 'Yes, I am available'),
-                (False, 'No, I am unavailable')
-            ]),
+            'status': forms.RadioSelect,
             'notes': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Optional: Reason for unavailability, etc.'}),
         }
         labels = {
-            'is_available': 'Are you available for this session?'
+            'status': 'Are you available for this session?'
         }
 
 class SessionFilterForm(forms.Form):

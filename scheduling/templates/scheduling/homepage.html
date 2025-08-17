@@ -117,14 +117,18 @@
                 <h3><i class="bi bi-calendar-check-fill"></i> My Availability</h3>
             </div>
             <div class="card-body">
-                <p>Manage your availability for upcoming sessions and set your schedule in advance.</p>
-                 <ul class="dashboard-list dashboard-list-links">
-                     <li><a href="{% url 'scheduling:my_availability' %}">Set Weekly Availability</a></li>
-                     <li><a href="{% url 'scheduling:set_bulk_availability' %}">Set Monthly Availability</a></li>
-                 </ul>
+                {% if show_bulk_availability_reminder %}
+                    <p>It's time to set your general availability for the upcoming month.</p>
+                    <a href="{{ bulk_availability_url }}" class="btn btn-success w-100 mt-2">
+                        Set Availability for {{ next_month_name }}
+                    </a>
+                {% else %}
+                    <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Your bulk availability for next month is set.</p>
+                    <p class="text-muted small mt-3">You can still make specific changes to your weekly schedule.</p>
+                {% endif %}
             </div>
             <div class="card-footer">
-                <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Go to My Availability <i class="bi bi-arrow-right"></i></a>
+                <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Go to My Weekly Availability <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
       {% endif %}

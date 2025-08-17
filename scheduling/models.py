@@ -152,17 +152,30 @@ class Session(models.Model):
 
 # --- MODEL: CoachAvailability ---
 class CoachAvailability(models.Model):
+    # --- NEW: Status field to replace is_available boolean ---
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        AVAILABLE = 'AVAILABLE', 'Available'
+        UNAVAILABLE = 'UNAVAILABLE', 'Unavailable'
+        EMERGENCY = 'EMERGENCY', 'Emergency Only'
+
     coach = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='session_availabilities', limit_choices_to={'is_staff': True})
     session = models.ForeignKey('Session', on_delete=models.CASCADE, related_name='coach_availabilities')
-    is_available = models.BooleanField(null=True, help_text="True=Available, False=Unavailable, Null=Pending")
+    
+    # REMOVED: is_available = models.BooleanField(null=True, help_text="True=Available, False=Unavailable, Null=Pending")
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PENDING,
+        help_text="Coach's availability status for this session."
+    )
+    
     notes = models.TextField(blank=True, help_text="Optional notes (e.g., reason for unavailability).")
     timestamp = models.DateTimeField(auto_now=True)
     
-    # --- ADD THESE TWO FIELDS BACK ---
     ACTION_CHOICES = [('CONFIRM', 'Confirmed'), ('DECLINE', 'Declined')]
     last_action = models.CharField(max_length=10, choices=ACTION_CHOICES, null=True, blank=True, help_text="The last explicit action taken by the coach.")
     status_updated_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp of when the status was explicitly confirmed or declined.")
-    # --- END OF ADDED FIELDS ---
 
     class Meta:
         unique_together = ('coach', 'session')
@@ -171,10 +184,7 @@ class CoachAvailability(models.Model):
         verbose_name_plural = "Coach Availabilities"
 
     def __str__(self):
-        status = "Pending"
-        if self.is_available is True: status = "Available"
-        elif self.is_available is False: status = "Unavailable"
-        return f"{self.coach.username} - {status} for {self.session.session_date}"
+        return f"{self.coach.username} - {self.get_status_display()} for {self.session.session_date}"
 
 # --- MODEL: Event ---
 # This model was found in your old models.py. It seems to fit best here in scheduling.

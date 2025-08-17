@@ -3,9 +3,6 @@
 
 {% block title %}{{ page_title|default:"My Availability" }} - SquashSync{% endblock %}
 
-{% block extra_head %}
-    {% endblock %}
-
 {% block content %}
 <div class="content-wrapper">
     <h1><i class="bi bi-calendar-check-fill"></i> {{ page_title }}</h1>
@@ -18,12 +15,12 @@
 
     <div class="color-key">
         <strong>Key:</strong>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #198754;"></div> Available</span>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #dc3545;"></div> Unavailable</span>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #0d6efd;"></div> Emergency Only</span>
-        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #6c757d;"></div> No Preference</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #198754;"></div> Available (Green)</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #0d6efd;"></div> Emergency Only (Blue)</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #6c757d;"></div> Not Available (Grey)</span>
+        <span class="color-key-item"><div class="color-key-swatch" style="background-color: #dc3545;"></div> Declined Assigned (Red)</span>
     </div>
-    <p class="helptext"><small>Tap a block to cycle availability. Tap the <i class="bi bi-info-circle-fill"></i> icon for group info. A reason is required if marking 'Unavailable' for an assigned session.</small></p>
+    <p class="helptext"><small>Tap a block to cycle availability. Tap the <i class="bi bi-info-circle-fill"></i> icon for group info. A reason is required if declining an assigned session.</small></p>
 
     <div class="week-navigation">
         <a href="?week={{ prev_week_offset }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Previous Week</a>
@@ -47,6 +44,8 @@
                                  data-session-id="{{ item.session_obj.id }}" 
                                  data-status="{{ item.current_status }}"
                                  data-is-assigned="{{ item.is_assigned|yesno:'true,false' }}"
+                                 data-is-confirmed="{{ item.is_confirmed|yesno:'true,false' }}"
+                                 data-is-imminent="{{ item.is_imminent|yesno:'true,false' }}"
                                  data-group-description="{{ item.group_description|escapejs }}"
                                  data-group-name="{{ item.session_obj.school_group.name }}"
                                  tabindex="0" 
@@ -58,7 +57,13 @@
                                 <strong>{{ item.session_obj.session_start_time|time:"H:i" }}</strong>
                                 <span>{{ item.session_obj.school_group.name }}</span>
                                 {% if item.is_assigned %}
-                                    <span class="assigned-indicator">(Assigned)</span>
+                                    <span class="assigned-indicator">
+                                        {% if item.current_status == 'UNAVAILABLE' %}
+                                            (Declined)
+                                        {% else %}
+                                            (Assigned)
+                                        {% endif %}
+                                    </span>
                                 {% endif %}
                             </div>
                             <input type="hidden" name="availability_session_{{ item.session_obj.id }}" id="input_session_{{ item.session_obj.id }}" value="{{ item.current_status }}">
@@ -99,6 +104,14 @@
         </div>
     </div>
 </div>
+
+<div id="infoModal" class="custom-modal-overlay">
+    <div class="custom-modal-content">
+        <button id="infoModalClose" class="custom-modal-close" aria-label="Close">&times;</button>
+        <h4 id="infoModalTitle">Action Not Allowed</h4>
+        <p id="infoModalMessage"></p>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -114,38 +127,64 @@ document.addEventListener('DOMContentLoaded', function () {
     const reasonModalSubmit = document.getElementById('reasonModalSubmit');
     const reasonTextarea = document.getElementById('cancellationReasonText');
     const reasonError = document.getElementById('reasonError');
+    const infoModal = document.getElementById('infoModal');
+    const infoModalClose = document.getElementById('infoModalClose');
+    const infoModalMessage = document.getElementById('infoModalMessage');
     let activeItemForReason = null;
 
+    // PENDING (Grey) -> AVAILABLE (Green) -> EMERGENCY (Blue)
     const states = [
         { value: 'AVAILABLE',   cssClass: 'status-available' },
-        { value: 'UNAVAILABLE', cssClass: 'status-unavailable' },
         { value: 'EMERGENCY',   cssClass: 'status-emergency' },
-        { value: 'NO_CHANGE',   cssClass: 'status-no-change' }
+        { value: 'PENDING',     cssClass: 'status-pending' } // Represents 'Not Available' for unassigned
     ];
 
     function cycleStatus(item) {
-        const currentStatus = item.dataset.status;
-        const currentIndex = states.findIndex(s => s.value === currentStatus);
-        const nextIndex = (currentIndex + 1) % states.length;
-        const nextState = states[nextIndex];
         const isAssigned = item.dataset.isAssigned === 'true';
+        const isConfirmed = item.dataset.isConfirmed === 'true';
+        const isImminent = item.dataset.isImminent === 'true';
+        const currentStatus = item.dataset.status;
 
-        if (isAssigned && nextState.value === 'UNAVAILABLE') {
-            activeItemForReason = item;
-            reasonTextarea.value = '';
-            reasonError.style.display = 'none';
-            if(reasonModal) reasonModal.style.display = 'flex';
-            return;
+        if (isAssigned) {
+            if (isConfirmed || isImminent) {
+                infoModalMessage.textContent = "You cannot decline a confirmed session or a session happening today or tomorrow from this page. Please contact the administrator directly to make changes.";
+                if(infoModal) infoModal.style.display = 'flex';
+                return;
+            }
+            if (currentStatus !== 'UNAVAILABLE') {
+                activeItemForReason = item;
+                reasonTextarea.value = '';
+                reasonError.style.display = 'none';
+                if(reasonModal) reasonModal.style.display = 'flex';
+            } else {
+                // If already declined (red), clicking again makes it available (green)
+                updateItemStatus(item, states.find(s => s.value === 'AVAILABLE'));
+            }
+        } else {
+            // Cycle for unassigned sessions
+            const currentIndex = states.findIndex(s => s.value === currentStatus);
+            // If current status is not in the cycle (e.g., UNAVAILABLE from a bulk set), start from beginning
+            const nextIndex = (currentIndex === -1) ? 0 : (currentIndex + 1) % states.length;
+            updateItemStatus(item, states[nextIndex]);
         }
-        updateItemStatus(item, nextState);
     }
     
     function updateItemStatus(item, newState, notes = '') {
         item.dataset.status = newState.value;
-        item.className = `availability-item ${newState.cssClass}`;
+        
+        // Handle the visual representation for UNAVAILABLE on assigned sessions
+        const isAssigned = item.dataset.isAssigned === 'true';
+        if (isAssigned && newState.value === 'UNAVAILABLE') {
+            item.className = 'availability-item status-unavailable';
+        } else {
+            item.className = `availability-item ${newState.cssClass}`;
+        }
+
         document.getElementById(`input_session_${item.dataset.sessionId}`).value = newState.value;
         const notesInput = document.getElementById(`notes_session_${item.dataset.sessionId}`);
-        notesInput.value = (newState.value === 'EMERGENCY') ? "Emergency only" : notes;
+        if (notesInput) {
+            notesInput.value = (newState.value === 'EMERGENCY') ? "Emergency only" : notes;
+        }
     }
 
     function showDescription(item) {
@@ -173,6 +212,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (descriptionModalClose) descriptionModalClose.addEventListener('click', () => closeModal(descriptionModal));
     if (reasonModalCancel) reasonModalCancel.addEventListener('click', () => closeModal(reasonModal));
+    if (infoModalClose) infoModalClose.addEventListener('click', () => closeModal(infoModal));
 
     if (reasonModalSubmit) {
         reasonModalSubmit.addEventListener('click', function() {
@@ -182,8 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             if (activeItemForReason) {
-                const unavailableState = states.find(s => s.value === 'UNAVAILABLE');
-                updateItemStatus(activeItemForReason, unavailableState, reason);
+                updateItemStatus(activeItemForReason, { value: 'UNAVAILABLE' }, reason);
                 closeModal(reasonModal);
                 activeItemForReason = null;
             }
