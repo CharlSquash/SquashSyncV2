@@ -494,7 +494,7 @@ def session_calendar(request):
     }
     return render(request, 'scheduling/session_calendar.html', context)
 
-@login_required
+login_required
 def my_availability(request):
     # This view has been significantly updated
     try:
@@ -507,14 +507,34 @@ def my_availability(request):
 
     if request.method == 'POST':
         updated_count = 0
+        
+        # --- Start of the fix ---
+        # Get all session IDs from the submitted form
+        session_ids_in_form = [int(key.split('_')[-1]) for key in request.POST.keys() if key.startswith('availability_session_')]
+        
+        # Correctly fetch records and build a dictionary manually instead of using in_bulk
+        existing_records_qs = CoachAvailability.objects.filter(
+            coach=request.user, 
+            session_id__in=session_ids_in_form
+        )
+        existing_availabilities = {record.session_id: record for record in existing_records_qs}
+        # --- End of the fix ---
+
         for key, value in request.POST.items():
             if key.startswith('availability_session_'):
-                session_id = key.split('_')[-1]
+                session_id = int(key.split('_')[-1])
                 notes = request.POST.get(f'notes_session_{session_id}', '').strip()
                 
-                # Validate the submitted status
                 if value not in CoachAvailability.Status.values:
                     continue
+
+                # --- Comparison logic ---
+                existing_record = existing_availabilities.get(session_id)
+                current_status = existing_record.status if existing_record else CoachAvailability.Status.PENDING
+                current_notes = existing_record.notes if existing_record else ""
+
+                if value == current_status and notes == current_notes:
+                    continue # Skip if nothing has changed
 
                 try:
                     session = Session.objects.get(pk=session_id)
@@ -528,9 +548,12 @@ def my_availability(request):
         
         if updated_count > 0:
             messages.success(request, f"Successfully updated your availability for {updated_count} session(s).")
+        else:
+            messages.info(request, "No changes to your availability were saved.")
         
         return redirect(f"{reverse('scheduling:my_availability')}?week={request.GET.get('week', '0')}")
 
+    # --- GET request handling (remains the same) ---
     now = timezone.now()
     today = now.date()
     
@@ -552,7 +575,6 @@ def my_availability(request):
         Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability')
     ).order_by('session_date', 'session_start_time')
 
-    # --- NEW: Create default 'AVAILABLE' status for assigned sessions without a record ---
     if coach_profile:
         sessions_to_update_prefetch = []
         for session in upcoming_sessions_qs:
@@ -565,12 +587,10 @@ def my_availability(request):
                 )
                 sessions_to_update_prefetch.append(session.id)
         
-        # If any records were created, re-fetch the queryset to include them
         if sessions_to_update_prefetch:
             upcoming_sessions_qs = upcoming_sessions_qs.prefetch_related(
                 Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability')
             )
-
 
     grouped_sessions = defaultdict(list)
     for session in upcoming_sessions_qs:
@@ -610,6 +630,7 @@ def my_availability(request):
         'prev_week_offset': week_offset - 1,
     }
     return render(request, 'scheduling/my_availability.html', context)
+
 
 @login_required
 def set_bulk_availability_view(request):
@@ -759,7 +780,7 @@ def session_staffing(request):
             is_cancelled=False
         ).select_related('school_group', 'venue').prefetch_related(
             'coaches_attending__user',
-            Prefetch('coach_availabilities', queryset=CoachAvailability.objects.select_related('coach__user'))
+            Prefetch('coach_availabilities', queryset=CoachAvailability.objects.select_related('coach'))
         ).order_by('session_start_time')
         
         processed_sessions = []
