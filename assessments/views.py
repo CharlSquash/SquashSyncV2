@@ -125,15 +125,18 @@ def mark_my_assessments_complete(request, session_id):
     session = get_object_or_404(Session, id=session_id)
     coach = get_object_or_404(Coach, user=request.user)
     
-    # MODIFICATION: This action is now one-way. It only marks as complete.
+    # --- THIS IS THE FIX ---
+    # When assessments are marked as complete, also default confirmed_for_payment to True
     completion, created = CoachSessionCompletion.objects.get_or_create(coach=coach, session=session)
     
     if not completion.assessments_submitted:
         completion.assessments_submitted = True
+        completion.confirmed_for_payment = True # Set to True by default
         completion.save()
-        messages.success(request, f"Assessments for session on {session.session_date.strftime('%d %b')} marked as complete.")
+        messages.success(request, f"Assessments for session on {session.session_date.strftime('%d %b')} marked as complete and confirmed for payment.")
     else:
         messages.info(request, "Assessments for this session were already marked as complete.")
+    # --- END OF FIX ---
 
     return redirect('assessments:pending_assessments')
 

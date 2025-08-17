@@ -1,4 +1,6 @@
-from django.shortcuts import render, redirect, get_object_or_404
+# finance/views.py
+
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.urls import reverse
@@ -13,7 +15,7 @@ def is_superuser(user):
     return user.is_superuser
 
 @login_required
-@user_passes_test(is_superuser, login_url='scheduling:homepage') 
+@user_passes_test(is_superuser, login_url='scheduling:homepage')
 def completion_report(request):
     """
     Admin report to view and confirm coach session completions for payment.
@@ -31,10 +33,10 @@ def completion_report(request):
 
         try:
             completion_record = get_object_or_404(CoachSessionCompletion, pk=int(completion_id))
-            if action == 'confirm': 
+            if action == 'confirm':
                 completion_record.confirmed_for_payment = True
                 messages.success(request, f"Payment confirmed for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
-            elif action == 'unconfirm': 
+            elif action == 'unconfirm':
                 completion_record.confirmed_for_payment = False
                 messages.warning(request, f"Payment confirmation removed for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
             else:
@@ -42,17 +44,18 @@ def completion_report(request):
                 return redirect(redirect_url)
             
             completion_record.save(update_fields=['confirmed_for_payment'])
-        except (ValueError, CoachSessionCompletion.DoesNotExist) as e: 
+        except (ValueError, CoachSessionCompletion.DoesNotExist) as e:
             messages.error(request, "Invalid request or record not found.")
         
         return redirect(redirect_url)
 
     today = timezone.now().date()
     
-    first_day_of_current_month = today.replace(day=1)
-    last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
-    default_year = last_day_of_previous_month.year
-    default_month = last_day_of_previous_month.month
+    # --- THIS IS THE FIX ---
+    # Default to the current month and year instead of the previous month
+    default_year = today.year
+    default_month = today.month
+    # --- END OF FIX ---
     
     try:
         target_year = int(request.GET.get('year', default_year))
@@ -66,23 +69,22 @@ def completion_report(request):
     end_date = date(target_year, target_month, num_days)
 
     completion_records = CoachSessionCompletion.objects.filter(
-        session__session_date__gte=start_date, 
+        session__session_date__gte=start_date,
         session__session_date__lte=end_date
     ).select_related(
         'coach__user', 'session__school_group'
     ).order_by(
-        # FIX: Correctly order by the user's name, not the coach's name field
         'session__session_date', 'session__session_start_time', 'coach__user__first_name'
     )
 
     context = {
-        'completion_records': completion_records, 
-        'selected_year': target_year, 
-        'selected_month': target_month, 
+        'completion_records': completion_records,
+        'selected_year': target_year,
+        'selected_month': target_month,
         'year_choices': range(today.year + 1, today.year - 4, -1),
         'month_choices': [{'value': i, 'name': calendar.month_name[i]} for i in range(1, 13)],
-        'start_date': start_date, 
-        'end_date': end_date, 
+        'start_date': start_date,
+        'end_date': end_date,
         'page_title': f"Coach Completion Report ({start_date.strftime('%B %Y')})"
     }
     return render(request, 'finance/completion_report.html', context)
