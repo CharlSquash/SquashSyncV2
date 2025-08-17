@@ -73,13 +73,18 @@ html.dark-mode .player-card.selected {
 .player-card img, .player-card .photo-placeholder {
     width: 80px;
     height: 80px;
-    border-radius: 50%;
-    object-fit: cover;
+    border-radius: 8px;
     margin: 0 auto 10px;
     display: block;
     background-color: var(--container-light-bg);
     border: 1px solid var(--border-light);
 }
+
+.player-card img {
+    object-fit: cover;
+    object-position: top; /* This is the new line */
+}
+
 .photo-placeholder {
     display: flex;
     align-items: center;
