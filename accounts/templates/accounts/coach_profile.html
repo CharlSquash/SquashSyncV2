@@ -57,15 +57,15 @@
         <div class="row">
             <div class="col-md-6">
                 <div class="card shadow-sm profile-section-card">
-                    <details>
+                    <details open>
                         <summary>
-                            <span class="summary-title"><i class="bi bi-collection-play"></i>Recent Sessions Coached ({{ sessions_attended.count }})</span>
+                            <span class="summary-title"><i class="bi bi-collection-play"></i>Completed Sessions ({{ sessions_attended|length }})</span>
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content">
-                            <ul style="max-height: 300px; overflow-y: auto;">
+                            <ul id="coached-sessions-list" style="max-height: 300px; overflow-y: auto;">
                                 {% for session in sessions_attended %}
-                                    <li>
+                                    <li {% if session.session_date < two_weeks_ago %}class="d-none"{% endif %}>
                                         <a href="{% url 'scheduling:session_detail' session.id %}">
                                             {{ session.session_date|date:"D, d M Y" }} - {{ session.session_start_time|time:"H:i" }}
                                         </a><br>
@@ -75,9 +75,20 @@
                                         </small>
                                     </li>
                                 {% empty %}
-                                    <li class="text-muted">No recent sessions recorded.</li>
+                                    <li class="text-muted">No completed sessions recorded.</li>
                                 {% endfor %}
                             </ul>
+                            {% if sessions_attended|length > 0 %}
+                                {% with first_session=sessions_attended|first %}
+                                    {% if first_session.session_date >= two_weeks_ago %}
+                                        <div class="text-center mt-2">
+                                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#coached-sessions-list li.d-none" aria-expanded="false">
+                                                Show/Hide Older Sessions
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
                         </div>
                     </details>
                 </div>
@@ -89,19 +100,28 @@
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content">
-                            <ul style="max-height: 300px; overflow-y: auto;">
+                            <ul id="player-assessments-list" style="max-height: 300px; overflow-y: auto;">
                                 {% for assessment in player_assessments_made %}
-                                    <li>
+                                    <li {% if forloop.counter > 10 %}class="d-none"{% endif %}>
                                         For <strong><a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.full_name }}</a></strong>
                                         <br><small class="text-muted">Session: {{ assessment.session.session_date|date:"d M Y" }}</small>
                                         {% if assessment.coach_notes %}
                                             <p class="assessment-snippet mt-1">{{assessment.coach_notes|truncatewords:10}}</p>
+                                        {% else %}
+                                            <p class="assessment-snippet mt-1 text-muted"><em>Ratings submitted, no notes.</em></p>
                                         {% endif %}
                                     </li>
                                 {% empty %}
                                     <li class="text-muted">No recent player assessments made.</li>
                                 {% endfor %}
                             </ul>
+                             {% if player_assessments_made|length > 10 %}
+                                <div class="text-center mt-2">
+                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#player-assessments-list li.d-none" aria-expanded="false">
+                                        Show/Hide Older
+                                    </button>
+                                </div>
+                            {% endif %}
                         </div>
                     </details>
                 </div>
@@ -112,19 +132,28 @@
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content">
-                            <ul style="max-height: 300px; overflow-y: auto;">
+                            <ul id="group-assessments-list" style="max-height: 300px; overflow-y: auto;">
                                 {% for assessment in group_assessments_made %}
-                                    <li>
+                                    <li {% if forloop.counter > 10 %}class="d-none"{% endif %}>
                                         For <strong><a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{ assessment.session.school_group.name|default:"N/A" }}</a></strong>
                                         <br><small class="text-muted">Session: {{ assessment.session.session_date|date:"d M Y" }}</small>
                                         {% if assessment.general_notes %}
                                             <p class="assessment-snippet mt-1">{{assessment.general_notes|truncatewords:10}}</p>
+                                        {% else %}
+                                            <p class="assessment-snippet mt-1 text-muted"><em>No notes for this group assessment.</em></p>
                                         {% endif %}
                                     </li>
                                 {% empty %}
                                     <li class="text-muted">No group assessments made.</li>
                                 {% endfor %}
                             </ul>
+                            {% if group_assessments_made|length > 10 %}
+                                <div class="text-center mt-2">
+                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#group-assessments-list li.d-none" aria-expanded="false">
+                                        Show/Hide Older
+                                    </button>
+                                </div>
+                            {% endif %}
                         </div>
                     </details>
                 </div>
