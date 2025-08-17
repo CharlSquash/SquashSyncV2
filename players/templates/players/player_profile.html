@@ -26,6 +26,9 @@
         align-items: center;
         padding: .25rem 0;
     }
+    .hidden-assessment, .hidden-note {
+        display: none;
+    }
 </style>
 {% endblock %}
 
@@ -139,53 +142,63 @@
                             </div>
                         {% endif %}
 
-                        {% for assessment in assessments %}
-                            <div class="performance-card">
-                                <h6 class="mb-1">Session on {{ assessment.session.session_date|date:"d M Y" }}</h6>
-                                <small class="text-muted">Assessed by: {{ assessment.submitted_by.coach_profile|default:assessment.submitted_by.username }}</small>
-                                <hr class="my-2">
-                                <div class="rating-row">
-                                    <span>Effort</span>
-                                    <span class="rating-stars">
-                                        {% for i in "12345" %}<i class="bi {% if assessment.effort_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
-                                    </span>
+                        <div id="assessments-list">
+                            {% for assessment in assessments %}
+                                <div class="performance-card {% if forloop.counter > 5 %}hidden-assessment{% endif %}">
+                                    <h6 class="mb-1">Session on {{ assessment.session.session_date|date:"d M Y" }}</h6>
+                                    <small class="text-muted">Assessed by: {{ assessment.submitted_by.coach_profile|default:assessment.submitted_by.username }}</small>
+                                    <hr class="my-2">
+                                    <div class="rating-row">
+                                        <span>Effort</span>
+                                        <span class="rating-stars">
+                                            {% for i in "12345" %}<i class="bi {% if assessment.effort_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                        </span>
+                                    </div>
+                                    <div class="rating-row">
+                                        <span>Focus</span>
+                                        <span class="rating-stars">
+                                            {% for i in "12345" %}<i class="bi {% if assessment.focus_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                        </span>
+                                    </div>
+                                    <div class="rating-row">
+                                        <span>Resilience</span>
+                                        <span class="rating-stars">
+                                            {% for i in "12345" %}<i class="bi {% if assessment.resilience_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                        </span>
+                                    </div>
+                                    <div class="rating-row">
+                                        <span>Composure</span>
+                                        <span class="rating-stars">
+                                            {% for i in "12345" %}<i class="bi {% if assessment.composure_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                        </span>
+                                    </div>
+                                    <div class="rating-row">
+                                        <span>Decision Making</span>
+                                        <span class="rating-stars">
+                                            {% for i in "12345" %}<i class="bi {% if assessment.decision_making_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div class="rating-row">
-                                    <span>Focus</span>
-                                    <span class="rating-stars">
-                                        {% for i in "12345" %}<i class="bi {% if assessment.focus_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
-                                    </span>
-                                </div>
-                                <div class="rating-row">
-                                    <span>Resilience</span>
-                                    <span class="rating-stars">
-                                        {% for i in "12345" %}<i class="bi {% if assessment.resilience_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
-                                    </span>
-                                </div>
-                                <div class="rating-row">
-                                    <span>Composure</span>
-                                    <span class="rating-stars">
-                                        {% for i in "12345" %}<i class="bi {% if assessment.composure_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
-                                    </span>
-                                </div>
-                                <div class="rating-row">
-                                    <span>Decision Making</span>
-                                    <span class="rating-stars">
-                                        {% for i in "12345" %}<i class="bi {% if assessment.decision_making_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
-                                    </span>
-                                </div>
+                            {% empty %}
+                                <p class="mt-3">No performance ratings found.</p>
+                            {% endfor %}
+                        </div>
+
+                        {% if assessments|length > 5 %}
+                            <div class="text-center mt-3">
+                                <button id="show-more-assessments" class="btn btn-sm btn-outline-secondary">Show More</button>
+                                <button id="show-less-assessments" class="btn btn-sm btn-outline-secondary" style="display: none;">Show Less</button>
                             </div>
-                        {% empty %}
-                            <p class="mt-3">No performance ratings found.</p>
-                        {% endfor %}
+                        {% endif %}
                     </div>
                 </div>
 
+
                 <div class="tab-pane fade" id="assessments" role="tabpanel">
-                    <div class="list-group mt-3">
+                    <div id="assessment-notes-list" class="list-group mt-3">
                         {% for assessment in assessments %}
                             {% if assessment.coach_notes %}
-                                <div class="list-group-item">
+                                <div class="list-group-item {% if forloop.counter > 5 %}hidden-note{% endif %}">
                                     <h5 class="mb-1">Session on {{ assessment.session.session_date|date:"d M Y" }}</h5>
                                     <p class="mb-1">{{ assessment.coach_notes|linebreaksbr }}</p>
                                     <small>Assessed by: {{ assessment.submitted_by.coach_profile|default:assessment.submitted_by.username }}</small>
@@ -195,6 +208,13 @@
                             <p class="mt-3">No assessments notes found.</p>
                         {% endfor %}
                     </div>
+
+                    {% if assessments|length > 5 %}
+                        <div class="text-center mt-3">
+                            <button id="show-more-notes" class="btn btn-sm btn-outline-secondary">Show More</button>
+                            <button id="show-less-notes" class="btn btn-sm btn-outline-secondary" style="display: none;">Show Less</button>
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div class="tab-pane fade" id="metrics" role="tabpanel">
@@ -348,6 +368,62 @@
                     datasets[label].data.push({ x: r.date_recorded, y: r.consecutive_count });
                 });
                 new Chart(driveCtx, { type: 'line', data: { datasets: Object.values(datasets) }, options: chartOptions });
+            }
+    
+            // Show/hide assessments
+            const showMoreBtn = document.getElementById('show-more-assessments');
+            const showLessBtn = document.getElementById('show-less-assessments');
+            const assessmentsList = document.getElementById('assessments-list');
+
+            if (showMoreBtn) {
+                showMoreBtn.addEventListener('click', () => {
+                    assessmentsList.querySelectorAll('.hidden-assessment').forEach(el => {
+                        el.style.display = 'block';
+                    });
+                    showMoreBtn.style.display = 'none';
+                    showLessBtn.style.display = 'inline-block';
+                });
+            }
+
+            if (showLessBtn) {
+                showLessBtn.addEventListener('click', () => {
+                    const allAssessments = assessmentsList.querySelectorAll('.performance-card');
+                    allAssessments.forEach((el, index) => {
+                        if (index >= 5) {
+                            el.style.display = 'none';
+                        }
+                    });
+                    showLessBtn.style.display = 'none';
+                    showMoreBtn.style.display = 'inline-block';
+                });
+            }
+
+            // Show/hide assessment notes
+            const showMoreNotesBtn = document.getElementById('show-more-notes');
+            const showLessNotesBtn = document.getElementById('show-less-notes');
+            const assessmentNotesList = document.getElementById('assessment-notes-list');
+
+            if (showMoreNotesBtn) {
+                showMoreNotesBtn.addEventListener('click', () => {
+                    assessmentNotesList.querySelectorAll('.hidden-note').forEach(el => {
+                        el.style.display = 'block';
+                    });
+                    showMoreNotesBtn.style.display = 'none';
+                    showLessNotesBtn.style.display = 'inline-block';
+                });
+            }
+
+            if (showLessNotesBtn) {
+                showLessNotesBtn.addEventListener('click', () => {
+                    const allNotes = assessmentNotesList.querySelectorAll('.list-group-item');
+                    allNotes.forEach((el, index) => {
+                        if (index >= 5) {
+                            el.style.display = 'none';
+                        }
+                    });
+                    showLessNotesBtn.style.display = 'none';
+                    showMoreNotesBtn.style.display = 'inline-block';
+                });
             }
         });
     </script>
