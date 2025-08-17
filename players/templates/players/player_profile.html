@@ -45,7 +45,9 @@
                         <strong>Grade:</strong> {{ player.get_grade_display|default:"N/A" }}<br>
                         <strong>Groups:</strong> {{ player.school_groups.all|join:", " }}
                     </p>
+                    {% if request.user.is_superuser %}
                     <a href="{% url 'admin:players_player_change' player.id %}" class="btn btn-primary">Edit Player</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
