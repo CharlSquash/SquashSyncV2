@@ -29,12 +29,14 @@
             <p><strong>Time:</strong> <span id="modalTime"></span></p>
             <p><strong>Venue:</strong> <span id="modalVenue"></span></p>
             <p><strong>Coaches:</strong> <span id="modalCoaches"></span></p>
-            <p><strong>Status:</strong> <span id="modalStatus"></span></p>
+            <p><strong>Session Status:</strong> <span id="modalStatus"></span></p>
         </div>
         <div class="modal-actions">
             <a id="sessionPlanLink" href="#" class="btn btn-sm btn-primary">Go to Session Plan</a>
-            <a id="adminLink" href="#" class="btn btn-sm btn-secondary" target="_blank">Edit (Admin)</a>
-        </div>
+            {% if request.user.is_superuser %}
+                <a id="adminLink" href="#" class="btn btn-sm btn-secondary" target="_blank">Edit (Admin)</a>
+            {% endif %}
+    </div>
     </div>
 </div>
 {% endblock %}
@@ -71,7 +73,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('modalStatus').textContent = props.status_display;
 
             document.getElementById('sessionPlanLink').href = event.url;
-            document.getElementById('adminLink').href = props.admin_url;
+
+            // This is the important change to prevent errors for non-admins
+            const adminLink = document.getElementById('adminLink');
+            if (adminLink) {
+                adminLink.href = props.admin_url;
+            }
 
             document.getElementById('sessionDetailModal').style.display = 'block';
         },
