@@ -283,15 +283,40 @@
                 </div>
 
                 <div class="tab-pane fade" id="matches" role="tabpanel">
-                    <ul class="list-group mt-3">
-                        {% for match in match_history %}
-                            <li class="list-group-item">
-                                vs {{ match.opponent_name }} ({{ match.date|date:"d M Y" }}) - Score: {{ match.player_score_str }}
-                            </li>
-                        {% empty %}
-                            <li class="list-group-item">No match results recorded.</li>
-                        {% endfor %}
-                    </ul>
+                    <div class="accordion mt-3" id="matchesAccordion">
+                        <div class="accordion-item">
+                             <h2 class="accordion-header" id="headingMatches">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMatches">Match History</button>
+                            </h2>
+                            <div id="collapseMatches" class="accordion-collapse collapse" data-bs-parent="#matchesAccordion">
+                                <div class="accordion-body">
+                                    <ul class="list-group mt-3">
+                                        {% for match in match_history %}
+                                            <li class="list-group-item">
+                                                vs {{ match.opponent_name }} ({{ match.date|date:"d M Y" }}) - Score: {{ match.player_score_str }}
+                                            </li>
+                                        {% empty %}
+                                            <li class="list-group-item">No match results recorded.</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingAddMatch">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAddMatch">Add Match Result</button>
+                            </h2>
+                            <div id="collapseAddMatch" class="accordion-collapse collapse" data-bs-parent="#matchesAccordion">
+                                <div class="accordion-body">
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        {{ match_form|crispy }}
+                                        <button type="submit" name="add_match_result" class="btn btn-primary mt-2">Save Match</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -9,7 +9,7 @@ from datetime import timedelta, date
 from django.contrib import messages
 from .forms import (
     SchoolGroupForm, AttendancePeriodFilterForm, PlayerAttendanceFilterForm,
-    CourtSprintRecordForm, VolleyRecordForm, BackwallDriveRecordForm
+    CourtSprintRecordForm, VolleyRecordForm, BackwallDriveRecordForm, MatchResultForm
 )
 from scheduling.models import Session, AttendanceTracking
 from assessments.models import SessionAssessment, GroupAssessment
@@ -107,10 +107,20 @@ def player_profile(request, player_id):
                 messages.success(request, "Backwall drive record added.")
                 return redirect('players:player_profile', player_id=player_id)
 
+        elif 'add_match_result' in request.POST:
+            match_form = MatchResultForm(request.POST)
+            if match_form.is_valid():
+                match = match_form.save(commit=False)
+                match.player = player
+                match.save()
+                messages.success(request, "Match result added.")
+                return redirect('players:player_profile', player_id=player_id)
+
     # --- GET Request and Form Initialization ---
     sprint_form = CourtSprintRecordForm()
     volley_form = VolleyRecordForm()
     drive_form = BackwallDriveRecordForm()
+    match_form = MatchResultForm()
 
     # Get related data for tabs
     assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date')
@@ -206,6 +216,7 @@ def player_profile(request, player_id):
         'sprint_form': sprint_form,
         'volley_form': volley_form,
         'drive_form': drive_form,
+        'match_form': match_form,
         # Convert the lists to JSON strings using our custom encoder
         'sprint_records_json': json.dumps(sprint_records, cls=DateEncoder),
         'volley_records_json': json.dumps(volley_records, cls=DateEncoder),

@@ -1,6 +1,6 @@
 # players/forms.py
 from django import forms
-from .models import SchoolGroup, CourtSprintRecord, VolleyRecord, BackwallDriveRecord
+from .models import SchoolGroup, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, MatchResult
 from django.utils import timezone
 
 class SchoolGroupForm(forms.ModelForm):
@@ -56,3 +56,16 @@ class BackwallDriveRecordForm(forms.ModelForm):
         model = BackwallDriveRecord
         fields = ['date_recorded', 'shot_type', 'consecutive_count']
         labels = { 'consecutive_count': 'Consecutive Drives' }
+
+class MatchResultForm(forms.ModelForm):
+    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), initial=timezone.now)
+    class Meta:
+        model = MatchResult
+        fields = ['date', 'opponent_name', 'player_score_str', 'opponent_score_str', 'is_competitive', 'match_notes']
+        labels = {
+            'opponent_name': "Opponent's Name",
+            'player_score_str': "Player's Score",
+            'opponent_score_str': "Opponent's Score",
+            'is_competitive': 'Competitive Match',
+            'match_notes': 'Notes'
+        }
