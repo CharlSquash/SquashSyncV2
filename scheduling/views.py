@@ -93,6 +93,7 @@ def homepage(request):
     elif request.user.is_staff:
         try:
             coach = request.user.coach_profile
+            four_weeks_ago = today - timedelta(weeks=4)
 
             # --- Logic for "My Availability" card reminder ---
             next_month_date = (today + timedelta(days=32)).replace(day=1)
@@ -133,7 +134,21 @@ def homepage(request):
                 })
             
             # --- Pending assessment logic (remains the same) ---
-            # ... (rest of the coach logic is unchanged) ...
+            sessions_needing_feedback_qs = Session.objects.filter(
+                coaches_attending=coach,
+                session_date__gte=four_weeks_ago,
+                session_date__lte=today,
+                is_cancelled=False
+            ).exclude(
+                coach_completions__coach=coach,
+                coach_completions__assessments_submitted=True
+            ).order_by('-session_date', '-session_start_time')
+
+            recent_sessions_for_feedback = [
+                s for s in sessions_needing_feedback_qs
+                if s.end_datetime and s.end_datetime < now
+            ]
+
 
         except Coach.DoesNotExist:
             pass
@@ -153,7 +168,6 @@ def homepage(request):
     }
 
     return render(request, 'scheduling/homepage.html', context)
-
 
 
 def _get_default_plan(session):
