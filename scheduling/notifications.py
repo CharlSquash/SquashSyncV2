@@ -60,7 +60,7 @@ def send_session_confirmation_email(user, session, is_reminder=False):
     
     context = {
         'coach_name': user.first_name or user.username,
-        'session_date': session.session_date.strftime('%A, %d B %Y'),
+        'session_date': session.session_date.strftime('%A, %d %b %Y'),
         'session_time': session.session_start_time.strftime('%H:%M'),
         'session_group': session.school_group.name if session.school_group else "N/A",
         'session_venue': session.venue.name if session.venue else "N/A",
@@ -97,7 +97,7 @@ def send_coach_decline_notification_email(declining_coach, session, reason):
 
     context = {
         'declining_coach_name': declining_coach.get_full_name() or declining_coach.username,
-        'session_date': session.session_date.strftime('%A, %d B %Y'),
+        'session_date': session.session_date.strftime('%A, %d %b %Y'),
         'session_time': session.session_start_time.strftime('%H:%M'),
         'session_group': session.school_group.name if session.school_group else "N/A",
         'reason': reason,
