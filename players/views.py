@@ -144,21 +144,47 @@ def player_profile(request, player_id):
             }
 
     # --- Attendance Calculation Logic ---
-    current_year = timezone.now().year
-    start_date_filter = request.GET.get('start_date') or f'{current_year}-01-01'
-    end_date_filter = request.GET.get('end_date') or f'{current_year}-12-31'
+    today = timezone.now().date()
+    current_year_start = date(today.year, 1, 1)
+
+    # Set smart defaults for the filter to show the year-to-date
+    start_date_filter = request.GET.get('start_date') or current_year_start.strftime('%Y-%m-%d')
+    end_date_filter = request.GET.get('end_date') or today.strftime('%Y-%m-%d')
     group_filter_id = request.GET.get('school_group')
 
-    sessions_qs = Session.objects.filter(session_date__year=current_year, school_group__in=player.school_groups.all())
+    # Base queryset for all sessions within the selected filter range
+    sessions_in_range_qs = Session.objects.filter(
+        school_group__in=player.school_groups.all(),
+        session_date__range=[start_date_filter, end_date_filter],
+        is_cancelled=False
+    )
+    
+    # Apply group filter if selected
     filter_title = "Overall Attendance"
     if group_filter_id:
-        sessions_qs = sessions_qs.filter(school_group__id=group_filter_id)
-        filter_title = f"Attendance for {SchoolGroup.objects.get(id=group_filter_id).name}"
+        sessions_in_range_qs = sessions_in_range_qs.filter(school_group__id=group_filter_id)
+        try:
+            filter_title = f"Attendance for {SchoolGroup.objects.get(id=group_filter_id).name}"
+        except SchoolGroup.DoesNotExist:
+            pass
 
-    total_sessions = sessions_qs.filter(session_date__range=[start_date_filter, end_date_filter]).distinct().count()
-    attended_sessions = AttendanceTracking.objects.filter(player=player, session__in=sessions_qs, session__session_date__range=[start_date_filter, end_date_filter], attended=AttendanceTracking.CoachAttended.YES).count()
+    # **THE FIX**: Calculate total sessions based only on dates up to and including today
+    total_sessions = sessions_in_range_qs.filter(session_date__lte=today).distinct().count()
+
+    # Attended sessions are inherently in the past, so this query is fine
+    attended_sessions = AttendanceTracking.objects.filter(
+        player=player,
+        session__in=sessions_in_range_qs,
+        attended=AttendanceTracking.CoachAttended.YES
+    ).count()
+
     attendance_percentage = (attended_sessions / total_sessions * 100) if total_sessions > 0 else 0
-    attendance_filter_form = PlayerAttendanceFilterForm(request.GET or None, player=player)
+    
+    # Pass initial values to the form so it displays the correct default dates
+    attendance_filter_form = PlayerAttendanceFilterForm(request.GET or None, player=player, initial={
+        'start_date': start_date_filter,
+        'end_date': end_date_filter
+    })
     
     # --- Get Metric Data for Graphs (THE FIX IS HERE) ---
     sprint_records = list(CourtSprintRecord.objects.filter(player=player).order_by('date_recorded').values())
@@ -186,6 +212,7 @@ def player_profile(request, player_id):
         'drive_records_json': json.dumps(drive_records, cls=DateEncoder),
     }
     return render(request, 'players/player_profile.html', context)
+
 
 
 @login_required
