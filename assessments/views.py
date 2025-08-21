@@ -11,7 +11,7 @@ from django.http import Http404, JsonResponse
 from django.contrib.auth.models import User
 
 from accounts.models import Coach
-from scheduling.models import Session
+from scheduling.models import Session, AttendanceTracking
 from players.models import Player
 from finance.models import CoachSessionCompletion
 from .models import SessionAssessment, GroupAssessment
@@ -64,9 +64,15 @@ def pending_assessments(request):
         ).values_list('session_id', flat=True)
     )
     
-    session_attendees = Session.attendees.through.objects.filter(
-        session_id__in=session_ids
+    # --- THIS IS THE FIX ---
+    # Instead of relying on the session.attendees m2m field (which might not be populated
+    # if attendance was taken after the session), we now fetch players directly from the
+    # final attendance records. This ensures we always get the correct list of who was there.
+    session_attendees = AttendanceTracking.objects.filter(
+        session_id__in=session_ids,
+        attended=AttendanceTracking.CoachAttended.YES
     ).values_list('session_id', 'player_id')
+    # --- END OF FIX ---
     
     player_pks_to_fetch = {player_pk for _, player_pk in session_attendees}
     players_by_pk = {p.pk: p for p in Player.objects.filter(pk__in=player_pks_to_fetch)}

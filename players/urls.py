@@ -1,6 +1,10 @@
 # players/urls.py
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
+
+router = DefaultRouter()
+router.register(r'solo-logs', views.SoloPracticeLogViewSet, basename='sololog')
 
 app_name = 'players'
 urlpatterns = [
@@ -13,4 +17,7 @@ urlpatterns = [
     path('reports/discrepancy/', views.discrepancy_report, name='discrepancy_report'),
 
     path('discrepancy/<int:discrepancy_id>/acknowledge/', views.acknowledge_discrepancy, name='acknowledge_discrepancy'),
+
+    #SoloSync path
+    path('api/', include(router.urls)),
 ]

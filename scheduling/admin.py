@@ -9,7 +9,8 @@ from .session_generation_service import generate_sessions_for_rules
 
 from .models import (
     Venue, Drill, DrillTag, Session, ScheduledClass,
-    CoachAvailability, Event
+    CoachAvailability, Event,
+    Routine, RoutineDrill
 )
 
 @admin.register(Venue)
@@ -40,15 +41,10 @@ class SessionAdmin(admin.ModelAdmin):
     autocomplete_fields = ['venue', 'school_group']
     actions = ['start_session_now']
     
-    # HIDE the plan field and other legacy fields if you don't need them in the admin
     exclude = ('plan',)
 
     @admin.action(description="Start selected sessions now")
     def start_session_now(self, request, queryset):
-        """
-        Custom admin action to set the start time of a session to now
-        and change its status to 'active'.
-        """
         if queryset.count() != 1:
             self.message_user(
                 request,
@@ -62,7 +58,6 @@ class SessionAdmin(admin.ModelAdmin):
         if not session.plan:
             self.message_user(
                 request,
-                # Use str(session) to get the descriptive name
                 f"Session '{str(session)}' cannot be started because it does not have a session plan.",
                 level=messages.ERROR,
             )
@@ -74,12 +69,10 @@ class SessionAdmin(admin.ModelAdmin):
 
         self.message_user(
             request,
-            # Use str(session) here as well
             f"Session '{str(session)}' has been started successfully.",
             level=messages.SUCCESS,
         )
 
-# Register only the necessary models
 admin.site.register(Event)
 admin.site.register(CoachAvailability)
 
@@ -117,3 +110,28 @@ class ScheduledClassAdmin(admin.ModelAdmin):
         return render(request, 'admin/scheduling/scheduledclass/generate_sessions.html', context)
 
     generate_sessions_action.short_description = "Generate Sessions for selected rules"
+
+
+# --- UPDATED ADMIN CONFIGURATION FOR ROUTINES ---
+
+class RoutineDrillInline(admin.TabularInline):
+    """
+    Allows editing the RoutineDrill (the ordered list of drills)
+    directly within the Routine admin page.
+    """
+    model = RoutineDrill
+    extra = 1
+    autocomplete_fields = ['drill']
+    # ADD THIS LINE to show the duration field
+    fields = ('order', 'drill', 'duration_minutes')
+
+
+@admin.register(Routine)
+class RoutineAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for the Routine model.
+    """
+    list_display = ('name', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'description')
+    inlines = [RoutineDrillInline]

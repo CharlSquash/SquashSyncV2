@@ -7,6 +7,7 @@ from PIL import Image, ImageOps
 from django.db import models
 from django.utils import timezone
 from django.core.files.base import ContentFile
+from django.conf import settings
 
 # --- MODEL: SchoolGroup ---
 class SchoolGroup(models.Model):
@@ -23,6 +24,14 @@ class SchoolGroup(models.Model):
 
 # --- MODEL: Player ---
 class Player(models.Model):
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='player_profile',
+        null=True,
+        blank=True
+    )
     
     class GradeLevel(models.IntegerChoices):
         GRADE_R = 0, 'Grade R'
@@ -228,6 +237,11 @@ class BackwallDriveRecord(models.Model):
         ordering = ['-date_recorded', 'shot_type']
 
 class MatchResult(models.Model):
+    class MatchStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending Approval'
+        CONFIRMED = 'CONFIRMED', 'Confirmed'
+        REJECTED = 'REJECTED', 'Rejected'
+
     player = models.ForeignKey('Player', on_delete=models.CASCADE, related_name='match_results')
     date = models.DateField(default=timezone.now)
     opponent_name = models.CharField(max_length=100, blank=True, null=True)
@@ -235,10 +249,28 @@ class MatchResult(models.Model):
     opponent_score_str = models.CharField(max_length=50, blank=True, null=True, help_text="Opponent's score if different from player's perspective")
     is_competitive = models.BooleanField(default=False, help_text="Was this an official league/tournament match?")
     match_notes = models.TextField(blank=True, null=True)
-    # IMPORTANT: Updated ForeignKey to point to the new 'scheduling' app
     session = models.ForeignKey('scheduling.Session', on_delete=models.SET_NULL, null=True, blank=True, related_name='matches_played', help_text="Optional: Link to session if this match was part of it.")
+    
+    # New fields for the approval workflow
+    status = models.CharField(max_length=20, choices=MatchStatus.choices, default=MatchStatus.PENDING)
+    submitted_by_name = models.CharField(max_length=100, blank=True, help_text="Name of the person who submitted the score from the app.")
+    confirmed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_matches')
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         match_type = "Competitive" if self.is_competitive else "Practice"
         return f"{match_type} Match for {self.player} on {self.date}"
     class Meta:
         ordering = ['-date', 'player__last_name']
+
+class SoloPracticeLog(models.Model):
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='solo_logs')
+    date = models.DateTimeField(default=timezone.now)
+    duration_minutes = models.PositiveIntegerField(help_text="Duration of the solo practice in minutes.")
+    notes = models.TextField(blank=True, null=True, help_text="Player's personal notes on the session.")
+
+    class Meta:
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"Solo Practice for {self.player.full_name} on {self.date.strftime('%Y-%m-%d')}"

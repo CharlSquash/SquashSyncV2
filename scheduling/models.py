@@ -252,3 +252,46 @@ class AttendanceTracking(models.Model):
 
     def __str__(self):
         return f"{self.player.full_name} - {self.session.session_date} - Parent: {self.get_parent_response_display()}, Coach: {self.get_attended_display()}"
+
+
+#// SOLOSYNC ROUTINE AND DRILL
+
+class Routine(models.Model):
+    """
+    Represents a pre-defined practice routine that players can follow.
+    """
+    name = models.CharField(max_length=150, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True, help_text="Inactive routines won't be shown to players.")
+    
+    drills = models.ManyToManyField(
+        'Drill',
+        through='RoutineDrill',
+        related_name='routines'
+    )
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+class RoutineDrill(models.Model):
+    """
+    This is a "through" model that connects a Routine to a Drill.
+    It allows us to specify the order and duration of each drill within a routine.
+    """
+    routine = models.ForeignKey(Routine, on_delete=models.CASCADE)
+    drill = models.ForeignKey(Drill, on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(help_text="The order of the drill in the routine (e.g., 1, 2, 3...).")
+    duration_minutes = models.PositiveIntegerField(
+        help_text="Duration in minutes for this drill within this specific routine.",
+        null=True, blank=True # Make it optional for now
+    )
+
+    class Meta:
+        ordering = ['routine', 'order']
+        unique_together = ('routine', 'drill', 'order')
+
+    def __str__(self):
+        return f"{self.routine.name} - {self.order}: {self.drill.name}"

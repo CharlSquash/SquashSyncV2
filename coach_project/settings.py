@@ -46,13 +46,15 @@ INSTALLED_APPS = [
     'finance',
     'core',
     'rest_framework',
+    'rest_framework_simplejwt', # Make sure this is here for JWT
+    'corsheaders', # <<< ADD THIS LINE
     'crispy_forms',
     "crispy_bootstrap5",
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # Add WhiteNoise middleware for serving static files in production, right after SecurityMiddleware
+    'corsheaders.middleware.CorsMiddleware', # <<< ADD THIS LINE (must be high up)
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -121,6 +123,12 @@ MEDIA_ROOT= BASE_DIR / 'mediafiles'
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
+# --- DJANGO REST FRAMEWORK & JWT ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
 
 # --- AUTHENTICATION ---
 LOGIN_URL = '/accounts/login/'
@@ -148,3 +156,13 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
 # --- CUSTOM APP SETTINGS ---
 BONUS_SESSION_START_TIME = datetime.time(6, 0, 0) # 6:00 AM
 BONUS_SESSION_AMOUNT = 22.00
+
+
+# --- CORS SETTINGS (ADD THIS ENTIRE SECTION) ---
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',      # Your React local development server
+    'http://127.0.0.1:3000',     # Also include this for good measure
+    # When you deploy, you will add your Vercel URL here:
+    # 'https://solosync-pwa.vercel.app',
+    # 'https://app.squashsync.com',
+]
