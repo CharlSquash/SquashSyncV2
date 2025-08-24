@@ -263,14 +263,4 @@ class MatchResult(models.Model):
     class Meta:
         ordering = ['-date', 'player__last_name']
 
-class SoloPracticeLog(models.Model):
-    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='solo_logs')
-    date = models.DateTimeField(default=timezone.now)
-    duration_minutes = models.PositiveIntegerField(help_text="Duration of the solo practice in minutes.")
-    notes = models.TextField(blank=True, null=True, help_text="Player's personal notes on the session.")
 
-    class Meta:
-        ordering = ['-date']
-
-    def __str__(self):
-        return f"Solo Practice for {self.player.full_name} on {self.date.strftime('%Y-%m-%d')}"

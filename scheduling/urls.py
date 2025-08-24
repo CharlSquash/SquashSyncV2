@@ -1,12 +1,9 @@
 # squashsyncv2/scheduling/urls.py
 # Example for one of the new urls.py files
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
 from . import views
-from . import api_views 
 
-router = DefaultRouter()
-router.register(r'routines', api_views.RoutineViewSet, basename='routine')
+
 
 app_name = 'scheduling' # Replace with 'players', 'scheduling', etc.
 urlpatterns = [
@@ -32,5 +29,4 @@ urlpatterns = [
 
     path('api/session/<int:session_id>/update_attendance/', views.update_attendance_status, name='update_attendance_status'),
 
-    path('api/', include(router.urls)),
 ]

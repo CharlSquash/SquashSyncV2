@@ -10,7 +10,6 @@ from .session_generation_service import generate_sessions_for_rules
 from .models import (
     Venue, Drill, DrillTag, Session, ScheduledClass,
     CoachAvailability, Event,
-    Routine, RoutineDrill
 )
 
 @admin.register(Venue)
@@ -114,24 +113,3 @@ class ScheduledClassAdmin(admin.ModelAdmin):
 
 # --- UPDATED ADMIN CONFIGURATION FOR ROUTINES ---
 
-class RoutineDrillInline(admin.TabularInline):
-    """
-    Allows editing the RoutineDrill (the ordered list of drills)
-    directly within the Routine admin page.
-    """
-    model = RoutineDrill
-    extra = 1
-    autocomplete_fields = ['drill']
-    # ADD THIS LINE to show the duration field
-    fields = ('order', 'drill', 'duration_minutes')
-
-
-@admin.register(Routine)
-class RoutineAdmin(admin.ModelAdmin):
-    """
-    Admin configuration for the Routine model.
-    """
-    list_display = ('name', 'is_active')
-    list_filter = ('is_active',)
-    search_fields = ('name', 'description')
-    inlines = [RoutineDrillInline]

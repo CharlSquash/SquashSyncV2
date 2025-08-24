@@ -27,9 +27,13 @@ urlpatterns = [
     path('assessments/', include('assessments.urls')),
     path('finance/', include('finance.urls')),
 
-    #// solosync urls
+    #// solosync2 urls
+    path('api/solosync2/', include('solosync2.urls')),
+
+    #// ADD THESE TWO URLS for getting and refreshing tokens
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
 
     
 

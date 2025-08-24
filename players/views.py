@@ -17,10 +17,6 @@ from django.db.models import Count, Q, Value
 from django.db.models.functions import Concat
 import json
 
-#solosync imports
-from rest_framework import viewsets, permissions
-from .models import SoloPracticeLog, Player
-from .serializers import SoloPracticeLogSerializer
 
 # Helper to convert date objects for JSON serialization
 class DateEncoder(json.JSONEncoder):
@@ -347,46 +343,3 @@ def school_group_profile(request, group_id):
     }
     return render(request, 'players/school_group_profile.html', context)
 
-#// Solosync views
-
-# Add this custom permission class
-class IsOwner(permissions.BasePermission):
-    """
-    Custom permission to only allow owners of an object to edit it.
-    """
-    def has_object_permission(self, request, view, obj):
-        # Read permissions are allowed to any request,
-        # so we'll always allow GET, HEAD or OPTIONS requests.
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        # Write permissions are only allowed to the owner of the snippet.
-        return obj.player.user == request.user
-
-# Add this ViewSet
-class SoloPracticeLogViewSet(viewsets.ModelViewSet):
-    queryset = SoloPracticeLog.objects.all()
-    serializer_class = SoloPracticeLogSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwner]
-
-    def get_queryset(self):
-        """
-        This view should return a list of all the solo practice logs
-        for the currently authenticated user.
-        """
-        try:
-            player = self.request.user.player_profile
-            return SoloPracticeLog.objects.filter(player=player)
-        except Player.DoesNotExist:
-            return SoloPracticeLog.objects.none()
-
-    def perform_create(self, serializer):
-        """
-        Associate the log with the currently logged-in player.
-        """
-        try:
-            player = self.request.user.player_profile
-            serializer.save(player=player)
-        except Player.DoesNotExist:
-            # Handle case where user is not linked to a player profile
-            # This should ideally not happen if your data is clean
-            pass

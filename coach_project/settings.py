@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'core',
     'rest_framework',
     'rest_framework_simplejwt', # Make sure this is here for JWT
-    'corsheaders', # <<< ADD THIS LINE
+    'corsheaders',
+    'solosync2', 
     'crispy_forms',
     "crispy_bootstrap5",
 ]
