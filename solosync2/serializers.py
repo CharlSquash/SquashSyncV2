@@ -8,7 +8,7 @@ from .models import SoloSessionLog, Routine, RoutineDrill
 class DrillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Drill
-        fields = ['id', 'name', 'description']
+        fields = ['id', 'name', 'description', 'youtube_link']
 
 class RoutineDrillSerializer(serializers.ModelSerializer):
     drill = DrillSerializer(read_only=True)
@@ -26,19 +26,8 @@ class RoutineSerializer(serializers.ModelSerializer):
 
 class SoloSessionLogSerializer(serializers.ModelSerializer):
     player = serializers.StringRelatedField(read_only=True)
-
-    class Meta:
-        model = SoloSessionLog
-        fields = [
-            'id', 'player', 'routine', 'completed_at', 'duration_minutes', 
-            'exertion_rating', 'focus_rating', 'notes'
-        ]
-        read_only_fields = ['id', 'completed_at', 'player']
-
-class SoloSessionLogSerializer(serializers.ModelSerializer):
-    player = serializers.StringRelatedField(read_only=True)
-    # ADD THIS LINE to show the routine's name in the API list view
-    routine = serializers.StringRelatedField(read_only=True) 
+    # This serializer seems to be defined twice, I'll consolidate them
+    routine = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = SoloSessionLog
