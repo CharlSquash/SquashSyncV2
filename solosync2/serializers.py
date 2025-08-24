@@ -1,8 +1,6 @@
 # solosync2/serializers.py
 from rest_framework import serializers
-# CORRECTED IMPORT: Drill is still in scheduling...
 from scheduling.models import Drill 
-# ...but Routine and RoutineDrill are now in this app's models.
 from .models import SoloSessionLog, Routine, RoutineDrill 
 
 class DrillSerializer(serializers.ModelSerializer):
@@ -26,17 +24,14 @@ class RoutineSerializer(serializers.ModelSerializer):
 
 class SoloSessionLogSerializer(serializers.ModelSerializer):
     player = serializers.StringRelatedField(read_only=True)
-    # This serializer seems to be defined twice, I'll consolidate them
     routine = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = SoloSessionLog
         fields = [
-            'id', 'player', 'routine', 'completed_at', 'duration_minutes', 
-            'exertion_rating', 'focus_rating', 'notes'
+            'id', 'player', 'routine', 'completed_at', 'difficulty_rating', 
+            'likelihood_rating', 'notes'
         ]
-        # When creating a log, we still need to pass the routine ID
-        # This setup makes the `routine` field behave differently for reading vs. writing
         extra_kwargs = {
             'routine': {'write_only': True, 'required': True}
         }

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
+from solosync2.models import SoloSessionLog
 from django.utils import timezone
 from datetime import timedelta, date
 from django.contrib import messages
@@ -16,7 +17,6 @@ from assessments.models import SessionAssessment, GroupAssessment
 from django.db.models import Count, Q, Value
 from django.db.models.functions import Concat
 import json
-
 
 # Helper to convert date objects for JSON serialization
 class DateEncoder(json.JSONEncoder):
@@ -127,6 +127,7 @@ def player_profile(request, player_id):
     assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date')
     match_history = MatchResult.objects.filter(player=player).order_by('-date')
     discrepancy_history = AttendanceDiscrepancy.objects.filter(player=player).select_related('session', 'session__school_group')
+    solo_session_logs = SoloSessionLog.objects.filter(player=player).select_related('routine').order_by('-completed_at')
 
     # --- NEW: Calculate Average Performance Ratings ---
     rating_fields = ['effort_rating', 'focus_rating', 'resilience_rating', 'composure_rating', 'decision_making_rating']
@@ -209,6 +210,7 @@ def player_profile(request, player_id):
         'average_ratings': average_ratings,
         'match_history': match_history,
         'discrepancy_history': discrepancy_history,
+        'solo_session_logs': solo_session_logs,
         'attendance_percentage': round(attendance_percentage, 2),
         'total_sessions_count': total_sessions,
         'attended_sessions_count': attended_sessions,

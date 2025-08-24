@@ -3,30 +3,29 @@ from django.contrib import admin
 from .models import Routine, RoutineDrill, SoloSessionLog
 
 class RoutineDrillInline(admin.TabularInline):
-    """
-    Allows editing Drills directly within the Routine admin page.
-    """
     model = RoutineDrill
-    extra = 1  # Show 1 empty slot for a new drill by default
-    autocomplete_fields = ['drill'] # Makes selecting drills easier
-    fields = ('order', 'drill', 'duration_minutes', 'rest_duration_seconds')
+    extra = 1
+    autocomplete_fields = ['drill']
 
 @admin.register(Routine)
 class RoutineAdmin(admin.ModelAdmin):
-    """
-    Admin view for Routines.
-    """
     list_display = ('name', 'description', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'description')
     inlines = [RoutineDrillInline]
-    search_fields = ['name']
 
 @admin.register(SoloSessionLog)
 class SoloSessionLogAdmin(admin.ModelAdmin):
-    """
-    Admin view for SoloSessionLogs.
-    """
-    list_display = ('player', 'routine', 'completed_at', 'duration_minutes')
-    list_filter = ('completed_at', 'player', 'routine')
-    date_hierarchy = 'completed_at'
+    list_display = ('player', 'routine', 'completed_at', 'difficulty_rating', 'likelihood_rating')
+    list_filter = ('player', 'routine', 'completed_at')
+    search_fields = ('player__first_name', 'player__last_name', 'routine__name', 'notes')
+    readonly_fields = ('completed_at',)
 
-# Note: We don't need a separate admin for RoutineDrill because it's handled "inline" by the RoutineAdmin.
+    fieldsets = (
+        (None, {
+            'fields': ('player', 'routine', 'completed_at')
+        }),
+        ('Feedback', {
+            'fields': ('difficulty_rating', 'likelihood_rating', 'notes')
+        }),
+    )

@@ -50,9 +50,8 @@ class SoloSessionLog(models.Model):
     player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='solo_sessions')
     routine = models.ForeignKey(Routine, on_delete=models.SET_NULL, null=True, blank=True, related_name='solo_sessions')
     completed_at = models.DateTimeField(default=timezone.now)
-    duration_minutes = models.PositiveIntegerField(help_text="Actual duration of the solo practice in minutes.")
-    exertion_rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Player's perceived exertion (1-10).")
-    focus_rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Player's focus level (1-10).")
+    difficulty_rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Player's perceived difficulty (1-5).")
+    likelihood_rating = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Player's likelihood to repeat the routine (1-5).")
     notes = models.TextField(blank=True, null=True, help_text="Player's personal notes on the session.")
 
     class Meta:

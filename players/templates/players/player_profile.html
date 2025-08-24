@@ -13,7 +13,7 @@
     .rating-stars .bi-star {
         color: var(--bs-secondary-bg);
     }
-    .performance-card {
+    .performance-card, .solo-log-card {
         background-color: var(--bs-tertiary-bg);
         border: 1px solid var(--bs-border-color);
         border-radius: .375rem;
@@ -26,7 +26,7 @@
         align-items: center;
         padding: .25rem 0;
     }
-    .hidden-assessment, .hidden-note {
+    .hidden-assessment, .hidden-note, .hidden-log {
         display: none;
     }
 </style>
@@ -65,6 +65,9 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="assessments-tab" data-bs-toggle="tab" data-bs-target="#assessments" type="button" role="tab">Assessments</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="solo-practice-tab" data-bs-toggle="tab" data-bs-target="#solo-practice" type="button" role="tab">Solo Practice</button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="metrics-tab" data-bs-toggle="tab" data-bs-target="#metrics" type="button" role="tab">Metrics</button>
@@ -213,6 +216,46 @@
                         <div class="text-center mt-3">
                             <button id="show-more-notes" class="btn btn-sm btn-outline-secondary">Show More</button>
                             <button id="show-less-notes" class="btn btn-sm btn-outline-secondary" style="display: none;">Show Less</button>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="tab-pane fade" id="solo-practice" role="tabpanel">
+                    <div id="solo-logs-list" class="mt-3">
+                        {% for log in solo_session_logs %}
+                            <div class="solo-log-card {% if forloop.counter > 5 %}hidden-log{% endif %}">
+                                <h6 class="mb-1">
+                                    <strong>{{ log.routine.name|default:"Custom Session" }}</strong> on {{ log.completed_at|date:"d M Y" }}
+                                </h6>
+                                <hr class="my-2">
+                                <div class="rating-row">
+                                    <span>Difficulty</span>
+                                    <span class="rating-stars">
+                                        {% for i in "12345" %}<i class="bi {% if log.difficulty_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                    </span>
+                                </div>
+                                <div class="rating-row">
+                                    <span>Likelihood to Repeat</span>
+                                    <span class="rating-stars">
+                                        {% for i in "12345" %}<i class="bi {% if log.likelihood_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                    </span>
+                                </div>
+                                {% if log.notes %}
+                                    <div class="mt-2">
+                                        <strong>Notes:</strong>
+                                        <p class="mb-0">{{ log.notes|linebreaksbr }}</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% empty %}
+                            <p class="mt-3">No solo practice logs found.</p>
+                        {% endfor %}
+                    </div>
+
+                    {% if solo_session_logs|length > 5 %}
+                        <div class="text-center mt-3">
+                            <button id="show-more-logs" class="btn btn-sm btn-outline-secondary">Show More</button>
+                            <button id="show-less-logs" class="btn btn-sm btn-outline-secondary" style="display: none;">Show Less</button>
                         </div>
                     {% endif %}
                 </div>
@@ -448,6 +491,34 @@
                     });
                     showLessNotesBtn.style.display = 'none';
                     showMoreNotesBtn.style.display = 'inline-block';
+                });
+            }
+
+            // Show/hide solo logs
+            const showMoreLogsBtn = document.getElementById('show-more-logs');
+            const showLessLogsBtn = document.getElementById('show-less-logs');
+            const soloLogsList = document.getElementById('solo-logs-list');
+
+            if (showMoreLogsBtn) {
+                showMoreLogsBtn.addEventListener('click', () => {
+                    soloLogsList.querySelectorAll('.hidden-log').forEach(el => {
+                        el.style.display = 'block';
+                    });
+                    showMoreLogsBtn.style.display = 'none';
+                    showLessLogsBtn.style.display = 'inline-block';
+                });
+            }
+
+            if (showLessLogsBtn) {
+                showLessLogsBtn.addEventListener('click', () => {
+                    const allLogs = soloLogsList.querySelectorAll('.solo-log-card');
+                    allLogs.forEach((el, index) => {
+                        if (index >= 5) {
+                            el.style.display = 'none';
+                        }
+                    });
+                    showLessLogsBtn.style.display = 'none';
+                    showMoreLogsBtn.style.display = 'inline-block';
                 });
             }
         });
