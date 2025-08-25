@@ -163,7 +163,7 @@ BONUS_SESSION_AMOUNT = 22.00
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',      # Your React local development server
     'http://127.0.0.1:3000',
-    'https://solosync2-rfsbi0f2q-charls-projects-7474a2a4.vercel.app',     # Also include this for good measure
+    'https://app.squashsync.com',     # Also include this for good measure
     # When you deploy, you will add your Vercel URL here:
     # 'https://solosync-pwa.vercel.app',
     # 'https://app.squashsync.com',
