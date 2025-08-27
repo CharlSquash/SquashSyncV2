@@ -20,7 +20,7 @@ import time
 from django.contrib.auth import get_user_model
 
 import calendar
-from .utils import get_month_start_end
+from .utils import get_month_start_end, check_for_conflicts
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
@@ -771,7 +771,7 @@ def session_staffing(request):
 
     now = timezone.now()
     today = now.date()
-    
+
     try:
         week_offset = int(request.GET.get('week', '0'))
     except (ValueError, TypeError):
@@ -782,7 +782,17 @@ def session_staffing(request):
     target_week_end = target_week_start + timedelta(days=6)
 
     all_active_coaches = list(Coach.objects.filter(is_active=True).select_related('user').order_by('name'))
-    
+
+    # Pre-fetch all session assignments for the week for all active coaches
+    coach_sessions_for_week = {
+        coach.id: list(Session.objects.filter(
+            coaches_attending=coach,
+            session_date__range=[target_week_start, target_week_end],
+            is_cancelled=False
+        ).select_related('school_group', 'venue'))
+        for coach in all_active_coaches
+    }
+
     day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     display_week = []
 
@@ -801,13 +811,19 @@ def session_staffing(request):
         for session in sessions_for_day:
             availability_map = {avail.coach_id: avail for avail in session.coach_availabilities.all()}
             
+            # Create a map of coach IDs to their conflict messages for this specific session
+            coach_conflict_map = {}
+            for coach in all_active_coaches:
+                conflict = check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, []))
+                if conflict:
+                    coach_conflict_map[coach.id] = conflict
+
             assigned_coaches_status = []
             has_pending = False
             has_declined = False
             
             for coach in session.coaches_attending.all():
                 avail = availability_map.get(coach.user.id)
-                
                 status = "Pending"
                 if avail:
                     if avail.status == CoachAvailability.Status.UNAVAILABLE:
@@ -817,7 +833,13 @@ def session_staffing(request):
                         status = "Confirmed"
                 else:
                     has_pending = True
-                assigned_coaches_status.append({'coach': coach, 'status': status, 'notes': avail.notes if avail else ''})
+                
+                assigned_coaches_status.append({
+                    'coach': coach, 
+                    'status': status, 
+                    'notes': avail.notes if avail else '',
+                    'conflict_warning': coach_conflict_map.get(coach.id)
+                })
 
             available_coaches = []
             for coach in all_active_coaches:
@@ -826,21 +848,21 @@ def session_staffing(request):
                     if avail and avail.status in [CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]:
                         available_coaches.append({
                             'coach': coach,
-                            'is_emergency': avail.status == CoachAvailability.Status.EMERGENCY
+                            'is_emergency': avail.status == CoachAvailability.Status.EMERGENCY,
+                            'conflict_warning': coach_conflict_map.get(coach.id)
                         })
             
             total_players = session.school_group.players.filter(is_active=True).count() if session.school_group else 0
-            
             confirmed_players = AttendanceTracking.objects.filter(
                 session=session, 
                 parent_response=AttendanceTracking.ParentResponse.ATTENDING
             ).count()
-
             total_coaches = session.coaches_attending.count()
             confirmed_coaches = sum(1 for c in assigned_coaches_status if c['status'] == "Confirmed")
 
             processed_sessions.append({
                 'session_obj': session,
+                'coach_conflict_map': coach_conflict_map,
                 'assigned_coaches_with_status': assigned_coaches_status,
                 'available_coaches_for_assignment': sorted(available_coaches, key=lambda x: x['is_emergency']),
                 'has_pending_confirmations': has_pending,

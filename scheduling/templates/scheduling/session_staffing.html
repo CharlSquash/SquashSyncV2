@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load scheduling_extras %}
 
 {% block title %}{{ page_title|default:"Session Staffing" }}{% endblock %}
 
@@ -63,6 +64,9 @@
                                                 {% endif %}
                                                 {{ assigned.coach.name }} 
                                                 <span class="text-muted">({{ assigned.status }})</span>
+                                                {% if assigned.conflict_warning %}
+                                                    <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ assigned.conflict_warning }}"></i>
+                                                {% endif %}
                                                 {% if assigned.notes %}<span class="availability-notes"> - <em>{{ assigned.notes }}</em></span>{% endif %}
                                             </p>
                                         {% empty %}
@@ -79,6 +83,9 @@
                                                 {% endif %}
                                                 {{ avail.coach.name }}
                                                 {% if avail.is_emergency %}<span class="emergency-label">(emergency)</span>{% endif %}
+                                                {% if avail.conflict_warning %}
+                                                    <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ avail.conflict_warning }}"></i>
+                                                {% endif %}
                                             </p>
                                         {% empty %}
                                             <p class="text-muted">No other coaches have marked themselves available.</p>
@@ -91,12 +98,20 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="session_id" value="{{ item.session_obj.id }}">
                                             {% for coach in all_coaches_for_form %}
+                                                {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
                                                 <label>
-                                                    <input type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}"
-                                                        {% for assigned in item.assigned_coaches_with_status %}{% if assigned.coach.id == coach.id %}checked{% endif %}{% endfor %}
+                                                    <input type="checkbox" 
+                                                           name="coaches_for_session_{{ item.session_obj.id }}" 
+                                                           value="{{ coach.id }}"
+                                                           {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}
+                                                           {% for assigned in item.assigned_coaches_with_status %}{% if assigned.coach.id == coach.id %}checked{% endif %}{% endfor %}
                                                     >
                                                     <span>{{ coach.name }}</span>
+                                                    {% if conflict_warning %}
+                                                        <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>
+                                                    {% endif %}
                                                 </label>
+                                                {% endwith %}
                                             {% endfor %}
                                             <button type="submit" class="btn btn-primary btn-sm mt-2">Update Assignments</button>
                                         </form>
@@ -110,4 +125,30 @@
         {% endif %}
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.assignment-form').forEach(form => {
+        form.addEventListener('click', function(event) {
+            const checkbox = event.target;
+            if (checkbox.matches('input[type="checkbox"]')) {
+                const warning = checkbox.dataset.conflictWarning;
+                
+                // Only show the warning if the box is being CHECKED and a warning exists
+                if (checkbox.checked && warning) {
+                    const message = `⚠️ Potential Scheduling Conflict:\n\n${warning}\n\nAre you sure you want to assign this coach?`;
+                    
+                    if (!confirm(message)) {
+                        // If the user clicks "Cancel", prevent the checkbox from being checked
+                        event.preventDefault();
+                    }
+                }
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
