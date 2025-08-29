@@ -172,18 +172,14 @@ SIMPLE_JWT = {
 
 
 # --- SMART EMAIL CONFIGURATION ---
-if DEBUG:
-    # Local development: Print emails to the console
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-else:
-    # Production: Use Gmail's SMTP server
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-EMAIL_HOST = 'smtp.gmail.com'
+# --- EMAIL CONFIGURATION (Brevo) ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp-relay.brevo.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_USER')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
+EMAIL_HOST_USER = os.environ.get('BREVO_USER') # This will be your Brevo account email
+EMAIL_HOST_PASSWORD = os.environ.get('BREVO_API_KEY') # This is your v3 API Key
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 
 
 # --- CUSTOM APP SETTINGS ---
