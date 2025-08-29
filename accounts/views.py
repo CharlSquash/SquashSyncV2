@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 
 from .models import Coach, CoachInvitation
 from .forms import CoachInvitationForm, CoachRegistrationForm
-from scheduling.models import Session 
+from scheduling.models import Session
 from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
 
@@ -28,14 +28,14 @@ def coach_list(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             invitation, created = CoachInvitation.objects.get_or_create(
-                email=email, 
+                email=email,
                 defaults={'invited_by': request.user}
             )
 
             if not created and not invitation.is_expired():
                 messages.warning(request, f"An active invitation already exists for {email}.")
             else:
-                if not created: # It was expired, so create a new one
+                if not created:  # It was expired, so create a new one
                     invitation.delete()
                     invitation = CoachInvitation.objects.create(email=email, invited_by=request.user)
 
@@ -43,21 +43,21 @@ def coach_list(request):
                 accept_url = request.build_absolute_uri(
                     reverse('accounts:accept_invitation', args=[invitation.token])
                 )
-                
+
                 html_message = render_to_string('accounts/emails/coach_invitation_email.html', {
                     'accept_url': accept_url
                 })
-                
+
                 send_mail(
                     'You are invited to join SquashSync',
                     f'Please click the following link to accept the invitation: {accept_url}',
-                    settings.DEFAULT_FROM_EMAIL,  # CORRECT: Uses the sender from your settings
-                    [email],                      # CORRECT: Sends to the email address from the form
+                    settings.DEFAULT_FROM_EMAIL,
+                    [email],
                     html_message=html_message,
                     fail_silently=False,
                 )
-messages.success(request, f"Invitation sent to {email}.")
-            
+                messages.success(request, f"Invitation sent to {email}.")
+
             return redirect('accounts:coach_list')
     else:
         form = CoachInvitationForm()
@@ -82,12 +82,12 @@ def accept_invitation(request, token):
         if form.is_valid():
             user = form.save(commit=False)
             user.email = invitation.email
-            user.is_staff = True # Make them a coach
+            user.is_staff = True  # Make them a coach
             user.save()
 
             # Create the corresponding Coach profile
             Coach.objects.create(
-                user=user, 
+                user=user,
                 name=user.get_full_name(),
                 email=user.email,
                 is_active=True
@@ -112,7 +112,7 @@ def coach_profile(request, coach_id=None):
     - If coach_id is None, the logged-in coach is viewing their own profile.
     """
     target_coach = None
-    
+
     if coach_id:
         if not request.user.is_superuser:
             messages.error(request, "You are not authorized to view this profile.")
@@ -132,11 +132,11 @@ def coach_profile(request, coach_id=None):
     ).select_related(
         'session', 'session__school_group', 'session__venue'
     ).order_by('-session__session_date', '-session__session_start_time')
-    
+
     sessions_attended = [comp.session for comp in completed_sessions]
-    
+
     two_weeks_ago = timezone.now().date() - timedelta(weeks=2)
-    
+
     player_assessments_made = SessionAssessment.objects.filter(
         submitted_by=target_coach.user
     ).select_related('player', 'session').order_by('-date_recorded')
@@ -144,7 +144,6 @@ def coach_profile(request, coach_id=None):
     group_assessments_made = GroupAssessment.objects.filter(
         assessing_coach=target_coach.user
     ).select_related('session__school_group').order_by('-assessment_datetime')
-
 
     context = {
         'coach': target_coach,
