@@ -9,7 +9,7 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from a .env file
+# This line is crucial for local development and is harmless on PA.
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
@@ -172,14 +172,18 @@ SIMPLE_JWT = {
 
 
 # --- SMART EMAIL CONFIGURATION ---
-# --- EMAIL CONFIGURATION (Brevo) ---
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp-relay.brevo.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('BREVO_USER') # This will be your Brevo account email
-EMAIL_HOST_PASSWORD = os.environ.get('BREVO_API_KEY') # This is your v3 API Key
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
+if DEBUG:
+    # Local development: Print emails to the console
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    # Production: Use Brevo's SMTP server
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp-relay.brevo.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = os.environ.get('BREVO_USER') # This will be your Brevo account email
+    EMAIL_HOST_PASSWORD = os.environ.get('BREVO_API_KEY') # This is your v3 API Key
+    DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 
 
 # --- CUSTOM APP SETTINGS ---
@@ -196,3 +200,4 @@ CORS_ALLOWED_ORIGINS = [
     # 'https://solosync-pwa.vercel.app',
     # 'https://app.squashsync.com',
 ]
+
