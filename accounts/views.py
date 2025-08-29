@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils import timezone
 from datetime import timedelta
+from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -48,13 +49,12 @@ def coach_list(request):
                 })
                 
                 send_mail(
-                    'You are invited to join SquashSync',
-                    f'Please click the following link to accept the invitation: {accept_url}',
-                    'noreply@squashsync.com', # Replace with your from email
-                    [email],
-                    html_message=html_message,
+                    subject='You are invited to join SquashSync',
+                    message='Here is your invitation...',
+                    from_email=settings.DEFAULT_FROM_EMAIL,  # This will now use the formatted name and email
+                    recipient_list=['recipient@email.com'],
                     fail_silently=False,
-                )
+)
                 messages.success(request, f"Invitation sent to {email}.")
             
             return redirect('accounts:coach_list')
