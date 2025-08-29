@@ -49,13 +49,14 @@ def coach_list(request):
                 })
                 
                 send_mail(
-                    subject='You are invited to join SquashSync',
-                    message='Here is your invitation...',
-                    from_email=settings.DEFAULT_FROM_EMAIL,  # This will now use the formatted name and email
-                    recipient_list=['recipient@email.com'],
+                    'You are invited to join SquashSync',
+                    f'Please click the following link to accept the invitation: {accept_url}',
+                    settings.DEFAULT_FROM_EMAIL,  # CORRECT: Uses the sender from your settings
+                    [email],                      # CORRECT: Sends to the email address from the form
+                    html_message=html_message,
                     fail_silently=False,
-)
-                messages.success(request, f"Invitation sent to {email}.")
+                )
+messages.success(request, f"Invitation sent to {email}.")
             
             return redirect('accounts:coach_list')
     else:
