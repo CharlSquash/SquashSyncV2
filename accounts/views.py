@@ -4,11 +4,15 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils import timezone
 from datetime import timedelta
-import calendar
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.contrib.auth import login
+from django.contrib.auth import get_user_model
 
-from .models import Coach
-from .forms import MonthYearFilterForm
-from scheduling.models import Session
+from .models import Coach, CoachInvitation
+from .forms import CoachInvitationForm, CoachRegistrationForm
+from scheduling.models import Session 
 from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
 
@@ -18,15 +22,86 @@ def is_superuser(user):
 @login_required
 @user_passes_test(is_superuser, login_url='scheduling:homepage')
 def coach_list(request):
-    """
-    Displays a list of all active coaches for superuser administration.
-    """
+    if request.method == 'POST':
+        form = CoachInvitationForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            invitation, created = CoachInvitation.objects.get_or_create(
+                email=email, 
+                defaults={'invited_by': request.user}
+            )
+
+            if not created and not invitation.is_expired():
+                messages.warning(request, f"An active invitation already exists for {email}.")
+            else:
+                if not created: # It was expired, so create a new one
+                    invitation.delete()
+                    invitation = CoachInvitation.objects.create(email=email, invited_by=request.user)
+
+                # Send invitation email
+                accept_url = request.build_absolute_uri(
+                    reverse('accounts:accept_invitation', args=[invitation.token])
+                )
+                
+                html_message = render_to_string('accounts/emails/coach_invitation_email.html', {
+                    'accept_url': accept_url
+                })
+                
+                send_mail(
+                    'You are invited to join SquashSync',
+                    f'Please click the following link to accept the invitation: {accept_url}',
+                    'from@example.com', # Replace with your from email
+                    [email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+                messages.success(request, f"Invitation sent to {email}.")
+            
+            return redirect('accounts:coach_list')
+    else:
+        form = CoachInvitationForm()
+
     coaches = Coach.objects.filter(is_active=True).select_related('user').order_by('user__first_name', 'user__last_name')
     context = {
         'coaches': coaches,
-        'page_title': "Coach Profiles"
+        'page_title': "Coach Profiles",
+        'invitation_form': form,
     }
     return render(request, 'accounts/coach_list.html', context)
+
+def accept_invitation(request, token):
+    invitation = get_object_or_404(CoachInvitation, token=token)
+
+    if invitation.is_accepted or invitation.is_expired():
+        messages.error(request, "This invitation is no longer valid.")
+        return redirect('accounts:login')
+
+    if request.method == 'POST':
+        form = CoachRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.email = invitation.email
+            user.is_staff = True # Make them a coach
+            user.save()
+
+            # Create the corresponding Coach profile
+            Coach.objects.create(
+                user=user, 
+                name=user.get_full_name(),
+                email=user.email,
+                is_active=True
+            )
+
+            invitation.is_accepted = True
+            invitation.save()
+
+            login(request, user)
+            messages.success(request, "Welcome to SquashSync! Your account has been created.")
+            return redirect('homepage')
+    else:
+        form = CoachRegistrationForm(initial={'email': invitation.email})
+
+    return render(request, 'accounts/accept_invitation.html', {'form': form})
 
 @login_required
 def coach_profile(request, coach_id=None):

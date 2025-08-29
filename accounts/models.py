@@ -1,11 +1,14 @@
 # accounts/models.py
 import io
 import os
+import uuid
+from datetime import timedelta
 from PIL import Image, ImageOps
 
 from django.db import models
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 class Coach(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='coach_profile', null=True, blank=True )
@@ -137,4 +140,21 @@ class Coach(models.Model):
         ordering = ['name']
         verbose_name_plural = "Coaches"
 
+
+def default_expires_at():
+    return timezone.now() + timedelta(days=7)
+
+class CoachInvitation(models.Model):
+    email = models.EmailField(unique=True)
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=default_expires_at)
+    is_accepted = models.BooleanField(default=False)
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='sent_invitations')
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def __str__(self):
+        return f"Invitation for {self.email}"
 # Create your models here.

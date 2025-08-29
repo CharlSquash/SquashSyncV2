@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Coach
+from .models import Coach, CoachInvitation
 
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
@@ -112,4 +112,11 @@ def generate_payslips(modeladmin, request, queryset):
     }
     # Important: The template path matches the app and model of the admin page it's on
     return render(request, 'admin/accounts/coach/generate_payslips_form.html', context)
+
+@admin.register(CoachInvitation)
+class CoachInvitationAdmin(admin.ModelAdmin):
+    list_display = ('email', 'is_accepted', 'expires_at', 'invited_by')
+    list_filter = ('is_accepted', 'created_at')
+    search_fields = ('email',)
+    readonly_fields = ('token', 'created_at', 'expires_at')
 
