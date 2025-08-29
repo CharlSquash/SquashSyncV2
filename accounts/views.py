@@ -50,7 +50,7 @@ def coach_list(request):
                 send_mail(
                     'You are invited to join SquashSync',
                     f'Please click the following link to accept the invitation: {accept_url}',
-                    'from@example.com', # Replace with your from email
+                    'noreply@squashsync.com', # Replace with your from email
                     [email],
                     html_message=html_message,
                     fail_silently=False,
