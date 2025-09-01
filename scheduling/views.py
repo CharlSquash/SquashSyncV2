@@ -43,6 +43,8 @@ def is_staff(user):
     return user.is_staff
 
 
+# scheduling/views.py
+
 @login_required
 def homepage(request):
     today = timezone.now().date()
@@ -53,15 +55,31 @@ def homepage(request):
     discrepancy_report = None
     recent_sessions_for_feedback = None
     all_coach_assessments = None
-    recent_group_assessments = None # Add this
-    sessions_for_coach_card = [] # Unified list for the new coach card
+    recent_group_assessments = None
+    sessions_for_coach_card = []
+    unstaffed_session_count = 0  # Initialize for superuser
+    unconfirmed_staffing_alerts = False # Initialize for superuser
 
-    # --- NEW: Variables for the availability card ---
+    # --- Variables for the availability card ---
     show_bulk_availability_reminder = False
-    next_month_name = ""
+    prompt_month_name = ""
     bulk_availability_url = ""
 
     if request.user.is_superuser:
+        two_weeks_from_now = today + timedelta(days=14)
+        upcoming_sessions = Session.objects.filter(
+            session_date__gte=today,
+            session_date__lte=two_weeks_from_now,
+            is_cancelled=False
+        ).prefetch_related('coaches_attending', 'coach_availabilities')
+
+        unstaffed_session_count = sum(1 for s in upcoming_sessions if not s.coaches_attending.exists())
+
+        for session in upcoming_sessions:
+            if any(avail.status == 'UNAVAILABLE' or avail.status == 'PENDING' for avail in session.coach_availabilities.all()):
+                unconfirmed_staffing_alerts = True
+                break
+
         upcoming_sessions_for_admin = Session.objects.filter(
             session_date__in=[today, today + timedelta(days=1)]
         ).order_by('session_date', 'session_start_time')
@@ -85,7 +103,6 @@ def homepage(request):
             superuser_reviewed=False
         ).select_related('player', 'session', 'submitted_by').order_by('-date_recorded')
 
-        # NEW LOGIC FOR GROUP ASSESSMENTS
         recent_group_assessments = GroupAssessment.objects.filter(
             superuser_reviewed=False
         ).select_related('session__school_group', 'assessing_coach__coach_profile').order_by('-assessment_datetime')
@@ -95,21 +112,29 @@ def homepage(request):
             coach = request.user.coach_profile
             four_weeks_ago = today - timedelta(weeks=4)
 
-            # --- Logic for "My Availability" card reminder ---
-            next_month_date = (today + timedelta(days=32)).replace(day=1)
-            next_month_name = next_month_date.strftime('%B')
-            next_month_str = next_month_date.strftime('%Y-%m')
-            bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_str}"
+            # --- UPDATED Logic for "My Availability" card reminder ---
+            month_to_check_date = None
 
-            if today.day >= 24:
-                # Check if any availability has been set for the next month
-                has_set_next_month_availability = CoachAvailability.objects.filter(
+            # From the 1st to the 15th, remind for the CURRENT month.
+            if 1 <= today.day <= 15:
+                month_to_check_date = today.replace(day=1)
+                prompt_month_name = month_to_check_date.strftime('%B')
+            # From the 24th onwards, remind for the NEXT month.
+            elif today.day >= 24:
+                month_to_check_date = (today + timedelta(days=32)).replace(day=1)
+                prompt_month_name = month_to_check_date.strftime('%B')
+
+            if month_to_check_date:
+                bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={month_to_check_date.strftime('%Y-%m')}"
+
+                # Check if any availability has been set for the determined month
+                has_set_availability = CoachAvailability.objects.filter(
                     coach=request.user,
-                    session__session_date__year=next_month_date.year,
-                    session__session_date__month=next_month_date.month
+                    session__session_date__year=month_to_check_date.year,
+                    session__session_date__month=month_to_check_date.month
                 ).exists()
-                
-                if not has_set_next_month_availability:
+
+                if not has_set_availability:
                     show_bulk_availability_reminder = True
 
             # --- Upcoming sessions logic (remains the same) ---
@@ -132,7 +157,7 @@ def homepage(request):
                     'status': status,
                     'show_actions': show_actions,
                 })
-            
+
             # --- Pending assessment logic (remains the same) ---
             sessions_needing_feedback_qs = Session.objects.filter(
                 coaches_attending=coach,
@@ -149,21 +174,21 @@ def homepage(request):
                 if s.end_datetime and s.end_datetime < now
             ]
 
-
         except Coach.DoesNotExist:
             pass
 
     context = {
         'page_title': 'Dashboard',
         'upcoming_sessions_for_admin': upcoming_sessions_for_admin,
+        'unstaffed_session_count': unstaffed_session_count,
+        'unconfirmed_staffing_alerts': unconfirmed_staffing_alerts,
         'discrepancy_report': discrepancy_report,
         'recent_sessions_for_feedback': recent_sessions_for_feedback,
         'all_coach_assessments': all_coach_assessments,
         'recent_group_assessments': recent_group_assessments,
         'sessions_for_coach_card': sessions_for_coach_card,
-        # --- NEW: Context variables for the template ---
         'show_bulk_availability_reminder': show_bulk_availability_reminder,
-        'next_month_name': next_month_name,
+        'next_month_name': prompt_month_name,
         'bulk_availability_url': bulk_availability_url,
     }
 
