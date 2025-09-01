@@ -652,6 +652,7 @@ tr:last-child td {
     align-items: center;
 }
 .custom-modal-content {
+    position: relative;
     background-color: var(--container-bg);
     padding: 20px;
     border-radius: 8px;
