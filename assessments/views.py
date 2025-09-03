@@ -5,17 +5,21 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Prefetch
 from collections import defaultdict
+from django.http import HttpResponseForbidden
 from django.http import Http404, JsonResponse
 from django.contrib.auth.models import User
+from django.db import IntegrityError
+
 
 from accounts.models import Coach
 from scheduling.models import Session, AttendanceTracking
-from players.models import Player
+from players.models import Player, MatchResult
 from finance.models import CoachSessionCompletion
 from .models import SessionAssessment, GroupAssessment
 from .forms import SessionAssessmentForm, GroupAssessmentForm
+from players.forms import QuickMatchResultForm # Import the new form
+
 
 def is_coach(user):
     return user.is_staff and not user.is_superuser
@@ -64,15 +68,10 @@ def pending_assessments(request):
         ).values_list('session_id', flat=True)
     )
     
-    # --- THIS IS THE FIX ---
-    # Instead of relying on the session.attendees m2m field (which might not be populated
-    # if attendance was taken after the session), we now fetch players directly from the
-    # final attendance records. This ensures we always get the correct list of who was there.
     session_attendees = AttendanceTracking.objects.filter(
         session_id__in=session_ids,
         attended=AttendanceTracking.CoachAttended.YES
     ).values_list('session_id', 'player_id')
-    # --- END OF FIX ---
     
     player_pks_to_fetch = {player_pk for _, player_pk in session_attendees}
     players_by_pk = {p.pk: p for p in Player.objects.filter(pk__in=player_pks_to_fetch)}
@@ -88,6 +87,16 @@ def pending_assessments(request):
     assessments_by_session_id = defaultdict(list)
     for assessment in assessments_by_coach:
         assessments_by_session_id[assessment.session_id].append(assessment)
+
+    # --- ADD THIS: Fetch all recent matches for the sessions ---
+    session_matches = MatchResult.objects.filter(
+        session_id__in=session_ids
+    ).select_related('player', 'opponent').order_by('-id')
+
+    matches_by_session = defaultdict(list)
+    for match in session_matches:
+        matches_by_session[match.session_id].append(match)
+    # --- END ADDITION ---
 
     pending_items_for_template = []
     for session in sessions_qs:
@@ -109,12 +118,18 @@ def pending_assessments(request):
         assessed_player_pks = {a.player_id for a in assessments_for_this_session}
         players_to_assess = [p for p in players_in_session if p.pk not in assessed_player_pks]
 
+        attendee_pks = [p.pk for p in players_in_session]
+        attendees_queryset = Player.objects.filter(pk__in=attendee_pks)
+        match_form = QuickMatchResultForm(attendees_queryset=attendees_queryset)
+        
         pending_items_for_template.append({
             'session': session,
             'players_to_assess': players_to_assess,
             'is_marked_complete': is_marked_complete,
             'group_assessment_pending': not has_group_assessment,
             'can_mark_complete': can_mark_complete,
+            'match_form': match_form,
+            'session_matches': matches_by_session.get(session.id, []), # <-- Pass the matches to the template
         })
 
     context = {
@@ -131,8 +146,6 @@ def mark_my_assessments_complete(request, session_id):
     session = get_object_or_404(Session, id=session_id)
     coach = get_object_or_404(Coach, user=request.user)
     
-    # --- THIS IS THE FIX ---
-    # When assessments are marked as complete, also default confirmed_for_payment to True
     completion, created = CoachSessionCompletion.objects.get_or_create(coach=coach, session=session)
     
     if not completion.assessments_submitted:
@@ -142,7 +155,6 @@ def mark_my_assessments_complete(request, session_id):
         messages.success(request, f"Assessments for session on {session.session_date.strftime('%d %b')} marked as complete and confirmed for payment.")
     else:
         messages.info(request, "Assessments for this session were already marked as complete.")
-    # --- END OF FIX ---
 
     return redirect('assessments:pending_assessments')
 
@@ -238,3 +250,74 @@ def acknowledge_group_assessment(request, group_assessment_id):
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+@user_passes_test(is_coach, login_url='scheduling:homepage')
+def add_match_result(request, session_id):
+    session = get_object_or_404(Session, pk=session_id)
+    
+    attendees_pks = AttendanceTracking.objects.filter(
+        session=session,
+        attended=AttendanceTracking.CoachAttended.YES
+    ).values_list('player_id', flat=True)
+    attendees_queryset = Player.objects.filter(pk__in=attendees_pks)
+
+    form = QuickMatchResultForm(request.POST, attendees_queryset=attendees_queryset)
+
+    if form.is_valid():
+        match = form.save(commit=False)
+        match.session = session
+        match.date = session.session_date
+        match.submitted_by_name = request.user.get_full_name() or request.user.username
+        
+        # If an opponent Player object is selected, clear the opponent_name text field
+        if match.opponent:
+            match.opponent_name = None 
+            
+        try:
+            match.save()
+            messages.success(request, f"Match result for {match.player.full_name} vs {match.opponent.full_name} saved.")
+        except IntegrityError:
+            messages.error(request, "A similar match result may already exist.")
+            
+    else:
+        error_message = "Could not save match. " + " ".join([f"{field}: {error[0]}" for field, error in form.errors.items()])
+        messages.error(request, error_message)
+
+    return redirect('assessments:pending_assessments')
+
+@login_required
+@require_POST
+def delete_match_result(request, match_id):
+    """
+    Deletes a match result record.
+    Checks if the user is a superuser or a coach assigned to the session.
+    """
+    match = get_object_or_404(MatchResult.objects.select_related('session', 'player', 'opponent'), pk=match_id)
+    
+    # --- Permission Check ---
+    is_authorized = False
+    if request.user.is_superuser:
+        is_authorized = True
+    elif hasattr(request.user, 'coach_profile'):
+        # Check if the user is one of the coaches assigned to the session where the match was recorded
+        if match.session and request.user.coach_profile in match.session.coaches_attending.all():
+            is_authorized = True
+
+    if not is_authorized:
+        messages.error(request, "You are not authorized to delete this match result.")
+        # Redirect back to the page the user came from, or to the homepage as a fallback.
+        return redirect(request.META.get('HTTP_REFERER', 'homepage'))
+
+    # --- Deletion Logic ---
+    winner_name = match.player.full_name
+    # Handle both linked opponents and text-only opponents
+    opponent_display_name = match.opponent.full_name if match.opponent else match.opponent_name
+    
+    match.delete()
+    
+    messages.success(request, f"Successfully deleted the match result between {winner_name} and {opponent_display_name}.")
+    
+    # Redirect back to the previous page (either the assessments page or a player profile)
+    return redirect(request.META.get('HTTP_REFERER', 'homepage'))

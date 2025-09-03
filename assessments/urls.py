@@ -12,4 +12,7 @@ urlpatterns = [
 
     # --- NEW URL ---
     path('group-assessment/<int:group_assessment_id>/acknowledge/', views.acknowledge_group_assessment, name='acknowledge_group_assessment'),
+
+    path('session/<int:session_id>/add_match/', views.add_match_result, name='add_match_result'),
+    path('match/<int:match_id>/delete/', views.delete_match_result, name='delete_match_result'),
 ]

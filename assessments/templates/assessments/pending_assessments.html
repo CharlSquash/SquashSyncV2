@@ -67,6 +67,57 @@
                             </a>
                          {% endif %}
                     </div>
+                    
+                    <div class="assessment-task-item">
+                        <div class="accordion" id="match-results-accordion-{{ item.session.id }}">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-{{ item.session.id }}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item.session.id }}">
+                                        <i class="bi bi-trophy-fill me-2"></i> Add/View Match Results
+                                    </button>
+                                </h2>
+                                <div id="collapse-{{ item.session.id }}" class="accordion-collapse collapse" data-bs-parent="#match-results-accordion-{{ item.session.id }}">
+                                    <div class="accordion-body">
+                                        {% if item.match_form.fields.player.queryset.count < 2 %}
+                                            <p class="text-muted small">At least two players must be marked as "Attending" to log match results.</p>
+                                        {% else %}
+                                            <h6 class="mb-3">Add New Result</h6>
+                                            <form action="{% url 'assessments:add_match_result' item.session.id %}" method="post">
+                                                {% csrf_token %}
+                                                <div class="row g-2">
+                                                    <div class="col-6"><label class="form-label">{{ item.match_form.player.label }}</label>{{ item.match_form.player }}</div>
+                                                    <div class="col-6"><label class="form-label">Score</label>{{ item.match_form.player_score_str }}</div>
+                                                    <div class="col-12 text-center my-1">vs</div>
+                                                    <div class="col-6"><label class="form-label">{{ item.match_form.opponent.label }}</label>{{ item.match_form.opponent }}</div>
+                                                    <div class="col-6"><label class="form-label">Score</label>{{ item.match_form.opponent_score_str }}</div>
+                                                    <div class="col-12 mt-3"><button type="submit" class="btn btn-sm btn-primary w-100">Save Match</button></div>
+                                                </div>
+                                            </form>
+                                            <hr>
+                                        {% endif %}
+
+                                        <h6 class="mb-2">Recent Matches in this Session</h6>
+                                        <ul class="list-group list-group-flush">
+                                            {% for match in item.session_matches %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    <span>
+                                                        <strong>{{ match.player.full_name }}</strong> beat {{ match.opponent.full_name }}
+                                                        ({{ match.player_score_str }} - {{ match.opponent_score_str }})
+                                                    </span>
+                                                    <form action="{% url 'assessments:delete_match_result' match.id %}" method="post" onsubmit="return confirm('Are you sure you want to delete this match result?');">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Delete Match Result"><i class="bi bi-trash"></i></button>
+                                                    </form>
+                                                </li>
+                                            {% empty %}
+                                                <li class="list-group-item text-muted">No matches added for this session yet.</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {% if item.can_mark_complete and not item.is_marked_complete %}
@@ -90,3 +141,4 @@
     {% endif %}
 </div>
 {% endblock %}
+

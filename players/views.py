@@ -125,7 +125,9 @@ def player_profile(request, player_id):
 
     # Get related data for tabs
     assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date')
-    match_history = MatchResult.objects.filter(player=player).order_by('-date')
+    match_history = MatchResult.objects.filter(
+        Q(player=player) | Q(opponent=player)
+    ).select_related('player', 'opponent').order_by('-date')
     discrepancy_history = AttendanceDiscrepancy.objects.filter(player=player).select_related('session', 'session__school_group')
     solo_session_logs = SoloSessionLog.objects.filter(player=player).select_related('routine').order_by('-completed_at')
 
@@ -226,8 +228,6 @@ def player_profile(request, player_id):
         'drive_records_json': json.dumps(drive_records, cls=DateEncoder),
     }
     return render(request, 'players/player_profile.html', context)
-
-
 
 @login_required
 def players_list(request):

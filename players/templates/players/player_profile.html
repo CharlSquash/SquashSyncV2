@@ -335,8 +335,26 @@
                                 <div class="accordion-body">
                                     <ul class="list-group mt-3">
                                         {% for match in match_history %}
-                                            <li class="list-group-item">
-                                                vs {{ match.opponent_name }} ({{ match.date|date:"d M Y" }}) - Score: {{ match.player_score_str }}
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span>
+                                                    {% if match.player.id == player.id %}
+                                                        <span class="badge bg-success">Win</span>
+                                                        vs {{ match.opponent.full_name|default:match.opponent_name }}
+                                                        ({{ match.date|date:"d M Y" }}) -
+                                                        <strong>{{ match.player_score_str }} to {{ match.opponent_score_str }}</strong>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">Loss</span>
+                                                        vs {{ match.player.full_name }}
+                                                        ({{ match.date|date:"d M Y" }}) -
+                                                        <strong>{{ match.opponent_score_str }} to {{ match.player_score_str }}</strong>
+                                                    {% endif %}
+                                                </span>
+                                                {% if request.user.is_superuser or request.user.coach_profile in match.session.coaches_attending.all %}
+                                                <form action="{% url 'assessments:delete_match_result' match.id %}" method="post" onsubmit="return confirm('Are you sure you want to delete this match result?');">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Delete Match Result"><i class="bi bi-trash"></i></button>
+                                                </form>
+                                                {% endif %}
                                             </li>
                                         {% empty %}
                                             <li class="list-group-item">No match results recorded.</li>
@@ -376,7 +394,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // --- THIS IS THE FIX ---
+            // ... (The JavaScript for charts and show/hide buttons remains the same) ...
             const chartOptions = {
                 scales: {
                     x: {
@@ -390,16 +408,15 @@
                     }
                 },
                 responsive: true,
-                maintainAspectRatio: false // This allows the chart to fit the container's height
+                maintainAspectRatio: false
             };
 
-            // --- Sprint Chart ---
             const sprintCtx = document.getElementById('sprintChart');
             if (sprintCtx) {
                 const sprintData = JSON.parse(document.getElementById('sprint-data').textContent);
                 const datasets = {};
                 sprintData.forEach(r => {
-                    const label = r.duration_choice; // 3m, 5m etc.
+                    const label = r.duration_choice;
                     if (!datasets[label]) {
                         datasets[label] = { label: `Sprint (${label})`, data: [], tension: 0.1 };
                     }
@@ -408,7 +425,6 @@
                 new Chart(sprintCtx, { type: 'line', data: { datasets: Object.values(datasets) }, options: chartOptions });
             }
 
-            // --- Volley Chart ---
             const volleyCtx = document.getElementById('volleyChart');
             if (volleyCtx) {
                 const volleyData = JSON.parse(document.getElementById('volley-data').textContent);
@@ -423,7 +439,6 @@
                 new Chart(volleyCtx, { type: 'line', data: { datasets: Object.values(datasets) }, options: chartOptions });
             }
 
-            // --- Drive Chart ---
             const driveCtx = document.getElementById('driveChart');
             if (driveCtx) {
                 const driveData = JSON.parse(document.getElementById('drive-data').textContent);

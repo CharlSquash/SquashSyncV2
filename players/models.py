@@ -242,16 +242,27 @@ class MatchResult(models.Model):
         CONFIRMED = 'CONFIRMED', 'Confirmed'
         REJECTED = 'REJECTED', 'Rejected'
 
-    player = models.ForeignKey('Player', on_delete=models.CASCADE, related_name='match_results')
+    player = models.ForeignKey('Player', on_delete=models.CASCADE, related_name='won_matches') # Renamed related_name for clarity
+    
+    # --- ADD THIS NEW FIELD ---
+    opponent = models.ForeignKey(
+        'Player',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lost_matches',
+        help_text="The player who was the opponent. Null if the opponent is not a registered player."
+    )
+    # --- END OF ADDITION ---
+    
     date = models.DateField(default=timezone.now)
-    opponent_name = models.CharField(max_length=100, blank=True, null=True)
+    opponent_name = models.CharField(max_length=100, blank=True, null=True, help_text="Use this if the opponent is not a registered player.") # Help text updated
     player_score_str = models.CharField(max_length=50, help_text="Player's score, e.g., '3-1' or '11-9, 11-5, 11-7'")
     opponent_score_str = models.CharField(max_length=50, blank=True, null=True, help_text="Opponent's score if different from player's perspective")
     is_competitive = models.BooleanField(default=False, help_text="Was this an official league/tournament match?")
     match_notes = models.TextField(blank=True, null=True)
     session = models.ForeignKey('scheduling.Session', on_delete=models.SET_NULL, null=True, blank=True, related_name='matches_played', help_text="Optional: Link to session if this match was part of it.")
     
-    # New fields for the approval workflow
     status = models.CharField(max_length=20, choices=MatchStatus.choices, default=MatchStatus.PENDING)
     submitted_by_name = models.CharField(max_length=100, blank=True, help_text="Name of the person who submitted the score from the app.")
     confirmed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_matches')
@@ -259,7 +270,9 @@ class MatchResult(models.Model):
 
     def __str__(self):
         match_type = "Competitive" if self.is_competitive else "Practice"
-        return f"{match_type} Match for {self.player} on {self.date}"
+        opponent_display = self.opponent.full_name if self.opponent else self.opponent_name
+        return f"{match_type} Match for {self.player} vs {opponent_display} on {self.date}"
+
     class Meta:
         ordering = ['-date', 'player__last_name']
 

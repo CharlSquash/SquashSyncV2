@@ -69,3 +69,37 @@ class MatchResultForm(forms.ModelForm):
             'is_competitive': 'Competitive Match',
             'match_notes': 'Notes'
         }
+
+class QuickMatchResultForm(forms.ModelForm):
+    player_score_str = forms.CharField(label="Score", widget=forms.TextInput(attrs={'placeholder': '', 'class': 'form-control'}))
+    opponent_score_str = forms.CharField(label="Score", widget=forms.TextInput(attrs={'placeholder': '', 'class': 'form-control'}))
+
+    class Meta:
+        model = MatchResult
+        fields = ['player', 'player_score_str', 'opponent', 'opponent_score_str']
+        labels = {
+            'player': 'Winner',
+            'opponent': 'Loser',
+        }
+
+    def __init__(self, *args, **kwargs):
+        attendees = kwargs.pop('attendees_queryset', None)
+        super().__init__(*args, **kwargs)
+        
+        if attendees is not None:
+            self.fields['player'].queryset = attendees
+            self.fields['opponent'].queryset = attendees
+        
+        self.fields['player'].widget.attrs.update({'class': 'form-select'})
+        self.fields['opponent'].widget.attrs.update({'class': 'form-select'})
+
+    def clean(self):
+        cleaned_data = super().clean()
+        winner = cleaned_data.get("player")
+        loser = cleaned_data.get("opponent")
+
+        if winner and loser and winner == loser:
+            raise forms.ValidationError("The winner and loser cannot be the same player.")
+
+        return cleaned_data
+
