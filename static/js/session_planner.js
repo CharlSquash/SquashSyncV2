@@ -91,6 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.activityModalEl.addEventListener('submit', this.handleActivityFormSubmit.bind(this));
             this.elements.activityModalEl.addEventListener('click', this.handleModalClick.bind(this));
             this.elements.activityModalEl.addEventListener('change', this.handleModalChange.bind(this));
+
+            // --- ADD THIS NEW BLOCK ---
+            // When the activity modal closes, destroy the YouTube iframe to stop playback.
+            this.elements.activityModalEl.addEventListener('hide.bs.modal', () => {
+                const previewContainer = document.getElementById('youtube-preview-container');
+                if (previewContainer) {
+                    previewContainer.innerHTML = ''; // This removes the iframe and stops the video
+                }
+            });
         },
 
         // --- RENDERING FUNCTIONS ---
@@ -101,10 +110,10 @@ document.addEventListener('DOMContentLoaded', () => {
             container.innerHTML = '';
             // Use the new variable to render the top attendance list
             this.allPlayersForDisplay.forEach(player => {
-                const badgeClass = player.status === 'ATTENDING' ? 'text-bg-success' : player.status === 'NOT_ATTENDING' ? 'text-bg-danger' : 'text-bg-secondary';
+                const badgeClass = player.status === 'ATTENDING' ? 'text-bg-success' : player.status === 'DECLINED' ? 'text-bg-danger' : 'text-bg-secondary';
                 container.innerHTML += `
                     <div class="player-attendance-item" data-player-id="${player.id}" title="Click to cycle status">
-                        <a href="/players/${player.id}/" class="player-name-link">${player.name}</a>
+                        <span class="player-name">${player.name}</span>
                         <span class="badge rounded-pill ${badgeClass}">${player.status}</span>
                     </div>`;
             });
@@ -336,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formContainer = this.elements.addActivityFormContainer;
             formContainer.innerHTML = `
                 <form id="add-activity-form" novalidate>
-                    <h6 class="mt-4">Add New Activity</h6>
+                    <h6 class="mt-4">Add from Library</h6>
                     ${this.buildFilterControlsHTML()} 
                     <div class="drill-selection-container mt-3">
                         <label class="form-label">Select Drill</label>
@@ -354,6 +363,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div id="youtube-preview-container" class="mt-3"></div>
                 </form>
+                <hr class="my-4">
+                <h6 class="mt-1">Or Add a Custom Activity</h6>
+                    <div class="row g-2 align-items-end">
+                    <div class="col-md-9">
+                        <label for="custom-activity-name" class="form-label">Custom Activity Name</label>
+                        <input type="text" id="custom-activity-name" class="form-control" placeholder="e.g., Fun game: Targets">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" id="add-custom-activity-btn" class="btn btn-secondary w-100">Add Custom</button>
+                    </div>
+                </div>
             `;
             this.renderFilteredDrillList();
             formContainer.querySelectorAll('.secondary-tag-filter').forEach(el => {
@@ -427,51 +447,41 @@ document.addEventListener('DOMContentLoaded', () => {
         showYoutubePreview(drillId) {
             const previewContainer = document.getElementById('youtube-preview-container');
             if (!previewContainer) return;
-        
+
             if (!drillId) {
-                previewContainer.innerHTML = `<p class="text-muted small mt-2">Please select a drill to preview.</p>`;
+                previewContainer.innerHTML = ''; // Clear preview when no drill is selected
                 return;
             }
-        
+
             const drill = this.drills.find(d => d.id === parseInt(drillId));
-        
             if (drill && drill.youtube_link) {
-                let videoId = null;
                 const link = drill.youtube_link.trim();
+                let videoId = null;
                 
-                try {
-                    const url = new URL(link);
-                    if (url.hostname === 'youtu.be') {
-                        videoId = url.pathname.slice(1);
-                    } else if (url.hostname.includes('youtube.com') && url.searchParams.has('v')) {
-                        videoId = url.searchParams.get('v');
-                    } else {
-                        const parts = link.split('/');
-                        const potentialId = parts[parts.length - 1];
-                        if (potentialId.includes('watch?v=')) {
-                            videoId = new URLSearchParams(potentialId.split('?')[1]).get('v');
-                        } else {
-                            videoId = potentialId;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Could not parse YouTube URL.", e);
+                // Robust regex to find video ID from various YouTube URL formats including shorts
+                const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
+                const match = link.match(youtubeRegex);
+                if (match && match[1]) {
+                    videoId = match[1];
                 }
 
                 if (videoId) {
+                    // Added ?origin=... to the src URL to fix playback errors
+                    const embedUrl = `https://www.youtube.com/embed/${videoId}?origin=${window.location.origin}`;
                     previewContainer.innerHTML = `
                         <div class="youtube-preview-container">
-                            <iframe src="https://www.youtube.com/embed/${videoId}" 
+                            <iframe src="${embedUrl}" 
+                                    title="YouTube video player for ${drill.name}"
                                     frameborder="0" 
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                                     allowfullscreen>
                             </iframe>
                         </div>`;
                 } else {
-                     previewContainer.innerHTML = `<p class="text-danger small mt-2"><b>Error:</b> Could not extract a Video ID from the link: ${link}</p>`;
+                    previewContainer.innerHTML = `<p class="text-danger small mt-2"><b>Error:</b> Could not extract a valid YouTube Video ID from the link.</p>`;
                 }
             } else {
-                previewContainer.innerHTML = `<p class="text-muted small mt-2">No video preview available for this drill.</p>`;
+                previewContainer.innerHTML = ''; // Clear the preview if no video is available
             }
         },
 
@@ -731,6 +741,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         },
 
+        addCustomActivity() {
+            const { court, phase } = this.getActiveContext();
+            if (!court) return;
+
+            const customNameInput = document.getElementById('custom-activity-name');
+            const name = customNameInput.value.trim();
+
+            if (!name) {
+                alert("Please enter a name for the custom activity.");
+                return;
+            }
+
+            if (!court.activities) court.activities = [];
+            // Note: drill_id is null for custom activities
+            court.activities.push({ name: name, drill_id: null, duration: 0 });
+
+            this.redistributeCourtTime(court, phase);
+
+            this.renderActivityModalContent();
+            this.render(); // Re-render the main view
+            customNameInput.value = ''; // Clear the input
+        },
+
         // --- EVENT HANDLERS ---
         
         togglePhase(event, phaseId) {
@@ -801,6 +834,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (removeBtn) {
                 this.removeActivity(parseInt(removeBtn.dataset.index, 10));
             }
+
+            // --- ADD THIS NEW BLOCK ---
+            const addCustomBtn = target.closest('#add-custom-activity-btn');
+            if (addCustomBtn) {
+                this.addCustomActivity();
+                return;
+            }
+            // --- END OF NEW BLOCK ---
         },
 
         handleModalChange(e) {
