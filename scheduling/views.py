@@ -234,6 +234,21 @@ def session_detail(request, session_id):
         pk=session_id
     )
 
+    # --- FETCH PREVIOUS SESSION GROUPS ---
+    previous_groups_data = None
+    previous_session = Session.objects.filter(
+        school_group=session.school_group,
+        session_date__lt=session.session_date
+    ).order_by('-session_date', '-session_start_time').first()
+
+    if previous_session and previous_session.plan and isinstance(previous_session.plan, dict):
+        previous_groups_data = previous_session.plan.get('playerGroups')
+        # Add player names to the group data for easy display
+        if previous_groups_data:
+            all_players = {p.id: p.full_name for p in Player.objects.filter(school_groups=session.school_group)}
+            for group in previous_groups_data:
+                group['player_names'] = [all_players.get(pid, 'Unknown Player') for pid in group.get('player_ids', [])]
+
     # --- THIS IS THE NEW CORE LOGIC ---
     players_for_grouping = []
     all_players_for_display = []
@@ -310,6 +325,7 @@ def session_detail(request, session_id):
         'drills': drills_data,
         'all_tags': all_tags_data,
         'plan': plan_data,
+        'previous_groups': previous_groups_data, # Pass the new data
         'page_title': f"Plan for {display_name}"
     }
 

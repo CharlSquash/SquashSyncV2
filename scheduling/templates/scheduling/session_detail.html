@@ -123,6 +123,11 @@
     <div id="grouping-section" class="planner-section is-open">
         <div class="planner-header">
             <h4><i class="bi bi-people-fill"></i> 2. Form Player Groups</h4>
+            {% if previous_groups %}
+            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#previousGroupsModal">
+                <i class="bi bi-eye"></i> Show Previous Groups
+            </button>
+            {% endif %}
             <i class="bi bi-chevron-down arrow"></i>
         </div>
         <div class="planner-content">
@@ -174,6 +179,42 @@
 <div class="modal fade" id="activityModal" tabindex="-1" aria-labelledby="activityModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h1 class="modal-title fs-5" id="activityModalLabel">Edit Activities</h1><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div id="activity-list-container"></div><hr><div id="add-activity-form-container"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></div></div>
 </div>
+
+{% if previous_groups %}
+<div class="modal fade" id="previousGroupsModal" tabindex="-1" aria-labelledby="previousGroupsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="previousGroupsModalLabel">Groups from Previous Session</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">These were the groups from the session on {{ previous_session.session_date|date:"l, d M Y" }}.</p>
+        <div class="row">
+          {% for group in previous_groups %}
+            <div class="col-md-4">
+              <div class="card mb-3">
+                <div class="card-header">{{ group.name }}</div>
+                <ul class="list-group list-group-flush">
+                  {% for player_name in group.player_names %}
+                    <li class="list-group-item">{{ player_name }}</li>
+                  {% empty %}
+                    <li class="list-group-item text-muted">No players were in this group.</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 
 {{ plan|json_script:"plan-data" }}
 {{ drills|json_script:"drills-data" }}
