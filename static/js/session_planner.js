@@ -111,9 +111,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use the new variable to render the top attendance list
             this.allPlayersForDisplay.forEach(player => {
                 const badgeClass = player.status === 'ATTENDING' ? 'text-bg-success' : player.status === 'DECLINED' ? 'text-bg-danger' : 'text-bg-secondary';
+                
+                // --- THIS IS THE CORRECTED LINE ---
                 container.innerHTML += `
                     <div class="player-attendance-item" data-player-id="${player.id}" title="Click to cycle status">
-                        <span class="player-name">${player.name}</span>
+                        <a href="/players/${player.id}/" class="player-name-link">${player.name}</a>
                         <span class="badge rounded-pill ${badgeClass}">${player.status}</span>
                     </div>`;
             });
