@@ -182,15 +182,26 @@ def player_profile(request, player_id):
         except SchoolGroup.DoesNotExist:
             pass
 
-    # **THE FIX**: Calculate total sessions based only on dates up to and including today
-    total_sessions = sessions_in_range_qs.filter(session_date__lte=today).distinct().count()
+    # === NEW LOGIC START ===
+    # First, find only the sessions in the date range where any attendance was marked.
+    sessions_with_attendance_taken = sessions_in_range_qs.filter(
+        session_date__lte=today,
+        player_attendances__attended__in=[
+            AttendanceTracking.CoachAttended.YES,
+            AttendanceTracking.CoachAttended.NO
+        ]
+    ).distinct()
 
-    # Attended sessions are inherently in the past, so this query is fine
+    # The total number of sessions is the count of this filtered set.
+    total_sessions = sessions_with_attendance_taken.count()
+
+    # Count attended sessions only from within the sessions where attendance was taken.
     attended_sessions = AttendanceTracking.objects.filter(
         player=player,
-        session__in=sessions_in_range_qs,
+        session__in=sessions_with_attendance_taken,
         attended=AttendanceTracking.CoachAttended.YES
     ).count()
+    # === NEW LOGIC END ===
 
     attendance_percentage = (attended_sessions / total_sessions * 100) if total_sessions > 0 else 0
     
@@ -291,7 +302,6 @@ def school_group_list(request):
 def school_group_profile(request, group_id):
     school_group = get_object_or_404(SchoolGroup, pk=group_id)
 
-    # Get assessments and players for this group
     group_assessments = GroupAssessment.objects.filter(
         session__school_group=school_group
     ).select_related('assessing_coach', 'session').order_by('-assessment_datetime')
@@ -321,10 +331,20 @@ def school_group_profile(request, group_id):
         is_cancelled=False
     )
     
-    total_possible_attendances = sessions_in_range.count() * players_in_group.count()
+    # Find sessions where attendance was actually recorded for at least one player.
+    sessions_with_attendance_taken = sessions_in_range.filter(
+        player_attendances__attended__in=[
+            AttendanceTracking.CoachAttended.YES,
+            AttendanceTracking.CoachAttended.NO
+        ]
+    ).distinct()
     
+    # Total possible attendances is the number of players multiplied by the number of *tracked* sessions.
+    total_possible_attendances = sessions_with_attendance_taken.count() * players_in_group.count()
+    
+    # Actual attendances are counted only from within those tracked sessions.
     actual_attendances = AttendanceTracking.objects.filter(
-        session__in=sessions_in_range,
+        session__in=sessions_with_attendance_taken,
         player__in=players_in_group,
         attended=AttendanceTracking.CoachAttended.YES
     ).count()

@@ -21,6 +21,18 @@
             margin-bottom: 1em;
         }
     }
+
+    /* --- NEW: Visual indicator for completed attendance --- */
+    .fc-event-attendance-taken {
+        border-left: 5px solid #198754 !important; /* Thick green left border */
+    }
+    .fc-direction-ltr .fc-daygrid-event.fc-event-attendance-taken .fc-event-main {
+        /* Add a little padding so the text doesn't touch the border */
+        padding-left: 4px;
+    }
+    .fc-direction-rtl .fc-daygrid-event.fc-event-attendance-taken .fc-event-main {
+        padding-right: 4px;
+    }
 </style>
 {% endblock %}
 

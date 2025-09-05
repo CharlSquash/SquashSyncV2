@@ -13,7 +13,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
-from django.db.models import Prefetch, F, ExpressionWrapper, DateTimeField
+from django.db.models import Prefetch, F, ExpressionWrapper, DateTimeField, Exists, OuterRef
 from django.db import IntegrityError
 import time 
 
@@ -521,12 +521,29 @@ def session_calendar(request):
         # Regular staff user (coach) sees only their assigned sessions
         sessions = Session.objects.filter(coaches_attending__user=request.user)
 
-    sessions_qs = sessions.select_related('school_group', 'venue').prefetch_related('coaches_attending')
-    # --- END Simplified Logic ---
+    # --- NEW: Subquery to check for attendance records ---
+    attendance_taken_subquery = AttendanceTracking.objects.filter(
+        session=OuterRef('pk'),
+        attended__in=[AttendanceTracking.CoachAttended.YES, AttendanceTracking.CoachAttended.NO]
+    )
+
+    # Annotate the queryset with an 'attendance_taken' boolean field
+    sessions_qs = sessions.select_related('school_group', 'venue').prefetch_related('coaches_attending').annotate(
+        attendance_taken=Exists(attendance_taken_subquery)
+    )
+    # --- END NEW LOGIC ---
 
     # Build the rich event data for FullCalendar
     events = []
     for session in sessions_qs:
+        class_names = []
+        if session.is_cancelled:
+            class_names.append('cancelled-session')
+        
+        # --- NEW: Add class if attendance is taken ---
+        if session.attendance_taken:
+            class_names.append('fc-event-attendance-taken')
+
         events.append({
             'title': session.school_group.name if session.school_group else 'General Session',
             'start': f'{session.session_date}T{session.session_start_time}',
@@ -540,7 +557,7 @@ def session_calendar(request):
                 'session_time_str': session.session_start_time.strftime('%H:%M'),
                 'admin_url': reverse('admin:scheduling_session_change', args=[session.id])
             },
-            'classNames': ['cancelled-session'] if session.is_cancelled else []
+            'classNames': class_names
         })
 
     context = {
