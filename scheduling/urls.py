@@ -10,6 +10,8 @@ urlpatterns = [
     path('calendar/', views.session_calendar, name='session_calendar'),
     # We will add our app-specific URLs here later.
     path('staffing/', views.session_staffing, name='session_staffing'),
+    path('api/assign-coaches/', views.assign_coaches_ajax, name='assign_coaches_ajax'),
+    
     path('session/<int:session_id>/', views.session_detail, name='session_detail'),
 
     path('api/session/<int:session_id>/save_plan/', views.save_session_plan, name='save_session_plan'),

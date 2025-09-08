@@ -47,14 +47,14 @@
                                     </div>
                                 </div>
                                 <div class="session-status-indicators">
-                                    {% if item.has_pending_confirmations %}<span class="status-indicator indicator-pending" title="Pending responses"><i class="bi bi-hourglass-split"></i> Pending</span>{% endif %}
-                                    {% if item.has_declined_coaches %}<span class="status-indicator indicator-declined" title="Declined"><i class="bi bi-x-circle"></i> Declined</span>{% endif %}
-                                    {% if not item.assigned_coaches_with_status %}<span class="status-indicator indicator-declined" title="Unstaffed"><i class="bi bi-exclamation-triangle"></i> Unstaffed</span>{% endif %}
+                                    <span class="status-indicator indicator-pending" title="Pending responses" style="display: {% if item.has_pending_confirmations %}inline-block{% else %}none{% endif %};"><i class="bi bi-hourglass-split"></i> Pending</span>
+                                    <span class="status-indicator indicator-declined" title="Declined" style="display: {% if item.has_declined_coaches %}inline-block{% else %}none{% endif %};"><i class="bi bi-x-circle"></i> Declined</span>
+                                    <span class="status-indicator indicator-unstaffed" title="Unstaffed" style="display: {% if not item.assigned_coaches_with_status %}inline-block{% else %}none{% endif %};"><i class="bi bi-exclamation-triangle"></i> Unstaffed</span>
                                 </div>
                             </summary>
                             <div class="session-details-body">
                                 <div class="staffing-details-grid">
-                                    <div class="staffing-column">
+                                    <div class="staffing-column assigned-coaches-list">
                                         <h4>Assigned Coaches</h4>
                                         {% for assigned in item.assigned_coaches_with_status %}
                                             <p>
@@ -74,7 +74,7 @@
                                         {% endfor %}
                                     </div>
 
-                                    <div class="staffing-column">
+                                    <div class="staffing-column available-coaches-list">
                                         <h4>Available Coaches</h4>
                                         {% for avail in item.available_coaches_for_assignment %}
                                             <p>
@@ -94,9 +94,8 @@
 
                                     <div class="staffing-column">
                                         <h4>Assign / Update</h4>
-                                        <form method="post" class="assignment-form">
+                                        <form class="assignment-form" data-session-id="{{ item.session_obj.id }}">
                                             {% csrf_token %}
-                                            <input type="hidden" name="session_id" value="{{ item.session_obj.id }}">
                                             {% for coach in all_coaches_for_form %}
                                                 {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
                                                 <label>
@@ -113,7 +112,7 @@
                                                 </label>
                                                 {% endwith %}
                                             {% endfor %}
-                                            <button type="submit" class="btn btn-primary btn-sm mt-2">Update Assignments</button>
+                                            <button type="button" class="btn btn-primary btn-sm mt-2 update-assignments-btn">Update Assignments</button>
                                         </form>
                                     </div>
                                 </div>
@@ -131,18 +130,166 @@
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrfToken = getCookie('csrftoken');
+
     document.querySelectorAll('.assignment-form').forEach(form => {
+        const updateButton = form.querySelector('.update-assignments-btn');
+        if (updateButton) {
+            updateButton.addEventListener('click', function(event) {
+                event.preventDefault();
+                
+                const sessionId = form.dataset.sessionId;
+                const coachCheckboxes = form.querySelectorAll(`input[name="coaches_for_session_${sessionId}"]:checked`);
+                const coachIds = Array.from(coachCheckboxes).map(cb => cb.value);
+
+                // Visual feedback
+                updateButton.disabled = true;
+                updateButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Updating...';
+
+                fetch("{% url 'scheduling:assign_coaches_ajax' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        coach_ids: coachIds
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateButton.innerHTML = '<i class="bi bi-check-lg"></i> Updated';
+                        
+                        const staffingItem = form.closest('.session-staffing-item');
+                        const detailsBody = form.closest('.session-details-body');
+                        
+                        // Update Assigned Coaches List
+                        const assignedContainer = detailsBody.querySelector('.assigned-coaches-list');
+                        let assignedHtml = '<h4>Assigned Coaches</h4>';
+                        if (data.assigned_coaches.length > 0) {
+                            data.assigned_coaches.forEach(coach => {
+                                let status_icon_class = 'bi-hourglass-split text-muted';
+                                if (coach.status === 'Confirmed') status_icon_class = 'bi-check-circle-fill text-success';
+                                if (coach.status === 'Declined') status_icon_class = 'bi-x-circle-fill text-danger';
+
+                                const conflict_html = coach.conflict_warning ? `<i class="bi bi-exclamation-triangle-fill text-warning" title="${coach.conflict_warning}"></i>` : '';
+                                const notes_html = coach.notes ? `<span class="availability-notes"> - <em>${coach.notes}</em></span>` : '';
+                                
+                                assignedHtml += `
+                                    <p>
+                                        <i class="bi ${status_icon_class}" title="${coach.status}"></i>
+                                        ${coach.name} 
+                                        <span class="text-muted">(${coach.status})</span>
+                                        ${conflict_html}
+                                        ${notes_html}
+                                    </p>
+                                `;
+                            });
+                        } else {
+                            assignedHtml += '<p class="text-muted">None assigned.</p>';
+                        }
+                        assignedContainer.innerHTML = assignedHtml;
+
+                        // Update Available Coaches List
+                        const availableContainer = detailsBody.querySelector('.available-coaches-list');
+                        let availableHtml = '<h4>Available Coaches</h4>';
+                        if (data.available_coaches.length > 0) {
+                            data.available_coaches.forEach(coach => {
+                                const icon_class = coach.is_emergency ? 'bi-hand-thumbs-up-fill text-primary' : 'bi-hand-thumbs-up-fill text-success';
+                                const icon_title = coach.is_emergency ? 'Emergency Only' : 'Available';
+                                const emergency_label = coach.is_emergency ? '<span class="emergency-label">(emergency)</span>' : '';
+                                const conflict_html = coach.conflict_warning ? `<i class="bi bi-exclamation-triangle-fill text-warning" title="${coach.conflict_warning}"></i>` : '';
+
+                                availableHtml += `
+                                    <p>
+                                        <i class="bi ${icon_class}" title="${icon_title}"></i>
+                                        ${coach.name}
+                                        ${emergency_label}
+                                        ${conflict_html}
+                                    </p>
+                                `;
+                            });
+                        } else {
+                            availableHtml += '<p class="text-muted">No other coaches have marked themselves available.</p>';
+                        }
+                        availableContainer.innerHTML = availableHtml;
+                        
+                        // Update Summary Header
+                        const summaryDetails = staffingItem.querySelector('summary');
+                        
+                        const countsEl = summaryDetails.querySelector('.staffing-counts span[title="Confirmed Coaches"]');
+                        if (countsEl) {
+                            countsEl.innerHTML = `<i class="bi bi-person-check-fill text-success"></i> ${data.confirmed_coaches_count}/${data.total_coaches_assigned}`;
+                        }
+                        
+                        const indicatorsEl = summaryDetails.querySelector('.session-status-indicators');
+                        if (indicatorsEl) {
+                           const pendingIndicator = indicatorsEl.querySelector('.indicator-pending');
+                           const declinedIndicator = indicatorsEl.querySelector('.indicator-declined');
+                           const unstaffedIndicator = indicatorsEl.querySelector('.indicator-unstaffed');
+
+                           if (pendingIndicator) pendingIndicator.style.display = data.has_pending ? 'inline-block' : 'none';
+                           if (declinedIndicator) declinedIndicator.style.display = data.has_declined ? 'inline-block' : 'none';
+                           if (unstaffedIndicator) unstaffedIndicator.style.display = data.total_coaches_assigned === 0 ? 'inline-block' : 'none';
+                        }
+
+                        // Add a visual flash to the updated item
+                        staffingItem.style.transition = 'background-color 0.5s ease';
+                        staffingItem.style.backgroundColor = 'var(--bs-success-bg-subtle)';
+                        setTimeout(() => {
+                            staffingItem.style.backgroundColor = '';
+                        }, 1500);
+
+                    } else {
+                        updateButton.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Error';
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    updateButton.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Error';
+                    alert('An unexpected error occurred. Check the console for details.');
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        updateButton.disabled = false;
+                        updateButton.innerHTML = 'Update Assignments';
+                    }, 2000);
+                });
+            });
+        }
+
+        // --- Conflict warning logic ---
         form.addEventListener('click', function(event) {
             const checkbox = event.target;
             if (checkbox.matches('input[type="checkbox"]')) {
                 const warning = checkbox.dataset.conflictWarning;
                 
-                // Only show the warning if the box is being CHECKED and a warning exists
                 if (checkbox.checked && warning) {
                     const message = `⚠️ Potential Scheduling Conflict:\n\n${warning}\n\nAre you sure you want to assign this coach?`;
                     
                     if (!confirm(message)) {
-                        // If the user clicks "Cancel", prevent the checkbox from being checked
                         event.preventDefault();
                     }
                 }
@@ -152,3 +299,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+

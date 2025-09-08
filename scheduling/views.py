@@ -813,20 +813,10 @@ def set_bulk_availability_view(request):
     }
     return render(request, 'scheduling/set_bulk_availability.html', context)
 
+
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def session_staffing(request):
-    if request.method == 'POST':
-        session_id = request.POST.get('session_id')
-        assigned_coach_ids = request.POST.getlist(f'coaches_for_session_{session_id}')
-        try:
-            session = get_object_or_404(Session, pk=session_id)
-            session.coaches_attending.set(assigned_coach_ids)
-            messages.success(request, f"Assignments updated for session on {session.session_date.strftime('%d %b')}.")
-        except Exception:
-            messages.error(request, "Invalid session ID.")
-        return redirect(f"{reverse('scheduling:session_staffing')}?week={request.GET.get('week', '0')}")
-
     now = timezone.now()
     today = now.date()
 
@@ -948,6 +938,100 @@ def session_staffing(request):
         'prev_week_offset': week_offset - 1,
     }
     return render(request, 'scheduling/session_staffing.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def assign_coaches_ajax(request):
+    try:
+        data = json.loads(request.body)
+        session_id = data.get('session_id')
+        coach_ids = [int(cid) for cid in data.get('coach_ids', [])]
+
+        if session_id is None:
+            return JsonResponse({'status': 'error', 'message': 'Missing session_id.'}, status=400)
+
+        session = get_object_or_404(Session, pk=session_id)
+        session.coaches_attending.set(coach_ids)
+
+        # Re-fetch data for the response
+        all_active_coaches = list(Coach.objects.filter(is_active=True).select_related('user').order_by('name'))
+        all_active_coaches_dict = {c.id: c for c in all_active_coaches}
+        
+        # A reasonable range for conflicts
+        start_date_range = session.session_date - timedelta(days=3)
+        end_date_range = session.session_date + timedelta(days=3)
+        
+        coach_sessions_for_week = {
+            coach.id: list(Session.objects.filter(
+                coaches_attending=coach,
+                session_date__range=[start_date_range, end_date_range],
+                is_cancelled=False
+            )) for coach in all_active_coaches
+        }
+
+        availability_map = {avail.coach_id: avail for avail in session.coach_availabilities.all()}
+        
+        assigned_coaches_data = []
+        has_pending = False
+        has_declined = False
+
+        for coach_id in coach_ids:
+            coach = all_active_coaches_dict.get(coach_id)
+            if not coach: continue
+
+            avail = availability_map.get(coach.user.id)
+            status = "Pending"
+            if avail:
+                if avail.status == CoachAvailability.Status.UNAVAILABLE:
+                    status = "Declined"
+                    has_declined = True
+                elif avail.last_action == 'CONFIRM':
+                    status = "Confirmed"
+            else:
+                has_pending = True
+
+            assigned_coaches_data.append({
+                'id': coach.id,
+                'name': coach.name,
+                'status': status,
+                'notes': avail.notes if avail and avail.notes else '',
+                'conflict_warning': check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, []))
+            })
+        
+        available_coaches_data = []
+        assigned_coach_id_set = set(coach_ids)
+        for coach in all_active_coaches:
+            if coach.id not in assigned_coach_id_set:
+                avail = availability_map.get(coach.user.id)
+                if avail and avail.status in [CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]:
+                    available_coaches_data.append({
+                        'id': coach.id,
+                        'name': coach.name,
+                        'is_emergency': avail.status == CoachAvailability.Status.EMERGENCY,
+                        'conflict_warning': check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, []))
+                    })
+        
+        available_coaches_data.sort(key=lambda x: x['is_emergency'])
+
+        confirmed_coaches_count = sum(1 for c in assigned_coaches_data if c['status'] == 'Confirmed')
+
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Assignments updated.',
+            'assigned_coaches': assigned_coaches_data,
+            'available_coaches': available_coaches_data,
+            'confirmed_coaches_count': confirmed_coaches_count,
+            'total_coaches_assigned': len(coach_ids),
+            'has_pending': has_pending,
+            'has_declined': has_declined,
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON data provided.'}, status=400)
+    except Session.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Session not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'An unexpected error occurred: {str(e)}'}, status=500)
 
 def confirm_attendance(request, session_id, token):
     """
