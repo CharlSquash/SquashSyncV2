@@ -215,7 +215,7 @@
                                                   <a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.full_name }}</a>
                                               </div>
                                               {% if assessment.coach_notes %}
-                                                  <p class="assessment-review-notes">"{{ assessment.coach_notes|truncatewords:20 }}"</p>
+                                                  <p class="assessment-review-notes">{{ assessment.coach_notes|linebreaksbr }}</p>
                                               {% endif %}
                                               <div class="assessment-review-meta">
                                                   by {{ assessment.submitted_by.get_full_name|default:assessment.submitted_by.username }} on {{ assessment.date_recorded|date:"d M Y" }}
@@ -258,7 +258,7 @@
                                                   <a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{ assessment.session.school_group.name|default:"N/A" }}</a>
                                               </div>
                                               {% if assessment.general_notes %}
-                                                  <p class="assessment-review-notes">"{{ assessment.general_notes|truncatewords:20 }}"</p>
+                                                  <p class="assessment-review-notes">{{ assessment.general_notes|linebreaksbr }}</p>
                                               {% endif %}
                                               <div class="assessment-review-meta">
                                                   by {{ assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username }} on {{ assessment.assessment_datetime|date:"d M Y" }}
