@@ -28,6 +28,21 @@
                 {% endfor %}
             </select>
         </div>
+        
+        {# --- NEW COACH FILTER DROPDOWN --- #}
+        <div>
+            <label for="coach_select">Coach:</label>
+            <select name="coach" id="coach_select">
+                <option value="">All Coaches</option>
+                {% for coach in all_coaches %}
+                    <option value="{{ coach.id }}" {% if coach.id == selected_coach_id %}selected{% endif %}>
+                        {{ coach.user.get_full_name|default:coach.user.username }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        {# --- END --- #}
+        
         <div>
             <button type="submit" class="btn btn-primary">View Report</button>
         </div>
@@ -59,10 +74,6 @@
                                 <small class="text-muted">({{ record.session.session_start_time|time:"H:i" }})</small>
                             </td>
                             <td>
-                                <!--
-                                  FIX: Use the 'default' filter. This will try to display the full name,
-                                  but if it's empty, it will fall back to showing the username.
-                                -->
                                 {% if record.coach and record.coach.user %}
                                     {{ record.coach.user.get_full_name|default:record.coach.user.username }}
                                 {% else %}
@@ -91,6 +102,7 @@
                                     <input type="hidden" name="action" value="confirm">
                                     <input type="hidden" name="filter_month" value="{{ selected_month }}">
                                     <input type="hidden" name="filter_year" value="{{ selected_year }}">
+                                    <input type="hidden" name="filter_coach" value="{{ selected_coach_id|default:'' }}">
                                     <button type="submit" class="btn btn-confirm btn-sm" title="Manually Confirm Payment">Confirm</button>
                                 </form>
                                 {% endif %}
@@ -101,6 +113,7 @@
                                     <input type="hidden" name="action" value="unconfirm">
                                     <input type="hidden" name="filter_month" value="{{ selected_month }}">
                                     <input type="hidden" name="filter_year" value="{{ selected_year }}">
+                                    <input type="hidden" name="filter_coach" value="{{ selected_coach_id|default:'' }}">
                                     <button type="submit" class="btn btn-unconfirm btn-sm" title="Remove Payment Confirmation">Un-confirm</button>
                                 </form>
                                 {% endif %}
@@ -112,7 +125,7 @@
         </div>
     {% else %}
         <div class="no-records-msg">
-            <p>No coach completion records found for the selected date range.</p>
+            <p>No coach completion records found for the selected date range and filters.</p>
         </div>
     {% endif %}
 </div>
