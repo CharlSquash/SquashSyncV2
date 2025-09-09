@@ -205,20 +205,21 @@
               <div class="card-body">
                   {% if all_coach_assessments %}
                       <p>There are <strong>{{ all_coach_assessments.count }}</strong> new player assessment(s) waiting for your review.</p>
-                      
                       <div class="dashboard-list-scrollable">
                           <ul class="dashboard-list dashboard-list-condensed" id="assessment-list">
                               {% for assessment in all_coach_assessments %}
                                   <li data-id="{{ assessment.id }}">
-                                      <div class="d-flex justify-content-between align-items-start">
-                                          <div class="flex-grow-1">
-                                              <a href="{% url 'players:player_profile' assessment.player.id %}">
-                                                  <strong>{{ assessment.player.full_name }}</strong>
-                                                  <small class="text-muted d-block">by {{ assessment.submitted_by.get_full_name|default:assessment.submitted_by.username }} on {{ assessment.date_recorded|date:"d M Y" }}</small>
-                                              </a>
+                                      <div class="assessment-review-item">
+                                          <div class="assessment-review-content">
+                                              <div class="assessment-review-group">
+                                                  <a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.full_name }}</a>
+                                              </div>
                                               {% if assessment.coach_notes %}
-                                                  <p class="mb-0 mt-1 fst-italic border-start border-2 ps-2">"{{ assessment.coach_notes|truncatewords:20 }}"</p>
+                                                  <p class="assessment-review-notes">"{{ assessment.coach_notes|truncatewords:20 }}"</p>
                                               {% endif %}
+                                              <div class="assessment-review-meta">
+                                                  by {{ assessment.submitted_by.get_full_name|default:assessment.submitted_by.username }} on {{ assessment.date_recorded|date:"d M Y" }}
+                                              </div>
                                           </div>
                                           <button class="btn btn-sm btn-outline-success ms-2 acknowledge-assessment-btn"
                                                   data-id="{{ assessment.id }}"
@@ -230,7 +231,6 @@
                               {% endfor %}
                           </ul>
                       </div>
-                       
                        <p class="no-data-message" id="no-assessment-message" style="display: none;"><i class="bi bi-check2-all text-success"></i> All player assessments reviewed.</p>
                   {% else %}
                       <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All player assessments are reviewed.</p>
@@ -252,15 +252,17 @@
                           <ul class="dashboard-list dashboard-list-condensed" id="group-assessment-list">
                               {% for assessment in recent_group_assessments %}
                                   <li data-id="{{ assessment.id }}">
-                                      <div class="d-flex justify-content-between align-items-start">
-                                          <div class="flex-grow-1">
-                                              <a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">
-                                                  <strong>{{ assessment.session.school_group.name|default:"N/A" }}</strong>
-                                                  <small class="text-muted d-block">by {{ assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username }} on {{ assessment.assessment_datetime|date:"d M Y" }}</small>
-                                              </a>
+                                      <div class="assessment-review-item">
+                                          <div class="assessment-review-content">
+                                              <div class="assessment-review-group">
+                                                  <a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{ assessment.session.school_group.name|default:"N/A" }}</a>
+                                              </div>
                                               {% if assessment.general_notes %}
-                                                  <p class="mb-0 mt-1 fst-italic border-start border-2 ps-2">"{{ assessment.general_notes|truncatewords:20 }}"</p>
+                                                  <p class="assessment-review-notes">"{{ assessment.general_notes|truncatewords:20 }}"</p>
                                               {% endif %}
+                                              <div class="assessment-review-meta">
+                                                  by {{ assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username }} on {{ assessment.assessment_datetime|date:"d M Y" }}
+                                              </div>
                                           </div>
                                           <button class="btn btn-sm btn-outline-success ms-2 acknowledge-group-assessment-btn"
                                                   data-id="{{ assessment.id }}"

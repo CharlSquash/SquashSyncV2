@@ -1588,3 +1588,41 @@ html.dark-mode .pending-session-card.is-complete {
     border-radius: 6px;
     background-color: var(--bs-tertiary-bg);
 }
+
+/* --- Assessment Review Card Styles (Dashboard) --- */
+.assessment-review-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Aligns button to the top */
+    gap: 1rem;
+}
+
+.assessment-review-content {
+    flex-grow: 1;
+}
+
+.assessment-review-group a {
+    font-weight: 600;
+    color: var(--heading-color);
+    text-decoration: none;
+    font-size: 1.05em; /* Make group name slightly larger */
+}
+
+.assessment-review-group a:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline;
+}
+
+.assessment-review-notes {
+    font-style: italic;
+    color: var(--text-color);
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--border-color);
+    margin: 0.5rem 0;
+    font-size: 0.9em;
+}
+
+.assessment-review-meta {
+    font-size: 0.8em;
+    color: var(--subheading-color);
+}
