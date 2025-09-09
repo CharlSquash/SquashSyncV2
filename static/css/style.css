@@ -1580,3 +1580,11 @@ html.dark-mode .pending-session-card.is-complete {
     transform: rotate(90deg); /* Point down when open */
 }
 
+.dashboard-list-scrollable {
+    max-height: 400px; /* You can adjust this height */
+    overflow-y: auto;
+    border: 1px solid var(--border-light);
+    padding: 0.75rem;
+    border-radius: 6px;
+    background-color: var(--bs-tertiary-bg);
+}
