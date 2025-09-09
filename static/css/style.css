@@ -1349,7 +1349,7 @@ Availability Page Key & Modals
     display: block;
     font-size: 0.8em;
     font-weight: bold;
-    color: var(--heading-color);
+    color: #000;
 }
 
 .description-trigger {
