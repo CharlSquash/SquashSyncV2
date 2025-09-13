@@ -10,11 +10,13 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.contrib.auth import login
 from django.contrib.auth import get_user_model
+from django.db.models import Prefetch
 
 from .models import Coach, CoachInvitation
 from .forms import CoachInvitationForm, CoachRegistrationForm
 from scheduling.models import Session
-from assessments.models import SessionAssessment, GroupAssessment
+from assessments.models import SessionAssessment, GroupAssessment, AssessmentComment
+from assessments.forms import AssessmentCommentForm
 from finance.models import CoachSessionCompletion
 
 def is_superuser(user):
@@ -111,14 +113,39 @@ def coach_profile(request, coach_id=None):
     - If coach_id is provided, an admin is viewing a specific coach's profile.
     - If coach_id is None, the logged-in coach is viewing their own profile.
     """
+    if request.method == 'POST' and request.user.is_superuser:
+        comment_form = AssessmentCommentForm(request.POST)
+        if comment_form.is_valid():
+            comment = comment_form.save(commit=False)
+            comment.author = request.user
+            
+            session_assessment_id = request.POST.get('session_assessment_id')
+            group_assessment_id = request.POST.get('group_assessment_id')
+
+            if session_assessment_id:
+                comment.session_assessment_id = int(session_assessment_id)
+                messages.success(request, "Comment added to player assessment.")
+            elif group_assessment_id:
+                comment.group_assessment_id = int(group_assessment_id)
+                messages.success(request, "Comment added to group assessment.")
+
+            comment.save()
+            
+            # Redirect to the same page to show the new comment and avoid form resubmission
+            return redirect(request.path_info)
+    else:
+        comment_form = AssessmentCommentForm()
+        
     target_coach = None
 
     if coach_id:
+        # Superusers can view any coach profile
         if not request.user.is_superuser:
             messages.error(request, "You are not authorized to view this profile.")
             return redirect('scheduling:homepage')
         target_coach = get_object_or_404(Coach, pk=coach_id)
     else:
+        # Coaches view their own profile
         try:
             target_coach = request.user.coach_profile
         except Coach.DoesNotExist:
@@ -139,11 +166,19 @@ def coach_profile(request, coach_id=None):
 
     player_assessments_made = SessionAssessment.objects.filter(
         submitted_by=target_coach.user
-    ).select_related('player', 'session').order_by('-date_recorded')
+    ).select_related(
+        'player', 'session'
+    ).prefetch_related(
+        Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
+    ).order_by('-date_recorded')
 
     group_assessments_made = GroupAssessment.objects.filter(
         assessing_coach=target_coach.user
-    ).select_related('session__school_group').order_by('-assessment_datetime')
+    ).select_related(
+        'session__school_group'
+    ).prefetch_related(
+        Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
+    ).order_by('-assessment_datetime')
 
     context = {
         'coach': target_coach,
@@ -152,6 +187,7 @@ def coach_profile(request, coach_id=None):
         'player_assessments_made': player_assessments_made,
         'group_assessments_made': group_assessments_made,
         'two_weeks_ago': two_weeks_ago,
+        'comment_form': comment_form,
         'page_title': f"Coach Profile: {target_coach.user.get_full_name()}"
     }
     return render(request, 'accounts/coach_profile.html', context)

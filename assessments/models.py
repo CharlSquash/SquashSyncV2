@@ -71,6 +71,37 @@ class GroupAssessment(models.Model):
         verbose_name = "Group Assessment"
         verbose_name_plural = "Group Assessments"
 
+# --- NEW MODEL: AssessmentComment ---
+class AssessmentComment(models.Model):
+    comment = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assessment_comments')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # A comment can belong to either a session assessment or a group assessment
+    session_assessment = models.ForeignKey(
+        SessionAssessment,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        null=True,
+        blank=True
+    )
+    group_assessment = models.ForeignKey(
+        GroupAssessment,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        null=True,
+        blank=True
+    )
+
+    def __str__(self):
+        return f"Comment by {self.author.username} on {self.created_at.strftime('%Y-%m-%d')}"
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = "Assessment Comment"
+        verbose_name_plural = "Assessment Comments"
+
+
 # --- MODEL: CoachFeedback (General Player Feedback, not session specific) ---
 class CoachFeedback(models.Model):
     player = models.ForeignKey('players.Player', on_delete=models.CASCADE, related_name='feedback_entries')

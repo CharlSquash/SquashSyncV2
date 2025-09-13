@@ -1,7 +1,37 @@
 {% extends "base.html" %}
 {% load static %}
+{% load crispy_forms_tags %}
 
-{% block page_title %}{{ page_title|default:"Coach Profile" }} - SquashSync{% endblock %}
+{% block title %}{{ page_title|default:"Coach Profile" }} - SquashSync{% endblock %}
+
+{% block extra_head %}
+<style>
+    .assessment-comment-section {
+        background-color: var(--bs-tertiary-bg);
+        border-top: 1px solid var(--bs-border-color-translucent);
+        padding: 0.75rem;
+        margin-top: 0.75rem;
+    }
+    .assessment-comment {
+        font-size: 0.85rem;
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .assessment-comment:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    .assessment-comment p {
+        margin-bottom: 0.25rem;
+    }
+    .assessment-comment-meta {
+        font-size: 0.75rem;
+        color: var(--bs-secondary-color);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -63,9 +93,9 @@
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content">
-                            <ul id="coached-sessions-list" style="max-height: 300px; overflow-y: auto;">
+                            <ul id="coached-sessions-list" class="list-unstyled" style="max-height: 300px; overflow-y: auto;">
                                 {% for session in sessions_attended %}
-                                    <li {% if session.session_date < two_weeks_ago %}class="d-none"{% endif %}>
+                                    <li class="mb-2 pb-2 border-bottom">
                                         <a href="{% url 'scheduling:session_detail' session.id %}">
                                             {{ session.session_date|date:"D, d M Y" }} - {{ session.session_start_time|time:"H:i" }}
                                         </a><br>
@@ -78,17 +108,6 @@
                                     <li class="text-muted">No completed sessions recorded.</li>
                                 {% endfor %}
                             </ul>
-                            {% if sessions_attended|length > 0 %}
-                                {% with first_session=sessions_attended|first %}
-                                    {% if first_session.session_date >= two_weeks_ago %}
-                                        <div class="text-center mt-2">
-                                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#coached-sessions-list li.d-none" aria-expanded="false">
-                                                Show/Hide Older Sessions
-                                            </button>
-                                        </div>
-                                    {% endif %}
-                                {% endwith %}
-                            {% endif %}
                         </div>
                     </details>
                 </div>
@@ -100,28 +119,42 @@
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content">
-                            <ul id="player-assessments-list" style="max-height: 300px; overflow-y: auto;">
+                            <ul id="player-assessments-list" class="list-unstyled" style="max-height: 400px; overflow-y: auto;">
                                 {% for assessment in player_assessments_made %}
-                                    <li {% if forloop.counter > 10 %}class="d-none"{% endif %}>
+                                    <li class="mb-2 pb-2 border-bottom">
                                         For <strong><a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.full_name }}</a></strong>
                                         <br><small class="text-muted">Session: {{ assessment.session.session_date|date:"d M Y" }}</small>
                                         {% if assessment.coach_notes %}
-                                            <p class="assessment-snippet mt-1">{{assessment.coach_notes|truncatewords:10}}</p>
+                                            <p class="assessment-snippet mt-1">{{assessment.coach_notes|linebreaksbr}}</p>
                                         {% else %}
                                             <p class="assessment-snippet mt-1 text-muted"><em>Ratings submitted, no notes.</em></p>
+                                        {% endif %}
+                                        
+                                        {% if assessment.comments.all or request.user.is_superuser %}
+                                        <div class="assessment-comment-section">
+                                            {% for comment in assessment.comments.all %}
+                                            <div class="assessment-comment">
+                                                <p>{{ comment.comment|linebreaksbr }}</p>
+                                                <div class="assessment-comment-meta">
+                                                    - {{ comment.author.get_full_name|default:comment.author.username }} on {{ comment.created_at|date:"d M Y, H:i" }}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                            {% if request.user.is_superuser %}
+                                            <form method="post" class="mt-2">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="session_assessment_id" value="{{ assessment.id }}">
+                                                {{ comment_form|crispy }}
+                                                <button type="submit" class="btn btn-sm btn-primary mt-1">Add Comment</button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
                                         {% endif %}
                                     </li>
                                 {% empty %}
                                     <li class="text-muted">No recent player assessments made.</li>
                                 {% endfor %}
                             </ul>
-                             {% if player_assessments_made|length > 10 %}
-                                <div class="text-center mt-2">
-                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#player-assessments-list li.d-none" aria-expanded="false">
-                                        Show/Hide Older
-                                    </button>
-                                </div>
-                            {% endif %}
                         </div>
                     </details>
                 </div>
@@ -132,28 +165,42 @@
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content">
-                            <ul id="group-assessments-list" style="max-height: 300px; overflow-y: auto;">
+                            <ul id="group-assessments-list" class="list-unstyled" style="max-height: 400px; overflow-y: auto;">
                                 {% for assessment in group_assessments_made %}
-                                    <li {% if forloop.counter > 10 %}class="d-none"{% endif %}>
+                                    <li class="mb-2 pb-2 border-bottom">
                                         For <strong><a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{ assessment.session.school_group.name|default:"N/A" }}</a></strong>
                                         <br><small class="text-muted">Session: {{ assessment.session.session_date|date:"d M Y" }}</small>
                                         {% if assessment.general_notes %}
-                                            <p class="assessment-snippet mt-1">{{assessment.general_notes|truncatewords:10}}</p>
+                                            <p class="assessment-snippet mt-1">{{assessment.general_notes|linebreaksbr}}</p>
                                         {% else %}
                                             <p class="assessment-snippet mt-1 text-muted"><em>No notes for this group assessment.</em></p>
+                                        {% endif %}
+
+                                        {% if assessment.comments.all or request.user.is_superuser %}
+                                        <div class="assessment-comment-section">
+                                            {% for comment in assessment.comments.all %}
+                                            <div class="assessment-comment">
+                                                <p>{{ comment.comment|linebreaksbr }}</p>
+                                                <div class="assessment-comment-meta">
+                                                    - {{ comment.author.get_full_name|default:comment.author.username }} on {{ comment.created_at|date:"d M Y, H:i" }}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                            {% if request.user.is_superuser %}
+                                            <form method="post" class="mt-2">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="group_assessment_id" value="{{ assessment.id }}">
+                                                {{ comment_form|crispy }}
+                                                <button type="submit" class="btn btn-sm btn-primary mt-1">Add Comment</button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
                                         {% endif %}
                                     </li>
                                 {% empty %}
                                     <li class="text-muted">No group assessments made.</li>
                                 {% endfor %}
                             </ul>
-                            {% if group_assessments_made|length > 10 %}
-                                <div class="text-center mt-2">
-                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#group-assessments-list li.d-none" aria-expanded="false">
-                                        Show/Hide Older
-                                    </button>
-                                </div>
-                            {% endif %}
                         </div>
                     </details>
                 </div>

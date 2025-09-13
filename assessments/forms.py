@@ -1,5 +1,5 @@
 from django import forms
-from .models import SessionAssessment, GroupAssessment
+from .models import SessionAssessment, GroupAssessment, AssessmentComment
 
 class SessionAssessmentForm(forms.ModelForm):
     """
@@ -61,3 +61,20 @@ class GroupAssessmentForm(forms.ModelForm):
         labels = {
             'general_notes': 'Overall Notes on the Session, Group, Venue, Parents etc.',
             'is_hidden_from_other_coaches': 'Hide my notes from other coaches on this session'}
+
+class AssessmentCommentForm(forms.ModelForm):
+    """
+    Form for adding a comment to an assessment.
+    """
+    class Meta:
+        model = AssessmentComment
+        fields = ['comment']
+        widgets = {
+            'comment': forms.Textarea(attrs={
+                'rows': 2,
+                'placeholder': 'Add a comment...'
+            }),
+        }
+        labels = {
+            'comment': ''
+        }
