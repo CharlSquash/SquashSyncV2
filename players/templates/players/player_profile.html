@@ -45,6 +45,9 @@
                 <div class="card-body">
                     <h5 class="card-title">{{ player.full_name }}</h5>
                     <p class="card-text">
+                        {% if player.school %}
+                            <strong>School:</strong> {{ player.school }}<br>
+                        {% endif %}
                         <strong>Grade:</strong> {{ player.get_grade_display|default:"N/A" }}<br>
                         <strong>Groups:</strong> {{ player.school_groups.all|join:", " }}
                     </p>

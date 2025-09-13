@@ -51,6 +51,7 @@ class Player(models.Model):
 
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
+    school = models.CharField(max_length=100, blank=True, help_text="The school the player attends.")
     grade = models.IntegerField(
         choices=GradeLevel.choices,
         null=True,
