@@ -21,6 +21,9 @@ class SchoolGroup(models.Model):
         return self.name
     class Meta:
         ordering = ['name']
+        permissions = [
+            ("can_manage_school_groups", "Can manage school groups"),
+        ]
 
 # --- MODEL: Player ---
 class Player(models.Model):

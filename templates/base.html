@@ -55,9 +55,13 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'assessments:pending_assessments' %}">Pending Assessments</a></li>
                     {% endif %}
 
+                    {% comment %} This link will now only appear for users with the specific permission {% endcomment %}
+                    {% if perms.players.can_manage_school_groups %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'players:school_group_list' %}">School Groups</a></li>
+                    {% endif %}
+
                     {% if user.is_superuser %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'accounts:coach_list' %}">Coaches</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'players:school_group_list' %}">School Groups</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'scheduling:session_staffing' %}">Staffing</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'finance:completion_report' %}">Completion Report</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'admin:finance_payslip_changelist' %}">Payslips</a></li>

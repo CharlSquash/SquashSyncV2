@@ -1,6 +1,6 @@
 # players/views.py
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
@@ -274,12 +274,11 @@ def players_list(request):
     return render(request, 'players/players_list.html', context)
 
 
-@login_required
+@permission_required('players.can_manage_school_groups', raise_exception=True)
 def school_group_list(request):
-    if not request.user.is_superuser:
-        messages.error(request, "You do not have permission to view this page.")
-        return redirect('homepage')
-
+    # The old 'if not request.user.is_superuser' check is now gone.
+    # The @permission_required decorator handles the security check automatically.
+    
     if request.method == 'POST':
         form = SchoolGroupForm(request.POST)
         if form.is_valid():
