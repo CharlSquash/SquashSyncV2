@@ -513,34 +513,44 @@ def visual_attendance(request, session_id):
 
 @login_required
 def session_calendar(request):
-    # --- Simplified Logic: Get sessions based on user role ---
-    if request.user.is_superuser:
-        # Superuser sees all sessions
-        sessions = Session.objects.all()
-    else:
-        # Regular staff user (coach) sees only their assigned sessions
-        sessions = Session.objects.filter(coaches_attending__user=request.user)
+    # Determine the view mode from URL (defaults to 'own')
+    view_mode = request.GET.get('view', 'own')
 
-    # --- NEW: Subquery to check for attendance records ---
+    # Check if the user has the special permission
+    can_view_all = request.user.has_perm('scheduling.can_view_all_sessions')
+
+    sessions_qs = Session.objects.all()
+
+    # Filter sessions based on user role and selected view mode
+    if request.user.is_superuser:
+        # Superuser always sees all sessions
+        sessions = sessions_qs
+    elif can_view_all and view_mode == 'all':
+        # Permitted staff member has selected 'all'
+        sessions = sessions_qs
+    else:
+        # Default for all other staff: only see their own sessions
+        sessions = sessions_qs.filter(coaches_attending__user=request.user)
+
+    # --- Subquery to check for attendance records ---
     attendance_taken_subquery = AttendanceTracking.objects.filter(
         session=OuterRef('pk'),
         attended__in=[AttendanceTracking.CoachAttended.YES, AttendanceTracking.CoachAttended.NO]
     )
 
     # Annotate the queryset with an 'attendance_taken' boolean field
-    sessions_qs = sessions.select_related('school_group', 'venue').prefetch_related('coaches_attending').annotate(
+    # *** FIX 1: Assign to a new variable and use it in the loop ***
+    sessions_annotated = sessions.select_related('school_group', 'venue').prefetch_related('coaches_attending').annotate(
         attendance_taken=Exists(attendance_taken_subquery)
     )
-    # --- END NEW LOGIC ---
 
     # Build the rich event data for FullCalendar
     events = []
-    for session in sessions_qs:
+    for session in sessions_annotated: # *** Iterate over the correct variable ***
         class_names = []
         if session.is_cancelled:
             class_names.append('cancelled-session')
         
-        # --- NEW: Add class if attendance is taken ---
         if session.attendance_taken:
             class_names.append('fc-event-attendance-taken')
 
@@ -560,13 +570,16 @@ def session_calendar(request):
             'classNames': class_names
         })
 
+    # *** FIX 2: Add the necessary variables to the context for the template ***
     context = {
         'page_title': "Session Calendar",
         'events_json': json.dumps(events),
+        'can_view_all': can_view_all,
+        'is_all_view': view_mode == 'all' and can_view_all,
     }
     return render(request, 'scheduling/session_calendar.html', context)
 
-login_required
+@login_required
 def my_availability(request):
     # This view has been significantly updated
     try:

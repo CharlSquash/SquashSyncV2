@@ -148,6 +148,9 @@ class Session(models.Model):
 
     class Meta:
         ordering = ['-session_date', '-session_start_time']
+        permissions = [
+            ("can_view_all_sessions", "Can view all sessions on the calendar"),
+        ]
 
 
 # --- MODEL: CoachAvailability ---
