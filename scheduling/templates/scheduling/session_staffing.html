@@ -56,7 +56,7 @@
                                 <div class="staffing-details-grid">
                                     <div class="staffing-column assigned-coaches-list">
                                         <h4>Assigned Coaches</h4>
-                                        {% for assigned in item.assigned_coaches_with_status %}
+                                        {% for assigned in item.assigned_coaches_with_status|dictsort:"coach.name" %}
                                             <p>
                                                 {% if assigned.status == 'Confirmed' %}<i class="bi bi-check-circle-fill text-success" title="Confirmed"></i>
                                                 {% elif assigned.status == 'Declined' %}<i class="bi bi-x-circle-fill text-danger" title="Declined"></i>
@@ -76,7 +76,7 @@
 
                                     <div class="staffing-column available-coaches-list">
                                         <h4>Available Coaches</h4>
-                                        {% for avail in item.available_coaches_for_assignment %}
+                                        {% for avail in item.available_coaches_for_assignment|dictsort:"coach.name" %}
                                             <p>
                                                 {% if avail.is_emergency %}<i class="bi bi-hand-thumbs-up-fill text-primary" title="Emergency Only"></i>
                                                 {% else %}<i class="bi bi-hand-thumbs-up-fill text-success" title="Available"></i>
@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const assignedContainer = detailsBody.querySelector('.assigned-coaches-list');
                         let assignedHtml = '<h4>Assigned Coaches</h4>';
                         if (data.assigned_coaches.length > 0) {
-                            data.assigned_coaches.forEach(coach => {
+                            data.assigned_coaches.sort((a, b) => a.name.localeCompare(b.name)).forEach(coach => {
                                 let status_icon_class = 'bi-hourglass-split text-muted';
                                 if (coach.status === 'Confirmed') status_icon_class = 'bi-check-circle-fill text-success';
                                 if (coach.status === 'Declined') status_icon_class = 'bi-x-circle-fill text-danger';
@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const availableContainer = detailsBody.querySelector('.available-coaches-list');
                         let availableHtml = '<h4>Available Coaches</h4>';
                         if (data.available_coaches.length > 0) {
-                            data.available_coaches.forEach(coach => {
+                             data.available_coaches.sort((a, b) => a.name.localeCompare(b.name)).forEach(coach => {
                                 const icon_class = coach.is_emergency ? 'bi-hand-thumbs-up-fill text-primary' : 'bi-hand-thumbs-up-fill text-success';
                                 const icon_title = coach.is_emergency ? 'Emergency Only' : 'Available';
                                 const emergency_label = coach.is_emergency ? '<span class="emergency-label">(emergency)</span>' : '';
@@ -299,4 +299,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
