@@ -13,14 +13,25 @@ from accounts.models import Coach
 class Command(BaseCommand):
     help = 'Sends consolidated attendance reminder emails to coaches for sessions occurring today and the next day.'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--email',
+            type=str,
+            help='Send all generated emails to this address instead of the actual coaches for testing.',
+        )
+
     def handle(self, *args, **options):
         now = timezone.now()
         today = now.date()
         tomorrow = today + datetime.timedelta(days=1)
+        test_email = options['email']
+        
+        if test_email:
+            self.stdout.write(self.style.WARNING(f"--- RUNNING IN TEST MODE ---"))
+            self.stdout.write(self.style.WARNING(f"All emails will be sent to: {test_email}"))
         
         self.stdout.write(f"[{now:%Y-%m-%d %H:%M}] Running send_session_reminders for sessions on: {today} and {tomorrow}")
 
-        # Query for sessions happening today from the current time onwards, OR any time tomorrow.
         sessions_to_notify_qs = Session.objects.filter(
             Q(
                 session_date=today,
@@ -32,7 +43,6 @@ class Command(BaseCommand):
             is_cancelled=False
         ).prefetch_related('coaches_attending__user')
 
-        # Group sessions by coach
         sessions_by_coach = defaultdict(list)
         for session in sessions_to_notify_qs:
             for coach_profile in session.coaches_attending.all():
@@ -46,7 +56,6 @@ class Command(BaseCommand):
         sent_count = 0
         for coach_user, sessions in sessions_by_coach.items():
             
-            # Check if the coach has ALREADY explicitly confirmed or declined ALL their sessions for the period
             unresponded_sessions = []
             for session in sessions:
                  if not CoachAvailability.objects.filter(
@@ -60,13 +69,22 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Skipping email for {coach_user.username}, all sessions already responded to.")
                 continue
 
-            # Group unresponded sessions by day
             sessions_by_day = defaultdict(list)
             for session in unresponded_sessions:
                 sessions_by_day[session.session_date].append(session)
 
+            # Override the recipient if in test mode
+            original_email = coach_user.email
+            if test_email:
+                coach_user.email = test_email
+
             if send_consolidated_session_reminder_email(coach_user, sessions_by_day, is_reminder=True):
                 sent_count += 1
+            
+            # IMPORTANT: Restore the original email after sending
+            if test_email:
+                coach_user.email = original_email
         
         self.stdout.write(self.style.SUCCESS(f"--- Process Complete ---"))
         self.stdout.write(f"Sent {sent_count} consolidated reminder emails.")
+
