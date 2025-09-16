@@ -128,5 +128,35 @@
             <p>No coach completion records found for the selected date range and filters.</p>
         </div>
     {% endif %}
+
+    {% if selected_coach_id and payslip_data %}
+    <div class="card my-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Payment Calculation for {{ payslip_data.coach_name }}</h4>
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Total Hours Worked</dt>
+                <dd class="col-sm-8">{{ payslip_data.total_hours_str }} ({{ payslip_data.total_hours_decimal }} decimal)</dd>
+
+                <dt class="col-sm-4">Base Pay Calculation</dt>
+                <dd class="col-sm-8">
+                    R{{ payslip_data.hourly_rate }} x {{ payslip_data.total_hours_decimal }} hours = <strong>R{{ payslip_data.total_base_pay }}</strong>
+                </dd>
+
+                {% if payslip_data.total_bonus_amount > 0 %}
+                <dt class="col-sm-4">Bonuses</dt>
+                <dd class="col-sm-8">+ R{{ payslip_data.total_bonus_amount }}</dd>
+                {% endif %}
+            </dl>
+            <hr>
+            <dl class="row">
+                <dt class="col-sm-4 fs-5">Grand Total Pay</dt>
+                <dd class="col-sm-8 fs-5"><strong>R{{ payslip_data.total_pay }}</strong></dd>
+            </dl>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
+

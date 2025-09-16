@@ -12,6 +12,8 @@ import calendar
 from .models import CoachSessionCompletion
 from scheduling.models import Session
 from accounts.models import Coach
+from .payslip_services import get_payslip_data_for_coach
+
 
 def is_superuser(user):
     return user.is_superuser
@@ -108,8 +110,10 @@ def completion_report(request):
         'session__session_date', 'session__session_start_time', 'coach__user__first_name'
     )
 
+    payslip_data = None
     if target_coach_id:
         completion_records = completion_records.filter(coach__id=target_coach_id)
+        payslip_data = get_payslip_data_for_coach(int(target_coach_id), target_year, target_month)
 
     all_coaches = Coach.objects.filter(is_active=True).select_related('user')
 
@@ -123,6 +127,7 @@ def completion_report(request):
         'month_choices': [{'value': i, 'name': calendar.month_name[i]} for i in range(1, 13)],
         'start_date': start_date,
         'end_date': end_date,
-        'page_title': f"Coach Completion Report ({start_date.strftime('%B %Y')})"
+        'page_title': f"Coach Completion Report ({start_date.strftime('%B %Y')})",
+        'payslip_data': payslip_data,
     }
     return render(request, 'finance/completion_report.html', context)
