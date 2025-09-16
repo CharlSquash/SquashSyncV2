@@ -23,6 +23,9 @@ urlpatterns = [
 
     path('confirm/<int:session_id>/<str:token>/', views.confirm_attendance, name='confirm_attendance'),
     path('decline-with-reason/<int:session_id>/<str:token>/', views.decline_attendance_reason, name='decline_attendance_reason'),
+
+    path('confirm-all/<str:date_str>/<str:token>/', views.confirm_all_for_day, name='confirm_all_for_day'),
+    path('decline-all-with-reason/<str:date_str>/<str:token>/', views.decline_all_for_day_reason, name='decline_all_for_day_reason'),
     
     path('dashboard/confirm/<int:session_id>/', views.dashboard_confirm, name='dashboard_confirm'),
     path('dashboard/decline/<int:session_id>/', views.dashboard_decline, name='dashboard_decline'),

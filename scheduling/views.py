@@ -28,7 +28,7 @@ from .models import Session, CoachAvailability, Venue, ScheduledClass, Attendanc
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup, AttendanceDiscrepancy
 from . import notifications
-from .notifications import verify_confirmation_token, send_coach_decline_notification_email
+from .notifications import verify_confirmation_token, send_coach_decline_notification_email, verify_bulk_confirmation_token
 from accounts.models import Coach
 from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
@@ -1209,3 +1209,101 @@ def player_attendance_response(request, token):
         }
 
     return render(request, 'scheduling/confirmation_response.html', context)
+
+def confirm_all_for_day(request, date_str, token):
+    """ Handles bulk confirmation for all of a coach's sessions on a given day. """
+    payload = verify_bulk_confirmation_token(token)
+    try:
+        user_id_from_token, token_date_str = payload.split(':')
+        user_id = int(user_id_from_token)
+        # Security check: ensure date in token matches URL
+        if token_date_str != date_str:
+            raise ValueError("Token-URL date mismatch.")
+        session_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError, AttributeError):
+        context = {
+            'message_type': 'error',
+            'message': 'This confirmation link is malformed or invalid.'
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+
+    user = get_object_or_404(User, pk=user_id)
+    sessions_for_day = Session.objects.filter(
+        coaches_attending__user=user,
+        session_date=session_date,
+        is_cancelled=False
+    )
+
+    for session in sessions_for_day:
+        CoachAvailability.objects.update_or_create(
+            coach=user,
+            session=session,
+            defaults={
+                'status': CoachAvailability.Status.AVAILABLE,
+                'last_action': 'CONFIRM',
+                'status_updated_at': timezone.now()
+            }
+        )
+    
+    context = {
+        'message_type': 'success',
+        'message': f"Thank you, {user.first_name}! Your attendance for all sessions on {session_date.strftime('%A, %d %B')} is confirmed."
+    }
+    return render(request, 'scheduling/confirmation_response.html', context)
+
+
+def decline_all_for_day_reason(request, date_str, token):
+    """ Handles bulk decline for all of a coach's sessions on a given day. """
+    payload = verify_bulk_confirmation_token(token)
+    try:
+        user_id_from_token, token_date_str = payload.split(':')
+        user_id = int(user_id_from_token)
+        if token_date_str != date_str:
+            raise ValueError("Token-URL date mismatch.")
+        session_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError, AttributeError):
+        context = { 'message_type': 'error', 'message': 'This decline link is malformed or invalid.'}
+        return render(request, 'scheduling/confirmation_response.html', context)
+    
+    user = get_object_or_404(User, pk=user_id)
+    sessions_for_day = Session.objects.filter(
+        coaches_attending__user=user,
+        session_date=session_date,
+        is_cancelled=False
+    ).select_related('school_group')
+
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '').strip()
+        if not reason:
+            messages.error(request, "A reason is required to decline.")
+            # Re-render the form with the error
+            return render(request, 'scheduling/decline_all_reason_form.html', {'sessions': sessions_for_day, 'coach_name': user.first_name, 'date_str': date_str, 'error': 'A reason is required.'})
+
+        for session in sessions_for_day:
+            CoachAvailability.objects.update_or_create(
+                coach=user,
+                session=session,
+                defaults={
+                    'status': CoachAvailability.Status.UNAVAILABLE,
+                    'last_action': 'DECLINE',
+                    'status_updated_at': timezone.now(),
+                    'notes': reason
+                }
+            )
+            # Notify admin for each session that is soon
+            today = timezone.now().date()
+            if session.session_date <= today + timedelta(days=1):
+                send_coach_decline_notification_email(user, session, reason)
+        
+        context = {
+            'message_type': 'warning',
+            'message': f"Thank you, {user.first_name}. We have recorded that you are unavailable for all sessions on {session_date.strftime('%A, %d %B')}."
+        }
+        return render(request, 'scheduling/confirmation_response.html', context)
+
+    context = {
+        'sessions': sessions_for_day,
+        'coach_name': user.first_name,
+        'date_str': date_str,
+    }
+    return render(request, 'scheduling/decline_all_reason_form.html', context)

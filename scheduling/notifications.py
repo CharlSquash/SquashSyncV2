@@ -25,6 +25,7 @@ from .models import Session, CoachAvailability
 
 # Salt can be customized for better security between apps
 confirmation_signer = TimestampSigner(salt='scheduling.confirmation')
+bulk_confirmation_signer = TimestampSigner(salt='scheduling.bulk_confirmation')
 User = get_user_model()
 
 
@@ -40,6 +41,59 @@ def verify_confirmation_token(token, max_age_days=7):
         return confirmation_signer.unsign(token, max_age=timedelta(days=max_age_days))
     except (BadSignature, SignatureExpired):
         return None
+
+def create_bulk_confirmation_token(user_id, date_obj):
+    """Creates a signed, timestamped token for a user and a specific date."""
+    date_str = date_obj.strftime('%Y-%m-%d')
+    value = f"{user_id}:{date_str}"
+    return bulk_confirmation_signer.sign(value)
+
+def verify_bulk_confirmation_token(token, max_age_days=2):
+    """Verifies a bulk token. Returns the original value or None if invalid/expired."""
+    try:
+        return bulk_confirmation_signer.unsign(token, max_age=timedelta(days=max_age_days))
+    except (BadSignature, SignatureExpired):
+        return None
+
+def send_consolidated_session_reminder_email(user, sessions_by_day, is_reminder=False):
+    """Sends a single reminder email with all sessions for the upcoming days."""
+    if not user.email:
+        print(f"Cannot send email: User {user.username} has no email address.")
+        return False
+
+    site_url = getattr(settings, 'APP_SITE_URL', 'http://127.0.0.1:8000')
+    subject_verb = "Reminder" if is_reminder else "Confirmation Required"
+    
+    # Generate a subject that covers all relevant days
+    day_names = sorted([day.strftime('%a, %d %b') for day in sessions_by_day.keys()])
+    subject_days = " & ".join(day_names)
+    subject = f"Upcoming Session {subject_verb} for {subject_days}"
+
+    context = {
+        'coach_name': user.first_name or user.username,
+        'sessions_by_day': {},
+        'is_reminder': is_reminder,
+        'site_name': getattr(settings, 'SITE_NAME', 'SquashSync'),
+    }
+
+    for day, sessions in sessions_by_day.items():
+        token = create_bulk_confirmation_token(user.id, day)
+        date_str = day.strftime('%Y-%m-%d')
+        context['sessions_by_day'][day] = {
+            'sessions': sorted(sessions, key=lambda s: s.session_start_time),
+            'confirm_url': site_url + reverse('scheduling:confirm_all_for_day', args=[date_str, token]),
+            'decline_url': site_url + reverse('scheduling:decline_all_for_day_reason', args=[date_str, token]),
+        }
+
+    html_message = render_to_string('scheduling/emails/consolidated_session_reminder.html', context)
+    
+    try:
+        send_mail(subject, '', settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_message)
+        print(f"Sent consolidated reminder to {user.email}.")
+        return True
+    except Exception as e:
+        print(f"Error sending consolidated reminder to {user.email}: {e}")
+        return False
 
 def send_session_confirmation_email(user, session, is_reminder=False):
     """Sends a confirmation email to a coach for a specific session."""
