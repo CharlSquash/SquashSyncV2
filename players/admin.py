@@ -9,7 +9,7 @@ from .models import (
 # Custom form to allow managing the reverse M2M relationship with a filter_horizontal-like widget
 class SchoolGroupAdminForm(forms.ModelForm):
     players = forms.ModelMultipleChoiceField(
-        queryset=Player.objects.all(),
+        queryset=Player.objects.all().order_by('first_name', 'last_name'),
         required=False,
         widget=admin.widgets.FilteredSelectMultiple(
             verbose_name='Players',
@@ -50,4 +50,3 @@ admin.site.register(CourtSprintRecord)
 admin.site.register(VolleyRecord)
 admin.site.register(BackwallDriveRecord)
 admin.site.register(MatchResult)
-
