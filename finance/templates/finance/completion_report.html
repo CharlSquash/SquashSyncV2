@@ -29,7 +29,6 @@
             </select>
         </div>
         
-        {# --- NEW COACH FILTER DROPDOWN --- #}
         <div>
             <label for="coach_select">Coach:</label>
             <select name="coach" id="coach_select">
@@ -41,7 +40,6 @@
                 {% endfor %}
             </select>
         </div>
-        {# --- END --- #}
         
         <div>
             <button type="submit" class="btn btn-primary">View Report</button>
@@ -60,6 +58,7 @@
                         <th>Session Date</th>
                         <th>Session</th>
                         <th>Coach</th>
+                        <th class="text-center">Actual Duration (mins)</th>
                         <th class="text-center">Assessments Submitted?</th>
                         <th class="text-center">Payment Confirmed?</th>
                         <th class="text-center">Actions</th>
@@ -79,6 +78,18 @@
                                 {% else %}
                                     <span class="text-danger">Invalid Coach Record</span>
                                 {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <form method="post" action="{% url 'finance:completion_report' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="completion_id" value="{{ record.id }}">
+                                    <input type="hidden" name="action" value="update_duration">
+                                    <input type="hidden" name="filter_month" value="{{ selected_month }}">
+                                    <input type="hidden" name="filter_year" value="{{ selected_year }}">
+                                    <input type="hidden" name="filter_coach" value="{{ selected_coach_id|default:'' }}">
+                                    <input type="number" name="duration" value="{{ record.actual_duration_minutes }}" style="width: 70px; text-align: center;" class="form-control form-control-sm d-inline-block">
+                                    <button type="submit" class="btn btn-secondary btn-sm" title="Update Duration">Update</button>
+                                </form>
                             </td>
                             <td class="text-center">
                                 {% if record.assessments_submitted %}

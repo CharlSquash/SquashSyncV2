@@ -93,7 +93,6 @@ class ScheduledClass(models.Model):
 
 # --- MODEL: Session ---
 class Session(models.Model):
-    # *** ADDED: Status choices are now defined inside the class ***
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('active', 'Active'),
@@ -103,10 +102,17 @@ class Session(models.Model):
     session_date = models.DateField(default=timezone.now)
     session_start_time = models.TimeField(default=timezone.now)
     planned_duration_minutes = models.PositiveIntegerField(default=60, validators=[MinValueValidator(1)])
-    # IMPORTANT: Updated FK relationships
     school_group = models.ForeignKey('players.SchoolGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='sessions')
     attendees = models.ManyToManyField('players.Player', related_name='attended_sessions', blank=True)
-    coaches_attending = models.ManyToManyField('accounts.Coach', related_name='coached_sessions', blank=True)
+    
+    # MODIFICATION: Changed to a through model
+    coaches_attending = models.ManyToManyField(
+        'accounts.Coach',
+        through='SessionCoach',
+        related_name='coached_sessions',
+        blank=True
+    )
+
     venue = models.ForeignKey('Venue', on_delete=models.SET_NULL, null=True, blank=True, help_text="Venue where the session takes place.")
     generated_from_rule = models.ForeignKey('ScheduledClass', on_delete=models.SET_NULL, null=True, blank=True, related_name='generated_sessions', help_text="Link to the recurring schedule rule, if this session was auto-generated.")
     
@@ -119,11 +125,9 @@ class Session(models.Model):
         help_text="Stores the detailed lesson plan including timeline, groups, and activities."
     )
     
-    # *** ADDED: Fields for the live session view to use ***
     start_time = models.DateTimeField(null=True, blank=True, help_text="The actual start time when a coach begins the session.")
     end_time = models.DateTimeField(null=True, blank=True, help_text="The actual end time when a session is finished.")
     
-    # *** ADDED: The status field now works correctly ***
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
 
     @property
@@ -152,10 +156,25 @@ class Session(models.Model):
             ("can_view_all_sessions", "Can view all sessions on the calendar"),
         ]
 
+# --- NEW MODEL: SessionCoach ---
+class SessionCoach(models.Model):
+    """Through model to link a Coach to a Session and store their specific duration."""
+    session = models.ForeignKey(Session, on_delete=models.CASCADE)
+    coach = models.ForeignKey('accounts.Coach', on_delete=models.CASCADE)
+    coaching_duration_minutes = models.PositiveIntegerField(
+        help_text="The planned duration this coach will be at the session, in minutes."
+    )
+
+    class Meta:
+        unique_together = ('session', 'coach')
+        verbose_name = "Session Coach Assignment"
+        verbose_name_plural = "Session Coach Assignments"
+
+    def __str__(self):
+        return f"{self.coach.name} at {self.session} for {self.coaching_duration_minutes}min"
 
 # --- MODEL: CoachAvailability ---
 class CoachAvailability(models.Model):
-    # --- NEW: Status field to replace is_available boolean ---
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
         AVAILABLE = 'AVAILABLE', 'Available'
@@ -165,7 +184,6 @@ class CoachAvailability(models.Model):
     coach = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='session_availabilities', limit_choices_to={'is_staff': True})
     session = models.ForeignKey('Session', on_delete=models.CASCADE, related_name='coach_availabilities')
     
-    # REMOVED: is_available = models.BooleanField(null=True, help_text="True=Available, False=Unavailable, Null=Pending")
     status = models.CharField(
         max_length=12,
         choices=Status.choices,
@@ -190,7 +208,6 @@ class CoachAvailability(models.Model):
         return f"{self.coach.username} - {self.get_status_display()} for {self.session.session_date}"
 
 # --- MODEL: Event ---
-# This model was found in your old models.py. It seems to fit best here in scheduling.
 class Event(models.Model):
     class EventType(models.TextChoices):
         SOCIAL = 'SOCIAL', 'Social Event'
@@ -205,7 +222,6 @@ class Event(models.Model):
     event_type = models.CharField(max_length=10, choices=EventType.choices, default=EventType.OTHER)
     event_date = models.DateTimeField(default=timezone.now)
     description = models.TextField(blank=True, null=True)
-    # IMPORTANT: Updated M2M relationship
     attending_coaches = models.ManyToManyField('accounts.Coach', related_name='attended_events', blank=True)
 
     def __str__(self):
@@ -217,7 +233,6 @@ class Event(models.Model):
         verbose_name_plural = "Events"
 
 class AttendanceTracking(models.Model):
-    """ Tracks a player's attendance status for a specific session. """
     class ParentResponse(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
         ATTENDING = 'ATTENDING', 'Attending'
@@ -231,7 +246,6 @@ class AttendanceTracking(models.Model):
     session = models.ForeignKey('Session', on_delete=models.CASCADE, related_name="player_attendances")
     player = models.ForeignKey('players.Player', on_delete=models.CASCADE, related_name="attendance_records")
     
-    # This field is for the parent's response from email links
     parent_response = models.CharField(
         max_length=20,
         choices=ParentResponse.choices,
@@ -239,7 +253,6 @@ class AttendanceTracking(models.Model):
         verbose_name="Parent's Response"
     )
     
-    # This new field is for the coach's final attendance marking
     attended = models.CharField(
         max_length=10,
         choices=CoachAttended.choices,
@@ -255,6 +268,3 @@ class AttendanceTracking(models.Model):
 
     def __str__(self):
         return f"{self.player.full_name} - {self.session.session_date} - Parent: {self.get_parent_response_display()}, Coach: {self.get_attended_display()}"
-
-
-

@@ -7,10 +7,11 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import date, timedelta
 import calendar
+from django.db.models import ExpressionWrapper, F, DateTimeField
 
 # Import models from their correct new app locations
 from .models import CoachSessionCompletion
-from scheduling.models import Session
+from scheduling.models import Session, SessionCoach
 from accounts.models import Coach
 from .payslip_services import get_payslip_data_for_coach
 
@@ -28,7 +29,8 @@ def completion_report(request):
     if request.method == 'POST':
         completion_id = request.POST.get('completion_id')
         action = request.POST.get('action')
-        
+        duration = request.POST.get('duration') # Corrected name
+
         redirect_url = reverse('finance:completion_report')
         query_params = {}
         if request.POST.get('filter_month') and request.POST.get('filter_year'):
@@ -42,21 +44,29 @@ def completion_report(request):
 
         try:
             completion_record = get_object_or_404(CoachSessionCompletion, pk=int(completion_id))
+            
             if action == 'confirm':
                 completion_record.confirmed_for_payment = True
                 messages.success(request, f"Payment confirmed for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
             elif action == 'unconfirm':
                 completion_record.confirmed_for_payment = False
                 messages.warning(request, f"Payment confirmation removed for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
+            elif action == 'update_duration':
+                try:
+                    completion_record.actual_duration_minutes = int(duration)
+                    messages.success(request, f"Updated duration for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
+                except (ValueError, TypeError):
+                    messages.error(request, "Invalid duration provided.")
             else:
                 messages.error(request, "Invalid action specified.")
                 return redirect(redirect_url)
             
-            completion_record.save(update_fields=['confirmed_for_payment'])
+            completion_record.save()
         except (ValueError, CoachSessionCompletion.DoesNotExist):
             messages.error(request, "Invalid request or record not found.")
         
         return redirect(redirect_url)
+
 
     # --- GET Request Logic ---
     today = timezone.now().date()
@@ -78,28 +88,31 @@ def completion_report(request):
     end_date = date(target_year, target_month, num_days)
 
     # --- REVISED: Auto-create completion records ---
-    # 1. Fetch all potentially relevant sessions for the period from the database.
     sessions_in_period = Session.objects.filter(
         session_date__gte=start_date,
         session_date__lte=end_date,
         is_cancelled=False
-    ).prefetch_related('coaches_attending')
+    ).prefetch_related('sessioncoach_set__coach')
 
-    # 2. In Python, filter this list to find sessions whose scheduled end time has passed.
     finished_sessions_in_period = []
     for session in sessions_in_period:
-        # The session.end_datetime property calculates the scheduled end time
         if session.end_datetime and session.end_datetime < now_aware:
             finished_sessions_in_period.append(session)
 
-    # 3. Create the completion records for the truly finished sessions.
+    # --- THIS IS THE FIX ---
     for session in finished_sessions_in_period:
-        for coach in session.coaches_attending.all():
-            CoachSessionCompletion.objects.get_or_create(
-                coach=coach,
+        for session_coach in session.sessioncoach_set.all():
+            completion_record, created = CoachSessionCompletion.objects.get_or_create(
+                coach=session_coach.coach,
                 session=session
             )
-    # --- END REVISION ---
+            
+            # If the record was just created or its duration is empty,
+            # populate it from the planned duration on the staffing page.
+            if created or completion_record.actual_duration_minutes is None:
+                completion_record.actual_duration_minutes = session_coach.coaching_duration_minutes
+                completion_record.save()
+    # --- END OF FIX ---
 
     completion_records = CoachSessionCompletion.objects.filter(
         session__session_date__gte=start_date,
@@ -131,3 +144,4 @@ def completion_report(request):
         'payslip_data': payslip_data,
     }
     return render(request, 'finance/completion_report.html', context)
+

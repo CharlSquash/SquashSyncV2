@@ -63,7 +63,12 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
 
     for completion in completions:
         session_obj = completion.session
-        duration_minutes = Decimal(str(session_obj.planned_duration_minutes))
+        
+        # --- THIS IS THE FIX ---
+        # Use the actual duration from the completion record for payment calculation.
+        # Default to 0 if the value is None to prevent errors.
+        duration_minutes = Decimal(completion.actual_duration_minutes or 0)
+        # --- END OF FIX ---
         
         pay_for_session_base = (duration_minutes / Decimal('60.0')) * coach_hourly_rate
         total_base_pay_for_sessions += pay_for_session_base
@@ -282,3 +287,5 @@ def create_all_payslips_for_period(year: int, month: int, generating_user_id: in
         'summary_message': summary_message,
         'details': detailed_messages
     }
+
+

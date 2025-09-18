@@ -57,18 +57,26 @@
                                     <div class="staffing-column assigned-coaches-list">
                                         <h4>Assigned Coaches</h4>
                                         {% for assigned in item.assigned_coaches_with_status|dictsort:"coach.name" %}
-                                            <p>
-                                                {% if assigned.status == 'Confirmed' %}<i class="bi bi-check-circle-fill text-success" title="Confirmed"></i>
-                                                {% elif assigned.status == 'Declined' %}<i class="bi bi-x-circle-fill text-danger" title="Declined"></i>
-                                                {% else %}<i class="bi bi-hourglass-split text-muted" title="Pending Confirmation"></i>
-                                                {% endif %}
-                                                {{ assigned.coach.name }} 
-                                                <span class="text-muted">({{ assigned.status }})</span>
-                                                {% if assigned.conflict_warning %}
-                                                    <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ assigned.conflict_warning }}"></i>
-                                                {% endif %}
-                                                {% if assigned.notes %}<span class="availability-notes"> - <em>{{ assigned.notes }}</em></span>{% endif %}
-                                            </p>
+                                            <div class="assigned-coach-item mb-2">
+                                                <p class="mb-1">
+                                                    {% if assigned.status == 'Confirmed' %}<i class="bi bi-check-circle-fill text-success" title="Confirmed"></i>
+                                                    {% elif assigned.status == 'Declined' %}<i class="bi bi-x-circle-fill text-danger" title="Declined"></i>
+                                                    {% else %}<i class="bi bi-hourglass-split text-muted" title="Pending Confirmation"></i>
+                                                    {% endif %}
+                                                    {{ assigned.coach.name }} 
+                                                    <span class="text-muted">({{ assigned.status }})</span>
+                                                    {% if assigned.conflict_warning %}
+                                                        <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ assigned.conflict_warning }}"></i>
+                                                    {% endif %}
+                                                    {% if assigned.notes %}<span class="availability-notes"> - <em>{{ assigned.notes }}</em></span>{% endif %}
+                                                </p>
+                                                <div class="input-group input-group-sm" style="max-width: 150px;">
+                                                    <input type="number" class="form-control duration-input" value="{{ assigned.coaching_duration }}"
+                                                           data-session-id="{{ item.session_obj.id }}" data-coach-id="{{ assigned.coach.id }}"
+                                                           min="15" step="15">
+                                                    <span class="input-group-text">min</span>
+                                                </div>
+                                            </div>
                                         {% empty %}
                                             <p class="text-muted">None assigned.</p>
                                         {% endfor %}
@@ -152,36 +160,26 @@ document.addEventListener('DOMContentLoaded', function() {
             updateButton.addEventListener('click', function(event) {
                 event.preventDefault();
                 
+                const staffingItem = form.closest('.session-staffing-item');
+                staffingItem.open = true;
+
                 const sessionId = form.dataset.sessionId;
                 const coachCheckboxes = form.querySelectorAll(`input[name="coaches_for_session_${sessionId}"]:checked`);
                 const coachIds = Array.from(coachCheckboxes).map(cb => cb.value);
 
-                // Visual feedback
                 updateButton.disabled = true;
                 updateButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Updating...';
 
                 fetch("{% url 'scheduling:assign_coaches_ajax' %}", {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: JSON.stringify({
-                        session_id: sessionId,
-                        coach_ids: coachIds
-                    })
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ session_id: sessionId, coach_ids: coachIds })
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
                         updateButton.innerHTML = '<i class="bi bi-check-lg"></i> Updated';
                         
-                        const staffingItem = form.closest('.session-staffing-item');
                         const detailsBody = form.closest('.session-details-body');
                         
                         // Update Assigned Coaches List
@@ -197,13 +195,21 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const notes_html = coach.notes ? `<span class="availability-notes"> - <em>${coach.notes}</em></span>` : '';
                                 
                                 assignedHtml += `
-                                    <p>
-                                        <i class="bi ${status_icon_class}" title="${coach.status}"></i>
-                                        ${coach.name} 
-                                        <span class="text-muted">(${coach.status})</span>
-                                        ${conflict_html}
-                                        ${notes_html}
-                                    </p>
+                                    <div class="assigned-coach-item mb-2">
+                                        <p class="mb-1">
+                                            <i class="bi ${status_icon_class}" title="${coach.status}"></i>
+                                            ${coach.name} 
+                                            <span class="text-muted">(${coach.status})</span>
+                                            ${conflict_html}
+                                            ${notes_html}
+                                        </p>
+                                        <div class="input-group input-group-sm" style="max-width: 150px;">
+                                            <input type="number" class="form-control duration-input" value="${coach.coaching_duration}"
+                                                   data-session-id="${sessionId}" data-coach-id="${coach.id}"
+                                                   min="15" step="15">
+                                            <span class="input-group-text">min</span>
+                                        </div>
+                                    </div>
                                 `;
                             });
                         } else {
@@ -254,7 +260,6 @@ document.addEventListener('DOMContentLoaded', function() {
                            if (unstaffedIndicator) unstaffedIndicator.style.display = data.total_coaches_assigned === 0 ? 'inline-block' : 'none';
                         }
 
-                        // Add a visual flash to the updated item
                         staffingItem.style.transition = 'background-color 0.5s ease';
                         staffingItem.style.backgroundColor = 'var(--bs-success-bg-subtle)';
                         setTimeout(() => {
@@ -280,15 +285,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // --- Conflict warning logic ---
         form.addEventListener('click', function(event) {
             const checkbox = event.target;
             if (checkbox.matches('input[type="checkbox"]')) {
                 const warning = checkbox.dataset.conflictWarning;
-                
                 if (checkbox.checked && warning) {
                     const message = `⚠️ Potential Scheduling Conflict:\n\n${warning}\n\nAre you sure you want to assign this coach?`;
-                    
                     if (!confirm(message)) {
                         event.preventDefault();
                     }
@@ -296,6 +298,43 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // --- Duration Update Logic ---
+    let durationTimeout;
+    document.querySelector('.content-wrapper').addEventListener('input', function(event) {
+        const input = event.target;
+        if (input.matches('.duration-input')) {
+            clearTimeout(durationTimeout);
+            durationTimeout = setTimeout(() => {
+                const sessionId = input.dataset.sessionId;
+                const coachId = input.dataset.coachId;
+                const duration = input.value;
+
+                fetch("{% url 'scheduling:update_coach_duration_ajax' %}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        coach_id: coachId,
+                        duration: duration
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        console.error('Error updating duration:', data.message);
+                        // Optional: add visual error feedback
+                    } else {
+                        // Optional: add visual success feedback
+                        input.classList.add('is-valid');
+                        setTimeout(() => input.classList.remove('is-valid'), 2000);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }, 750); // Debounce for 750ms
+        }
+    });
 });
 </script>
 {% endblock %}
+

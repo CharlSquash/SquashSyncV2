@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.db.models import Prefetch, F, ExpressionWrapper, DateTimeField, Exists, OuterRef
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 import time 
 
 from django.contrib.auth import get_user_model
@@ -24,7 +24,7 @@ from .utils import get_month_start_end, check_for_conflicts
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
-from .models import Session, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag
+from .models import Session, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag, SessionCoach
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup, AttendanceDiscrepancy
 from . import notifications
@@ -34,6 +34,7 @@ from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
 # --- End: Replacement block ---
 User = get_user_model()
+
 
 def is_staff(user):
     """
@@ -864,15 +865,14 @@ def session_staffing(request):
             session_date=current_day,
             is_cancelled=False
         ).select_related('school_group', 'venue').prefetch_related(
-            'coaches_attending__user',
-            Prefetch('coach_availabilities', queryset=CoachAvailability.objects.select_related('coach'))
+            'sessioncoach_set__coach__user',
+            'coach_availabilities'
         ).order_by('session_start_time')
         
         processed_sessions = []
         for session in sessions_for_day:
             availability_map = {avail.coach_id: avail for avail in session.coach_availabilities.all()}
             
-            # Create a map of coach IDs to their conflict messages for this specific session
             coach_conflict_map = {}
             for coach in all_active_coaches:
                 conflict = check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, []))
@@ -883,7 +883,8 @@ def session_staffing(request):
             has_pending = False
             has_declined = False
             
-            for coach in session.coaches_attending.all():
+            for session_coach in session.sessioncoach_set.all():
+                coach = session_coach.coach
                 avail = availability_map.get(coach.user.id)
                 status = "Pending"
                 if avail:
@@ -896,15 +897,17 @@ def session_staffing(request):
                     has_pending = True
                 
                 assigned_coaches_status.append({
-                    'coach': coach, 
-                    'status': status, 
+                    'coach': coach,
+                    'status': status,
                     'notes': avail.notes if avail else '',
-                    'conflict_warning': coach_conflict_map.get(coach.id)
+                    'conflict_warning': coach_conflict_map.get(coach.id),
+                    'coaching_duration': session_coach.coaching_duration_minutes,
                 })
 
             available_coaches = []
+            assigned_coach_ids = {sc.coach.id for sc in session.sessioncoach_set.all()}
             for coach in all_active_coaches:
-                if coach not in session.coaches_attending.all():
+                if coach.id not in assigned_coach_ids:
                     avail = availability_map.get(coach.user.id)
                     if avail and avail.status in [CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]:
                         available_coaches.append({
@@ -918,7 +921,7 @@ def session_staffing(request):
                 session=session, 
                 parent_response=AttendanceTracking.ParentResponse.ATTENDING
             ).count()
-            total_coaches = session.coaches_attending.count()
+            total_coaches = len(assigned_coach_ids)
             confirmed_coaches = sum(1 for c in assigned_coaches_status if c['status'] == "Confirmed")
 
             processed_sessions.append({
@@ -965,13 +968,29 @@ def assign_coaches_ajax(request):
             return JsonResponse({'status': 'error', 'message': 'Missing session_id.'}, status=400)
 
         session = get_object_or_404(Session, pk=session_id)
-        session.coaches_attending.set(coach_ids)
+
+        # --- THIS IS THE FIX ---
+        # Instead of session.coaches_attending.set(), we manually manage the through model
+        with transaction.atomic():
+            # 1. Remove all existing assignments for this session
+            SessionCoach.objects.filter(session=session).delete()
+            
+            # 2. Create new assignments with the default duration
+            new_assignments = [
+                SessionCoach(
+                    session=session,
+                    coach_id=coach_id,
+                    coaching_duration_minutes=session.planned_duration_minutes
+                ) for coach_id in coach_ids
+            ]
+            SessionCoach.objects.bulk_create(new_assignments)
+        # --- END OF FIX ---
+
 
         # Re-fetch data for the response
         all_active_coaches = list(Coach.objects.filter(is_active=True).select_related('user').order_by('name'))
         all_active_coaches_dict = {c.id: c for c in all_active_coaches}
         
-        # A reasonable range for conflicts
         start_date_range = session.session_date - timedelta(days=3)
         end_date_range = session.session_date + timedelta(days=3)
         
@@ -1009,7 +1028,8 @@ def assign_coaches_ajax(request):
                 'name': coach.name,
                 'status': status,
                 'notes': avail.notes if avail and avail.notes else '',
-                'conflict_warning': check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, []))
+                'conflict_warning': check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, [])),
+                'coaching_duration': session.planned_duration_minutes, # Add default duration
             })
         
         available_coaches_data = []
@@ -1045,6 +1065,45 @@ def assign_coaches_ajax(request):
         return JsonResponse({'status': 'error', 'message': 'Session not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'An unexpected error occurred: {str(e)}'}, status=500)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def update_coach_duration_ajax(request):
+    try:
+        data = json.loads(request.body)
+        session_id = data.get('session_id')
+        coach_id = data.get('coach_id')
+        duration = data.get('duration')
+
+        if not all([session_id, coach_id, duration]):
+            return JsonResponse({'status': 'error', 'message': 'Missing data.'}, status=400)
+
+        with transaction.atomic():
+            session_coach = get_object_or_404(SessionCoach, session_id=session_id, coach_id=coach_id)
+            session_coach.coaching_duration_minutes = int(duration)
+            session_coach.save()
+
+            # --- THIS IS THE FIX ---
+            # Also update the actual duration in the completion record.
+            # Use get_or_create to handle cases where it might not exist yet.
+            completion_record, created = CoachSessionCompletion.objects.get_or_create(
+                session_id=session_id,
+                coach_id=coach_id,
+            )
+            completion_record.actual_duration_minutes = int(duration)
+            completion_record.save()
+            # --- END OF FIX ---
+
+        return JsonResponse({'status': 'success', 'message': 'Duration updated.'})
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid data.'}, status=400)
+    except SessionCoach.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Assignment not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'An unexpected error occurred: {str(e)}'}, status=500)
+
 
 def confirm_attendance(request, session_id, token):
     """
@@ -1307,3 +1366,4 @@ def decline_all_for_day_reason(request, date_str, token):
         'date_str': date_str,
     }
     return render(request, 'scheduling/decline_all_reason_form.html', context)
+

@@ -11,6 +11,8 @@ urlpatterns = [
     # We will add our app-specific URLs here later.
     path('staffing/', views.session_staffing, name='session_staffing'),
     path('api/assign-coaches/', views.assign_coaches_ajax, name='assign_coaches_ajax'),
+
+    path('api/update-coach-duration/', views.update_coach_duration_ajax, name='update_coach_duration_ajax'),
     
     path('session/<int:session_id>/', views.session_detail, name='session_detail'),
 

@@ -9,7 +9,7 @@ from .session_generation_service import generate_sessions_for_rules
 
 from .models import (
     Venue, Drill, DrillTag, Session, ScheduledClass,
-    CoachAvailability, Event,
+    CoachAvailability, Event, SessionCoach, 
 )
 
 @admin.register(Venue)
@@ -30,15 +30,22 @@ class DrillAdmin(admin.ModelAdmin):
     search_fields = ('name', 'description', 'tags__name')
     filter_horizontal = ('tags',)
 
+class SessionCoachInline(admin.TabularInline):
+    model = SessionCoach
+    extra = 1
+    autocomplete_fields = ['coach']
+    fields = ('coach', 'coaching_duration_minutes')
+
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
     list_display = ('__str__', 'session_date', 'session_start_time', 'school_group', 'venue', 'is_cancelled', 'status')
     list_filter = ('session_date', 'is_cancelled', 'venue', 'school_group', 'status')
     search_fields = ('notes', 'school_group__name', 'venue__name')
     date_hierarchy = 'session_date'
-    filter_horizontal = ('coaches_attending', 'attendees',)
+    filter_horizontal = ('attendees',)
     autocomplete_fields = ['venue', 'school_group']
     actions = ['start_session_now']
+    inlines = [SessionCoachInline]
     
     exclude = ('plan',)
 
