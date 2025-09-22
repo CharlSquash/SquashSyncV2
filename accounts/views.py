@@ -18,6 +18,8 @@ from scheduling.models import Session
 from assessments.models import SessionAssessment, GroupAssessment, AssessmentComment
 from assessments.forms import AssessmentCommentForm
 from finance.models import CoachSessionCompletion
+# Import the payslip service
+from finance.payslip_services import get_payslip_data_for_coach
 
 def is_superuser(user):
     return user.is_superuser
@@ -108,11 +110,6 @@ def accept_invitation(request, token):
 
 @login_required
 def coach_profile(request, coach_id=None):
-    """
-    Displays a profile for a coach.
-    - If coach_id is provided, an admin is viewing a specific coach's profile.
-    - If coach_id is None, the logged-in coach is viewing their own profile.
-    """
     if request.method == 'POST' and request.user.is_superuser:
         comment_form = AssessmentCommentForm(request.POST)
         if comment_form.is_valid():
@@ -130,29 +127,26 @@ def coach_profile(request, coach_id=None):
                 messages.success(request, "Comment added to group assessment.")
 
             comment.save()
-            
-            # Redirect to the same page to show the new comment and avoid form resubmission
             return redirect(request.path_info)
     else:
         comment_form = AssessmentCommentForm()
         
     target_coach = None
+    viewing_own_profile = False
 
     if coach_id:
-        # Superusers can view any coach profile
         if not request.user.is_superuser:
             messages.error(request, "You are not authorized to view this profile.")
             return redirect('scheduling:homepage')
         target_coach = get_object_or_404(Coach, pk=coach_id)
     else:
-        # Coaches view their own profile
         try:
             target_coach = request.user.coach_profile
+            viewing_own_profile = True
         except Coach.DoesNotExist:
             messages.error(request, "Your user account is not linked to a Coach profile.")
             return redirect('scheduling:homepage')
 
-    # --- UPDATED DATA FETCHING LOGIC ---
     completed_sessions = CoachSessionCompletion.objects.filter(
         coach=target_coach,
         assessments_submitted=True
@@ -161,7 +155,6 @@ def coach_profile(request, coach_id=None):
     ).order_by('-session__session_date', '-session__session_start_time')
 
     sessions_attended = [comp.session for comp in completed_sessions]
-
     two_weeks_ago = timezone.now().date() - timedelta(weeks=2)
 
     player_assessments_made = SessionAssessment.objects.filter(
@@ -180,14 +173,27 @@ def coach_profile(request, coach_id=None):
         Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
     ).order_by('-assessment_datetime')
 
+    payslip_data = None
+    if viewing_own_profile:
+        today = timezone.now().date()
+        payslip_data = get_payslip_data_for_coach(
+            coach_id=target_coach.id,
+            year=today.year,
+            month=today.month
+        )
+
     context = {
         'coach': target_coach,
-        'viewing_own_profile': target_coach.user == request.user,
+        'viewing_own_profile': viewing_own_profile,
         'sessions_attended': sessions_attended,
         'player_assessments_made': player_assessments_made,
         'group_assessments_made': group_assessments_made,
         'two_weeks_ago': two_weeks_ago,
         'comment_form': comment_form,
-        'page_title': f"Coach Profile: {target_coach.user.get_full_name()}"
+        'page_title': f"Coach Profile: {target_coach.user.get_full_name()}",
+        'payslip_data': payslip_data,
+        'selected_coach_id': target_coach.id,
     }
+    # THIS IS THE FIX: The path is now correct.
     return render(request, 'accounts/coach_profile.html', context)
+

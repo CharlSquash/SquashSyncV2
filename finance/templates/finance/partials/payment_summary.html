@@ -1,8 +1,5 @@
 {% if selected_coach_id and payslip_data %}
-<div class="card my-4" id="payment-summary-card">
-    <div class="card-header bg-primary text-white">
-        <h4 class="mb-0">Payment Calculation for {{ payslip_data.coach_name }}</h4>
-    </div>
+<div class="card my-4">
     <div class="card-body">
         <dl class="row mb-0">
             <dt class="col-sm-4">Total Hours Worked</dt>
@@ -27,8 +24,5 @@
         </dl>
     </div>
 </div>
-{% else %}
-<div id="payment-summary-card">
-    <!-- Empty div so JavaScript has a target to replace -->
-</div>
 {% endif %}
+

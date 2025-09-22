@@ -86,8 +86,32 @@
 
         <div class="row">
             <div class="col-md-6">
-                <div class="card shadow-sm profile-section-card">
+
+                <!-- Payment Calculation Card -->
+                {% if viewing_own_profile %}
+                <div class="card shadow-sm profile-section-card mb-3">
                     <details open>
+                        <summary>
+                            <span class="summary-title"><i class="bi bi-wallet2"></i>Current Month Payment Summary</span>
+                            <span class="summary-arrow"></span>
+                        </summary>
+                        <div class="details-content p-0">
+                            {% if payslip_data %}
+                                <div class="card-body pt-0">
+                                    {% include 'finance/partials/payment_summary.html' %}
+                                </div>
+                            {% else %}
+                                <div class="p-3 text-muted text-center">
+                                    No payment data available for the current month yet.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </details>
+                </div>
+                {% endif %}
+
+                <div class="card shadow-sm profile-section-card">
+                    <details {% if not viewing_own_profile %}open{% endif %}>
                         <summary>
                             <span class="summary-title"><i class="bi bi-collection-play"></i>Completed Sessions ({{ sessions_attended|length }})</span>
                             <span class="summary-arrow"></span>
@@ -111,8 +135,10 @@
                         </div>
                     </details>
                 </div>
+            </div>
 
-                <div class="card shadow-sm profile-section-card mt-3">
+            <div class="col-md-6">
+                <div class="card shadow-sm profile-section-card">
                     <details>
                         <summary>
                             <span class="summary-title"><i class="bi bi-person-check"></i>Recent Player Assessments ({{ player_assessments_made.count }})</span>
@@ -158,7 +184,8 @@
                         </div>
                     </details>
                 </div>
-                 <div class="card shadow-sm profile-section-card mt-3">
+
+                <div class="card shadow-sm profile-section-card mt-3">
                     <details>
                         <summary>
                             <span class="summary-title"><i class="bi bi-journals"></i>Recent Group Assessments ({{ group_assessments_made.count }})</span>
@@ -204,10 +231,7 @@
                         </div>
                     </details>
                 </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="card shadow-sm profile-section-card">
+                <div class="card shadow-sm profile-section-card mt-3">
                     <details>
                         <summary>
                             <span class="summary-title"><i class="bi bi-award-fill"></i>Qualifications & Experience</span>
@@ -228,7 +252,7 @@
                     </details>
                 </div>
                  <div class="card shadow-sm profile-section-card mt-3">
-                    <details open>
+                    <details>
                         <summary>
                             <span class="summary-title"><i class="bi bi-calendar2-week"></i>Availability Summary</span>
                             <span class="summary-arrow"></span>
@@ -246,3 +270,4 @@
     {% endif %}
 </div>
 {% endblock %}
+
