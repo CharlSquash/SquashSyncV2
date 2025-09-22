@@ -52,7 +52,7 @@
 
     {% if completion_records %}
         <div class="table-responsive">
-            <table class="report-table">
+            <table class="report-table table table-striped" id="completion-table">
                 <thead>
                     <tr>
                         <th>Session Date</th>
@@ -66,7 +66,7 @@
                 </thead>
                 <tbody>
                     {% for record in completion_records %}
-                        <tr>
+                        <tr id="completion-row-{{ record.id }}">
                             <td>{{ record.session.session_date|date:"Y-m-d" }}</td>
                             <td>
                                 {{ record.session.school_group.name|default:"General Session" }}
@@ -80,53 +80,35 @@
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <form method="post" action="{% url 'finance:completion_report' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="completion_id" value="{{ record.id }}">
-                                    <input type="hidden" name="action" value="update_duration">
-                                    <input type="hidden" name="filter_month" value="{{ selected_month }}">
-                                    <input type="hidden" name="filter_year" value="{{ selected_year }}">
-                                    <input type="hidden" name="filter_coach" value="{{ selected_coach_id|default:'' }}">
-                                    <input type="number" name="duration" value="{{ record.actual_duration_minutes }}" style="width: 70px; text-align: center;" class="form-control form-control-sm d-inline-block">
-                                    <button type="submit" class="btn btn-secondary btn-sm" title="Update Duration">Update</button>
-                                </form>
+                                {% if record.session_coach %}
+                                    <input type="number" class="form-control form-control-sm d-inline-block duration-input" 
+                                           value="{{ record.session_coach.coaching_duration_minutes }}" 
+                                           data-session-coach-id="{{ record.session_coach.id }}"
+                                           style="width: 80px; text-align: center;"
+                                           min="15" step="15">
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
                             </td>
-                            <td class="text-center">
+                            <td class="text-center" data-col="assessments-submitted">
                                 {% if record.assessments_submitted %}
                                     <i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>
                                 {% else %}
                                     <i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>
                                 {% endif %}
                             </td>
-                            <td class="text-center">
+                            <td class="text-center" data-col="payment-confirmed">
                                 {% if record.confirmed_for_payment %}
                                     <i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>
                                 {% else %}
                                     <i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>
                                 {% endif %}
                             </td>
-                            <td class="actions text-center">
-                                {% if not record.confirmed_for_payment %}
-                                <form method="post" action="{% url 'finance:completion_report' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="completion_id" value="{{ record.id }}">
-                                    <input type="hidden" name="action" value="confirm">
-                                    <input type="hidden" name="filter_month" value="{{ selected_month }}">
-                                    <input type="hidden" name="filter_year" value="{{ selected_year }}">
-                                    <input type="hidden" name="filter_coach" value="{{ selected_coach_id|default:'' }}">
-                                    <button type="submit" class="btn btn-confirm btn-sm" title="Manually Confirm Payment">Confirm</button>
-                                </form>
-                                {% endif %}
+                            <td class="actions text-center" data-col="actions">
                                 {% if record.confirmed_for_payment %}
-                                <form method="post" action="{% url 'finance:completion_report' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="completion_id" value="{{ record.id }}">
-                                    <input type="hidden" name="action" value="unconfirm">
-                                    <input type="hidden" name="filter_month" value="{{ selected_month }}">
-                                    <input type="hidden" name="filter_year" value="{{ selected_year }}">
-                                    <input type="hidden" name="filter_coach" value="{{ selected_coach_id|default:'' }}">
-                                    <button type="submit" class="btn btn-unconfirm btn-sm" title="Remove Payment Confirmation">Un-confirm</button>
-                                </form>
+                                    <button class="btn btn-unconfirm btn-sm confirmation-btn" data-action="unconfirm" data-id="{{ record.id }}">Un-confirm</button>
+                                {% else %}
+                                    <button class="btn btn-confirm btn-sm confirmation-btn" data-action="confirm" data-id="{{ record.id }}">Confirm</button>
                                 {% endif %}
                             </td>
                         </tr>
@@ -140,35 +122,125 @@
         </div>
     {% endif %}
 
-    {% if selected_coach_id and payslip_data %}
-    <div class="card my-4">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">Payment Calculation for {{ payslip_data.coach_name }}</h4>
-        </div>
-        <div class="card-body">
-            <dl class="row mb-0">
-                <dt class="col-sm-4">Total Hours Worked</dt>
-                <dd class="col-sm-8">{{ payslip_data.total_hours_str }} ({{ payslip_data.total_hours_decimal }} decimal)</dd>
-
-                <dt class="col-sm-4">Base Pay Calculation</dt>
-                <dd class="col-sm-8">
-                    R{{ payslip_data.hourly_rate }} x {{ payslip_data.total_hours_decimal }} hours = <strong>R{{ payslip_data.total_base_pay }}</strong>
-                </dd>
-
-                {% if payslip_data.total_bonus_amount > 0 %}
-                <dt class="col-sm-4">Bonus Pay Calculation</dt>
-                <dd class="col-sm-8">
-                    {{ payslip_data.bonus_calculation_str }} = <strong>R{{ payslip_data.total_bonus_amount }}</strong>
-                </dd>
-                {% endif %}
-            </dl>
-            <hr>
-            <dl class="row">
-                <dt class="col-sm-4 fs-5">Grand Total Pay</dt>
-                <dd class="col-sm-8 fs-5"><strong>R{{ payslip_data.total_pay }}</strong></dd>
-            </dl>
-        </div>
+    <div id="payment-summary-container">
+        {% include 'finance/partials/payment_summary.html' %}
     </div>
-    {% endif %}
 </div>
 {% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrfToken = getCookie('csrftoken');
+
+    const completionTable = document.getElementById('completion-table');
+    const paymentSummaryContainer = document.getElementById('payment-summary-container');
+
+    function updatePaymentSummary(html) {
+        if (paymentSummaryContainer) {
+            paymentSummaryContainer.innerHTML = html;
+        }
+    }
+
+    if (completionTable) {
+        // --- Event listener for confirmation buttons ---
+        completionTable.addEventListener('click', function(event) {
+            const button = event.target.closest('.confirmation-btn');
+            if (!button) return;
+
+            event.preventDefault();
+            const completionId = button.dataset.id;
+            const url = `/finance/completion/${completionId}/toggle-confirmation/`;
+            
+            button.disabled = true;
+
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const row = document.getElementById(`completion-row-${completionId}`);
+                    if (!row) return;
+
+                    const confirmedCell = row.querySelector('[data-col="payment-confirmed"]');
+                    const actionsCell = row.querySelector('[data-col="actions"]');
+
+                    if (data.new_state === true) {
+                        confirmedCell.innerHTML = '<i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>';
+                        actionsCell.innerHTML = `<button class="btn btn-unconfirm btn-sm confirmation-btn" data-action="unconfirm" data-id="${completionId}">Un-confirm</button>`;
+                    } else {
+                        confirmedCell.innerHTML = '<i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>';
+                        actionsCell.innerHTML = `<button class="btn btn-confirm btn-sm confirmation-btn" data-action="confirm" data-id="${completionId}">Confirm</button>`;
+                    }
+                    
+                    updatePaymentSummary(data.payment_summary_html);
+                } else {
+                    alert('Error: ' + data.message);
+                    button.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred.');
+                button.disabled = false;
+            });
+        });
+
+        // --- Event listener for auto-updating duration input ---
+        let durationTimeout;
+        completionTable.addEventListener('input', function(event) {
+            const input = event.target.closest('.duration-input');
+            if (!input) return;
+            
+            input.classList.remove('is-valid', 'is-invalid');
+
+            clearTimeout(durationTimeout);
+            durationTimeout = setTimeout(() => {
+                const sessionCoachId = input.dataset.sessionCoachId;
+                const duration = input.value;
+                const url = `/finance/session-coach/${sessionCoachId}/update-duration/`;
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ duration: duration })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updatePaymentSummary(data.payment_summary_html);
+                        input.classList.add('is-valid');
+                        setTimeout(() => input.classList.remove('is-valid'), 2000);
+                    } else {
+                        console.error('Error updating duration:', data.message);
+                        input.classList.add('is-invalid');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    input.classList.add('is-invalid');
+                });
+            }, 1000); // Wait 1 second after user stops typing
+        });
+    }
+});
+</script>
+{% endblock %}
+
