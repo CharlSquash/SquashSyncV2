@@ -12,13 +12,6 @@ class CoachSessionCompletion(models.Model):
     assessments_submitted = models.BooleanField(default=False, help_text="Coach has submitted all required player assessments.")
     confirmed_for_payment = models.BooleanField(default=False, help_text="Admin has verified and confirmed for payment.")
     
-    # NEW FIELD
-    actual_duration_minutes = models.PositiveIntegerField(
-        null=True, blank=True,
-        validators=[MinValueValidator(1)],
-        help_text="The final, confirmed duration in minutes for which the coach will be paid."
-    )
-    
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:

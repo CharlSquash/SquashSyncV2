@@ -56,6 +56,7 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
     total_base_pay_for_sessions = Decimal('0.00')
     total_bonus_amount_for_sessions = Decimal('0.00')
     bonus_session_details_list = []
+    bonus_session_count = 0  # <-- NEW: Initialize bonus session counter
 
     bonus_qualifying_time = getattr(settings, 'BONUS_SESSION_START_TIME', datetime.time(6, 0, 0))
     bonus_amount_value = getattr(settings, 'BONUS_SESSION_AMOUNT', 0.00)
@@ -64,11 +65,7 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
     for completion in completions:
         session_obj = completion.session
         
-        # --- THIS IS THE FIX ---
-        # Use the actual duration from the completion record for payment calculation.
-        # Default to 0 if the value is None to prevent errors.
         duration_minutes = Decimal(completion.actual_duration_minutes or 0)
-        # --- END OF FIX ---
         
         pay_for_session_base = (duration_minutes / Decimal('60.0')) * coach_hourly_rate
         total_base_pay_for_sessions += pay_for_session_base
@@ -85,6 +82,7 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
         if session_start_time_obj and session_start_time_obj == bonus_qualifying_time:
             current_session_bonus = decimal_bonus_amount_value
             total_bonus_amount_for_sessions += current_session_bonus
+            bonus_session_count += 1  # <-- NEW: Increment bonus session counter
             bonus_session_details_list.append({
                 'date': session_obj.session_date,
                 'reason': "Bonus for specific session",
@@ -118,6 +116,11 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
         month_name = datetime.datetime(year, month, 1).strftime('%B')
     except ValueError: 
         month_name = f"Month({month})"
+        
+    # --- NEW: Bonus Calculation String ---
+    bonus_calculation_str = ""
+    if bonus_session_count > 0:
+        bonus_calculation_str = f"{bonus_session_count} session{'s' if bonus_session_count > 1 else ''} x R{decimal_bonus_amount_value.quantize(Decimal('0.01'))}"
 
     return {
         'coach_name': coach_display_name,
@@ -129,6 +132,7 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
         'total_hours_decimal': total_hours_decimal,
         'total_base_pay': total_base_pay_for_sessions.quantize(Decimal('0.01')),
         'total_bonus_amount': total_bonus_amount_for_sessions.quantize(Decimal('0.01')),
+        'bonus_calculation_str': bonus_calculation_str, # <-- NEW: Add to dictionary
         'bonus_details_list': bonus_session_details_list, 
         'total_pay': grand_total_pay, 
         'generation_date': timezone.now().date(), 
@@ -287,5 +291,3 @@ def create_all_payslips_for_period(year: int, month: int, generating_user_id: in
         'summary_message': summary_message,
         'details': detailed_messages
     }
-
-

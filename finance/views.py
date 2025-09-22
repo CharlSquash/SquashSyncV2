@@ -7,7 +7,6 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import date, timedelta
 import calendar
-from django.db.models import ExpressionWrapper, F, DateTimeField
 
 # Import models from their correct new app locations
 from .models import CoachSessionCompletion
@@ -24,13 +23,13 @@ def is_superuser(user):
 def completion_report(request):
     """
     Admin report to view and confirm coach session completions for payment.
-    This view now automatically creates completion records for past, finished sessions.
+    The duration is now edited directly on the SessionCoach model.
     """
     if request.method == 'POST':
-        completion_id = request.POST.get('completion_id')
+        # --- POST handling is updated to modify SessionCoach ---
         action = request.POST.get('action')
-        duration = request.POST.get('duration') # Corrected name
 
+        # Build the redirect URL with existing filters to maintain user context
         redirect_url = reverse('finance:completion_report')
         query_params = {}
         if request.POST.get('filter_month') and request.POST.get('filter_year'):
@@ -38,31 +37,33 @@ def completion_report(request):
             query_params['year'] = request.POST.get('filter_year')
         if request.POST.get('filter_coach'):
             query_params['coach'] = request.POST.get('filter_coach')
-        
         if query_params:
             redirect_url += '?' + '&'.join([f'{k}={v}' for k, v in query_params.items()])
 
         try:
-            completion_record = get_object_or_404(CoachSessionCompletion, pk=int(completion_id))
-            
-            if action == 'confirm':
-                completion_record.confirmed_for_payment = True
-                messages.success(request, f"Payment confirmed for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
-            elif action == 'unconfirm':
-                completion_record.confirmed_for_payment = False
-                messages.warning(request, f"Payment confirmation removed for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
+            if action in ['confirm', 'unconfirm']:
+                completion_id = request.POST.get('completion_id')
+                completion_record = get_object_or_404(CoachSessionCompletion, pk=int(completion_id))
+                if action == 'confirm':
+                    completion_record.confirmed_for_payment = True
+                    messages.success(request, f"Payment confirmed for {completion_record.coach.name}.")
+                else: # unconfirm
+                    completion_record.confirmed_for_payment = False
+                    messages.warning(request, f"Payment confirmation removed for {completion_record.coach.name}.")
+                completion_record.save()
+
             elif action == 'update_duration':
-                try:
-                    completion_record.actual_duration_minutes = int(duration)
-                    messages.success(request, f"Updated duration for {completion_record.coach.user.get_full_name()} for session on {completion_record.session.session_date.strftime('%d %b %Y')}.")
-                except (ValueError, TypeError):
-                    messages.error(request, "Invalid duration provided.")
+                session_coach_id = request.POST.get('session_coach_id')
+                duration = request.POST.get('duration')
+                session_coach = get_object_or_404(SessionCoach, pk=int(session_coach_id))
+                session_coach.coaching_duration_minutes = int(duration)
+                session_coach.save()
+                messages.success(request, f"Updated duration for {session_coach.coach.name}.")
+                
             else:
                 messages.error(request, "Invalid action specified.")
-                return redirect(redirect_url)
-            
-            completion_record.save()
-        except (ValueError, CoachSessionCompletion.DoesNotExist):
+
+        except (ValueError, CoachSessionCompletion.DoesNotExist, SessionCoach.DoesNotExist):
             messages.error(request, "Invalid request or record not found.")
         
         return redirect(redirect_url)
@@ -87,46 +88,45 @@ def completion_report(request):
     start_date = date(target_year, target_month, 1)
     end_date = date(target_year, target_month, num_days)
 
-    # --- REVISED: Auto-create completion records ---
-    sessions_in_period = Session.objects.filter(
+    # --- SIMPLIFIED: Auto-create completion records if they don't exist ---
+    # No duration logic needed here anymore.
+    finished_sessions_in_period = Session.objects.filter(
         session_date__gte=start_date,
         session_date__lte=end_date,
-        is_cancelled=False
+        is_cancelled=False,
+        session_start_time__lt=now_aware.time() if today >= start_date and today <= end_date else '23:59:59'
     ).prefetch_related('sessioncoach_set__coach')
 
-    finished_sessions_in_period = []
-    for session in sessions_in_period:
-        if session.end_datetime and session.end_datetime < now_aware:
-            finished_sessions_in_period.append(session)
-
-    # --- THIS IS THE FIX ---
     for session in finished_sessions_in_period:
         for session_coach in session.sessioncoach_set.all():
-            completion_record, created = CoachSessionCompletion.objects.get_or_create(
+            CoachSessionCompletion.objects.get_or_create(
                 coach=session_coach.coach,
                 session=session
             )
-            
-            # If the record was just created or its duration is empty,
-            # populate it from the planned duration on the staffing page.
-            if created or completion_record.actual_duration_minutes is None:
-                completion_record.actual_duration_minutes = session_coach.coaching_duration_minutes
-                completion_record.save()
-    # --- END OF FIX ---
 
+    # --- Fetch all records for the report, now including the related SessionCoach ---
     completion_records = CoachSessionCompletion.objects.filter(
         session__session_date__gte=start_date,
         session__session_date__lte=end_date
     ).select_related(
         'coach__user', 'session__school_group'
+    ).prefetch_related(
+        'session__sessioncoach_set' # Prefetch the through model
     ).order_by(
-        'session__session_date', 'session__session_start_time', 'coach__user__first_name'
+        'session__session_date', 'session__session_start_time', 'coach__name'
     )
 
     payslip_data = None
     if target_coach_id:
         completion_records = completion_records.filter(coach__id=target_coach_id)
         payslip_data = get_payslip_data_for_coach(int(target_coach_id), target_year, target_month)
+
+    # Attach the session_coach object to each completion record for easy access in the template
+    for record in completion_records:
+        for sc in record.session.sessioncoach_set.all():
+            if sc.coach_id == record.coach_id:
+                record.session_coach = sc
+                break
 
     all_coaches = Coach.objects.filter(is_active=True).select_related('user')
 
@@ -144,4 +144,3 @@ def completion_report(request):
         'payslip_data': payslip_data,
     }
     return render(request, 'finance/completion_report.html', context)
-

@@ -156,8 +156,10 @@
                 </dd>
 
                 {% if payslip_data.total_bonus_amount > 0 %}
-                <dt class="col-sm-4">Bonuses</dt>
-                <dd class="col-sm-8">+ R{{ payslip_data.total_bonus_amount }}</dd>
+                <dt class="col-sm-4">Bonus Pay Calculation</dt>
+                <dd class="col-sm-8">
+                    {{ payslip_data.bonus_calculation_str }} = <strong>R{{ payslip_data.total_bonus_amount }}</strong>
+                </dd>
                 {% endif %}
             </dl>
             <hr>
@@ -170,4 +172,3 @@
     {% endif %}
 </div>
 {% endblock %}
-
