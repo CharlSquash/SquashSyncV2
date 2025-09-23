@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 import datetime
 from datetime import timedelta
 
-from .models import AttendanceTracking
+from .models import AttendanceTracking, SessionCoach
 from players.models import Player
 
 
@@ -77,10 +77,26 @@ def send_consolidated_session_reminder_email(user, sessions_by_day, is_reminder=
     }
 
     for day, sessions in sessions_by_day.items():
+        # --- THIS IS THE FIX ---
+        # We need to fetch the specific coaching duration for each session.
+        session_details = []
+        for session in sorted(sessions, key=lambda s: s.session_start_time):
+            try:
+                session_coach = SessionCoach.objects.get(session=session, coach__user=user)
+                duration = session_coach.coaching_duration_minutes
+            except SessionCoach.DoesNotExist:
+                duration = session.planned_duration_minutes
+            
+            session_details.append({
+                'session_obj': session,
+                'duration': duration,
+            })
+        # --- END OF FIX ---
+        
         token = create_bulk_confirmation_token(user.id, day)
         date_str = day.strftime('%Y-%m-%d')
         context['sessions_by_day'][day] = {
-            'sessions': sorted(sessions, key=lambda s: s.session_start_time),
+            'sessions': session_details, # Use the new list with durations
             'confirm_url': site_url + reverse('scheduling:confirm_all_for_day', args=[date_str, token]),
             'decline_url': site_url + reverse('scheduling:decline_all_for_day_reason', args=[date_str, token]),
         }

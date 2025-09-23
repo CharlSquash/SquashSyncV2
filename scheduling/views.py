@@ -138,25 +138,31 @@ def homepage(request):
                 if not has_set_availability:
                     show_bulk_availability_reminder = True
 
-            # --- Upcoming sessions logic (remains the same) ---
+            # --- THIS IS THE FIX ---
             upcoming_coach_sessions = Session.objects.filter(
                 coaches_attending=coach,
                 session_date__gte=today,
                 is_cancelled=False
             ).prefetch_related(
-                Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability')
+                Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability'),
+                Prefetch('sessioncoach_set', queryset=SessionCoach.objects.filter(coach=coach), to_attr='my_session_coach_assignment')
             ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')[:5]
 
             for session in upcoming_coach_sessions:
                 availability = session.my_availability[0] if session.my_availability else None
+                assignment = session.my_session_coach_assignment[0] if session.my_session_coach_assignment else None
+
                 status = "PENDING"
                 if availability and availability.last_action:
                     status = availability.last_action
+                
                 show_actions = session.session_date <= (today + timedelta(days=1))
+                
                 sessions_for_coach_card.append({
                     'session': session,
                     'status': status,
                     'show_actions': show_actions,
+                    'duration': assignment.coaching_duration_minutes if assignment else session.planned_duration_minutes,
                 })
 
             # --- Pending assessment logic (remains the same) ---

@@ -1,3 +1,4 @@
+{# scheduling/templates/scheduling/homepage.html #}
 {% extends "base.html" %}
 {% load static %}
 
@@ -41,8 +42,8 @@
                         {% for item in sessions_for_coach_card %}
                             <li class="confirmation-item">
                                 <div class="session-info">
-                                    <a href="{% url 'scheduling:session_detail' item.session.id %}" class="session-info-link">
-                                        <strong>{{ item.session.session_date|date:"l, d M" }} @ {{ item.session.session_start_time|time:"H:i" }}</strong>
+                                    <a href="{% url 'scheduling:session_detail' item.session.id %}" class="session-info-link" title="Click to view session plan">
+                                        <strong>{{ item.session.session_date|date:"l, d M" }} @ {{ item.session.session_start_time|time:"H:i" }} ({{ item.duration }} min)</strong>
                                         <span class="group-name">{{ item.session.school_group.name|default:"General Session" }}</span>
                                         <small class="venue-name text-muted">{{ item.session.venue.name|default:"No venue" }}</small>
                                     </a>
