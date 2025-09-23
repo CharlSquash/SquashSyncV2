@@ -1626,3 +1626,91 @@ html.dark-mode .pending-session-card.is-complete {
     font-size: 0.8em;
     color: var(--subheading-color);
 }
+
+/*
+=================================
+Coach Confirmation Card Styles (NEW V3)
+=================================
+*/
+
+.upcoming-sessions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.upcoming-session-card {
+    background-color: var(--container-light-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.upcoming-session-card:hover {
+    border-color: var(--link-color);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.upcoming-session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.upcoming-session-title {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--heading-color);
+    border-bottom: none;
+    font-weight: 600;
+}
+
+.upcoming-session-status .badge {
+    font-size: 0.8em;
+    padding: 0.5em 0.75em;
+}
+
+.upcoming-session-details {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+    font-size: 0.9rem;
+    color: var(--subheading-color);
+}
+
+.upcoming-session-details li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.25rem;
+}
+
+.upcoming-session-details i {
+    color: var(--link-color);
+}
+
+/* --- Action Bar Styling --- */
+.upcoming-session-actions {
+    border-top: 1px solid var(--border-light);
+    padding-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem; /* Spacing between buttons */
+    align-items: center;
+    justify-content: flex-end; /* Aligns all buttons to the right */
+}
+
+/* The "View Plan" button will be on the far right */
+.upcoming-session-actions a.btn-primary {
+    margin-left: auto; /* This pushes it to the right of the other buttons */
+}
+
+/* Ensure icons in buttons align nicely */
+.upcoming-session-actions .btn i {
+    transition: transform 0.2s ease-in-out;
+}
+
+.upcoming-session-actions a.btn-primary:hover i {
+    transform: translateX(3px);
+}

@@ -1,4 +1,3 @@
-{# scheduling/templates/scheduling/homepage.html #}
 {% extends "base.html" %}
 {% load static %}
 
@@ -38,46 +37,42 @@
             </div>
             <div class="card-body">
                 {% if sessions_for_coach_card %}
-                    <ul class="list-unstyled">
+                    <p class="text-muted small fst-italic">Click 'View Plan' to prepare for your session and take attendance.</p>
+                    <div class="upcoming-sessions-container">
                         {% for item in sessions_for_coach_card %}
-                            <li class="confirmation-item">
-                                <div class="session-info">
-                                    <a href="{% url 'scheduling:session_detail' item.session.id %}" class="session-info-link" title="Click to view session plan">
-                                        <strong>{{ item.session.session_date|date:"l, d M" }} @ {{ item.session.session_start_time|time:"H:i" }} ({{ item.duration }} min)</strong>
-                                        <span class="group-name">{{ item.session.school_group.name|default:"General Session" }}</span>
-                                        <small class="venue-name text-muted">{{ item.session.venue.name|default:"No venue" }}</small>
-                                    </a>
-                                </div>
-                                {% if item.show_actions %}
-                                    <div class="confirmation-actions">
-                                        {% if item.status == 'PENDING' %}
-                                            <form action="{% url 'scheduling:dashboard_confirm' item.session.id %}" method="post" class="d-inline">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-sm btn-success">Confirm</button>
-                                            </form>
-                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#declineReasonModal-{{ item.session.id }}">
-                                                Decline
-                                            </button>
-                                        {% elif item.status == 'CONFIRM' %}
-                                            <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Confirmed</span>
-                                        {% elif item.status == 'DECLINE' %}
-                                            <span class="badge bg-danger"><i class="bi bi-x-circle-fill"></i> Declined</span>
-                                        {% endif %}
-                                    </div>
-                                {% else %}
-                                     <div class="confirmation-status">
+                            <div class="upcoming-session-card">
+                                <div class="upcoming-session-header">
+                                    <h4 class="upcoming-session-title">{{ item.session.school_group.name|default:"General Session" }}</h4>
+                                    <div class="upcoming-session-status">
                                         {% if item.status == 'CONFIRM' %}
                                             <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Confirmed</span>
                                         {% elif item.status == 'DECLINE' %}
                                             <span class="badge bg-danger"><i class="bi bi-x-circle-fill"></i> Declined</span>
-                                        {% else %}
-                                             <span class="badge bg-secondary"><i class="bi bi-hourglass-split"></i> Pending</span>
                                         {% endif %}
                                     </div>
-                                {% endif %}
-                            </li>
+                                </div>
+                                <ul class="upcoming-session-details">
+                                    <li><i class="bi bi-calendar-event"></i> {{ item.session.session_date|date:"l, d M Y" }}</li>
+                                    <li><i class="bi bi-clock"></i> {{ item.session.session_start_time|time:"H:i" }} ({{ item.duration }} min)</li>
+                                    <li><i class="bi bi-geo-alt"></i> {{ item.session.venue.name|default:"No venue" }}</li>
+                                </ul>
+                                <div class="upcoming-session-actions">
+                                    {% if item.show_actions and item.status == 'PENDING' %}
+                                        <form action="{% url 'scheduling:dashboard_confirm' item.session.id %}" method="post" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
+                                        </form>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#declineReasonModal-{{ item.session.id }}">
+                                            Decline
+                                        </button>
+                                    {% endif %}
+                                    <a href="{% url 'scheduling:session_detail' item.session.id %}" class="btn btn-primary btn-sm">
+                                        View Plan <i class="bi bi-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
                         {% endfor %}
-                    </ul>
+                    </div>
                 {% else %}
                     <p class="no-data-message">You have no upcoming sessions assigned.</p>
                 {% endif %}
