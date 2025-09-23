@@ -1,3 +1,4 @@
+{# charlsquash/squashsyncv2/SquashSyncV2-temp-sharing-for-gemini/accounts/templates/accounts/coach_profile.html #}
 {% extends "base.html" %}
 {% load static %}
 {% load crispy_forms_tags %}
@@ -87,22 +88,28 @@
         <div class="row">
             <div class="col-md-6">
 
-                <!-- Payment Calculation Card -->
                 {% if viewing_own_profile %}
                 <div class="card shadow-sm profile-section-card mb-3">
-                    <details open>
+                    <details>
                         <summary>
-                            <span class="summary-title"><i class="bi bi-wallet2"></i>Current Month Payment Summary</span>
+                            <span class="summary-title"><i class="bi bi-wallet2"></i>Payment Summary for {{ selected_month_name }} {{ selected_year }}</span>
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content p-0">
+                            <div class="p-3 border-bottom">
+                                <form method="GET" class="row g-2 align-items-end">
+                                    <div class="col-6">{{ payslip_filter_form.month|as_crispy_field }}</div>
+                                    <div class="col-4">{{ payslip_filter_form.year|as_crispy_field }}</div>
+                                    <div class="col-2"><button type="submit" class="btn btn-secondary w-100">View</button></div>
+                                </form>
+                            </div>
                             {% if payslip_data %}
-                                <div class="card-body pt-0">
+                                <div class="card-body pt-3">
                                     {% include 'finance/partials/payment_summary.html' %}
                                 </div>
                             {% else %}
                                 <div class="p-3 text-muted text-center">
-                                    No payment data available for the current month yet.
+                                    No payment data available for the selected period.
                                 </div>
                             {% endif %}
                         </div>
@@ -270,4 +277,3 @@
     {% endif %}
 </div>
 {% endblock %}
-

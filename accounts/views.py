@@ -11,9 +11,10 @@ from django.urls import reverse
 from django.contrib.auth import login
 from django.contrib.auth import get_user_model
 from django.db.models import Prefetch
+import calendar
 
 from .models import Coach, CoachInvitation
-from .forms import CoachInvitationForm, CoachRegistrationForm
+from .forms import CoachInvitationForm, CoachRegistrationForm, MonthYearFilterForm
 from scheduling.models import Session
 from assessments.models import SessionAssessment, GroupAssessment, AssessmentComment
 from assessments.forms import AssessmentCommentForm
@@ -173,13 +174,28 @@ def coach_profile(request, coach_id=None):
         Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
     ).order_by('-assessment_datetime')
 
+    # --- NEW: Payslip data logic with filter ---
     payslip_data = None
+    payslip_filter_form = None
+    selected_month_name = None
+    selected_year = None
+
     if viewing_own_profile:
         today = timezone.now().date()
+        
+        # Get year and month from GET request, with defaults
+        selected_year = int(request.GET.get('year', today.year))
+        selected_month = int(request.GET.get('month', today.month))
+        
+        # Initialize the form with the selected (or default) values
+        payslip_filter_form = MonthYearFilterForm(initial={'year': selected_year, 'month': selected_month})
+        
+        selected_month_name = calendar.month_name[selected_month]
+        
         payslip_data = get_payslip_data_for_coach(
             coach_id=target_coach.id,
-            year=today.year,
-            month=today.month
+            year=selected_year,
+            month=selected_month
         )
 
     context = {
@@ -191,9 +207,13 @@ def coach_profile(request, coach_id=None):
         'two_weeks_ago': two_weeks_ago,
         'comment_form': comment_form,
         'page_title': f"Coach Profile: {target_coach.user.get_full_name()}",
+        
+        # --- NEW: Add payslip context variables ---
         'payslip_data': payslip_data,
-        'selected_coach_id': target_coach.id,
+        'payslip_filter_form': payslip_filter_form,
+        'selected_month_name': selected_month_name,
+        'selected_year': selected_year,
+        'selected_coach_id': target_coach.id, # For the partial template
     }
-    # THIS IS THE FIX: The path is now correct.
     return render(request, 'accounts/coach_profile.html', context)
 
