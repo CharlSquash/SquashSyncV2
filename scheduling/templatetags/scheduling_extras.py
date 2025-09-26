@@ -32,6 +32,8 @@ def map_attribute(list_of_objects, attribute_name):
                     value = value.get(attr)
                 else:
                     value = getattr(value, attr)
+            # --- FIX: This line is now correctly indented ---
+            # It runs once per item, after all attributes have been traversed.
             result.append(value)
         except (AttributeError, TypeError):
             continue
