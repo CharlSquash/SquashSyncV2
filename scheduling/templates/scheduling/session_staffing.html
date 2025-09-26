@@ -130,7 +130,6 @@
                                             
                                             {% with assigned_coach_ids=item.assigned_coaches_with_status|map_attribute:'coach.id' available_coach_ids=item.available_coaches_for_assignment|map_attribute:'coach.id' %}
                                             
-                                            {# MODIFICATION: Switched to a responsive grid layout #}
                                             <div class="coach-assignment-grid">
                                                 <h6>Assigned & Available</h6>
                                                 {% for coach in all_coaches_for_form %}
