@@ -6,22 +6,29 @@
 
 {% block extra_head %}
 <style>
-    .coach-assignment-grid {
+    /* New: A grid for the two main columns: 'Assigned/Available' and 'Other' */
+    .assignment-columns {
         display: grid;
-        /* Create as many columns as can fit with a min-width of 200px */
+        grid-template-columns: minmax(220px, 1fr) 3fr; /* First column is 1 part, second is 3 parts */
+        gap: 1rem 2rem; /* row-gap column-gap */
+    }
+
+    /* The multi-column grid now applies ONLY to the 'Other Coaches' list */
+    .other-coaches-grid {
+        display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 0.25rem 1rem; /* row-gap column-gap */
     }
-    .coach-assignment-grid h6 {
-        /* Make the heading span all columns */
-        grid-column: 1 / -1;
+
+    /* Style for all headings within the assignment area */
+    .assignment-columns h6 {
         margin-top: 0.75rem;
         margin-bottom: 0.25rem;
         font-size: 0.9rem;
         font-weight: bold;
         color: var(--subheading-color);
     }
-    .coach-assignment-grid h6:first-child {
+    .assignment-columns h6:first-child {
         margin-top: 0;
     }
 </style>
@@ -130,36 +137,44 @@
                                             
                                             {% with assigned_coach_ids=item.assigned_coaches_with_status|map_attribute:'coach.id' available_coach_ids=item.available_coaches_for_assignment|map_attribute:'coach.id' %}
                                             
-                                            <div class="coach-assignment-grid">
-                                                <h6>Assigned & Available</h6>
-                                                {% for coach in all_coaches_for_form %}
-                                                    {% if coach.id in assigned_coach_ids or coach.id in available_coach_ids %}
-                                                        {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if coach.id in assigned_coach_ids %}checked{% endif %} {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
-                                                            <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
-                                                                {{ coach.name }}
-                                                                {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
-                                                            </label>
-                                                        </div>
-                                                        {% endwith %}
-                                                    {% endif %}
-                                                {% endfor %}
+                                            <div class="assignment-columns">
+                                                {# Column 1: Assigned & Available #}
+                                                <div>
+                                                    <h6>Assigned & Available</h6>
+                                                    {% for coach in all_coaches_for_form %}
+                                                        {% if coach.id in assigned_coach_ids or coach.id in available_coach_ids %}
+                                                            {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if coach.id in assigned_coach_ids %}checked{% endif %} {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
+                                                                <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
+                                                                    {{ coach.name }}
+                                                                    {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
+                                                                </label>
+                                                            </div>
+                                                            {% endwith %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
 
-                                                <h6>Other Coaches</h6>
-                                                {% for coach in all_coaches_for_form %}
-                                                    {% if coach.id not in assigned_coach_ids and coach.id not in available_coach_ids %}
-                                                        {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
-                                                            <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
-                                                                {{ coach.name }}
-                                                                {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
-                                                            </label>
-                                                        </div>
-                                                        {% endwith %}
-                                                    {% endif %}
-                                                {% endfor %}
+                                                {# Column 2: Other Coaches #}
+                                                <div>
+                                                    <h6>Other Coaches</h6>
+                                                    <div class="other-coaches-grid">
+                                                        {% for coach in all_coaches_for_form %}
+                                                            {% if coach.id not in assigned_coach_ids and coach.id not in available_coach_ids %}
+                                                                {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
+                                                                    <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
+                                                                        {{ coach.name }}
+                                                                        {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
+                                                                    </label>
+                                                                </div>
+                                                                {% endwith %}
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
                                             </div>
                                             
                                             {% endwith %}
