@@ -588,7 +588,6 @@ def session_calendar(request):
 
 @login_required
 def my_availability(request):
-    # This view has been significantly updated
     try:
         coach_profile = Coach.objects.get(user=request.user)
     except Coach.DoesNotExist:
@@ -599,18 +598,12 @@ def my_availability(request):
 
     if request.method == 'POST':
         updated_count = 0
-        
-        # --- Start of the fix ---
-        # Get all session IDs from the submitted form
         session_ids_in_form = [int(key.split('_')[-1]) for key in request.POST.keys() if key.startswith('availability_session_')]
-        
-        # Correctly fetch records and build a dictionary manually instead of using in_bulk
         existing_records_qs = CoachAvailability.objects.filter(
             coach=request.user, 
             session_id__in=session_ids_in_form
         )
         existing_availabilities = {record.session_id: record for record in existing_records_qs}
-        # --- End of the fix ---
 
         for key, value in request.POST.items():
             if key.startswith('availability_session_'):
@@ -620,13 +613,12 @@ def my_availability(request):
                 if value not in CoachAvailability.Status.values:
                     continue
 
-                # --- Comparison logic ---
                 existing_record = existing_availabilities.get(session_id)
                 current_status = existing_record.status if existing_record else CoachAvailability.Status.PENDING
                 current_notes = existing_record.notes if existing_record else ""
 
                 if value == current_status and notes == current_notes:
-                    continue # Skip if nothing has changed
+                    continue
 
                 try:
                     session = Session.objects.get(pk=session_id)
@@ -645,7 +637,7 @@ def my_availability(request):
         
         return redirect(f"{reverse('scheduling:my_availability')}?week={request.GET.get('week', '0')}")
 
-    # --- GET request handling (remains the same) ---
+    # --- GET REQUEST LOGIC (THIS IS THE CORRECTED PART) ---
     now = timezone.now()
     today = now.date()
     
@@ -657,36 +649,55 @@ def my_availability(request):
     start_of_this_week = today - timedelta(days=today.weekday())
     target_week_start = start_of_this_week + timedelta(weeks=week_offset)
     target_week_end = target_week_start + timedelta(days=6)
+    
+    # --- START OF FIX ---
+    
+    # 1. Define the prefetch object we will use.
+    my_availability_prefetch = Prefetch(
+        'coach_availabilities', 
+        queryset=CoachAvailability.objects.filter(coach=request.user), 
+        to_attr='my_availability'
+    )
 
+    # 2. Build the base queryset with the prefetch applied only ONCE.
     upcoming_sessions_qs = Session.objects.filter(
         session_date__gte=target_week_start,
         session_date__lte=target_week_end,
         is_cancelled=False
     ).select_related('school_group').prefetch_related(
         'coaches_attending',
-        Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability')
+        my_availability_prefetch  # Use the pre-defined prefetch object
     ).order_by('session_date', 'session_start_time')
 
+    # 3. Now, if we are a coach, we can safely iterate to create missing records.
+    #    The queryset is already final, so there's no risk of re-applying the prefetch.
     if coach_profile:
-        sessions_to_update_prefetch = []
+        # This loop now operates on a queryset that is already correctly defined.
         for session in upcoming_sessions_qs:
             is_assigned = coach_profile in session.coaches_attending.all()
+            # If assigned but no availability record exists, create one.
             if is_assigned and not session.my_availability:
+                # Create the record. Note: This will NOT be reflected in the current
+                # loop's 'session.my_availability' because the prefetch is already done.
+                # The data will be correct on the next page load, which is acceptable.
                 CoachAvailability.objects.get_or_create(
                     coach=request.user,
                     session=session,
-                    defaults={'status': CoachAvailability.Status.AVAILABLE}
+                    defaults={'status': CoachAvailability.Status.PENDING} # Default to PENDING
                 )
-                sessions_to_update_prefetch.append(session.id)
-        
-        if sessions_to_update_prefetch:
-            upcoming_sessions_qs = upcoming_sessions_qs.prefetch_related(
-                Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability')
-            )
+    
+    # --- END OF FIX ---
 
+    # The rest of the view logic for grouping and rendering remains the same.
     grouped_sessions = defaultdict(list)
     for session in upcoming_sessions_qs:
-        availability_info = session.my_availability[0] if session.my_availability else None
+        # We need to re-fetch my_availability for the created records
+        if not hasattr(session, 'my_availability') or not session.my_availability:
+             # This is a fallback for the session where we just created an availability.
+             availability_info_qs = CoachAvailability.objects.filter(coach=request.user, session=session)
+             availability_info = availability_info_qs.first()
+        else:
+            availability_info = session.my_availability[0] if session.my_availability else None
         
         is_assigned = coach_profile in session.coaches_attending.all() if coach_profile else False
         is_confirmed = availability_info.last_action == 'CONFIRM' if availability_info else False
@@ -698,6 +709,7 @@ def my_availability(request):
             'is_assigned': is_assigned,
             'is_confirmed': is_confirmed,
             'is_imminent': is_imminent,
+            'notes': availability_info.notes if availability_info else "", # Pass notes to template
             'group_description': session.school_group.description if session.school_group else ""
         }
         grouped_sessions[session.session_date.weekday()].append(session_data)
