@@ -63,6 +63,7 @@ def homepage(request):
 
     # --- Variables for the availability card ---
     show_bulk_availability_reminder = False
+    availability_all_set = False
     prompt_month_name = ""
     bulk_availability_url = ""
 
@@ -113,30 +114,37 @@ def homepage(request):
             coach = request.user.coach_profile
             four_weeks_ago = today - timedelta(weeks=4)
 
-            # --- UPDATED Logic for "My Availability" card reminder ---
-            month_to_check_date = None
+            # --- REVISED LOGIC FOR "My Availability" CARD ---
+            this_month_start = today.replace(day=1)
+            next_month_start = (this_month_start + timedelta(days=32)).replace(day=1)
 
-            # From the 1st to the 15th, remind for the CURRENT month.
-            if 1 <= today.day <= 15:
-                month_to_check_date = today.replace(day=1)
-                prompt_month_name = month_to_check_date.strftime('%B')
-            # From the 24th onwards, remind for the NEXT month.
-            elif today.day >= 24:
-                month_to_check_date = (today + timedelta(days=32)).replace(day=1)
-                prompt_month_name = month_to_check_date.strftime('%B')
+            # Check if availability is set for the current month
+            has_set_current_month = CoachAvailability.objects.filter(
+                coach=request.user,
+                session__session_date__year=this_month_start.year,
+                session__session_date__month=this_month_start.month,
+                status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
+            ).exists()
 
-            if month_to_check_date:
-                bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={month_to_check_date.strftime('%Y-%m')}"
+            # Check if availability is set for the next month
+            has_set_next_month = CoachAvailability.objects.filter(
+                coach=request.user,
+                session__session_date__year=next_month_start.year,
+                session__session_date__month=next_month_start.month,
+                status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
+            ).exists()
 
-                # Check if any availability has been set for the determined month
-                has_set_availability = CoachAvailability.objects.filter(
-                    coach=request.user,
-                    session__session_date__year=month_to_check_date.year,
-                    session__session_date__month=month_to_check_date.month
-                ).exists()
+            if not has_set_current_month:
+                show_bulk_availability_reminder = True
+                prompt_month_name = this_month_start.strftime('%B')
+                bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={this_month_start.strftime('%Y-%m')}"
+            elif not has_set_next_month:
+                show_bulk_availability_reminder = True
+                prompt_month_name = next_month_start.strftime('%B')
+                bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_start.strftime('%Y-%m')}"
+            else:
+                availability_all_set = True
 
-                if not has_set_availability:
-                    show_bulk_availability_reminder = True
 
             # --- THIS IS THE FIX ---
             upcoming_coach_sessions = Session.objects.filter(
@@ -195,6 +203,7 @@ def homepage(request):
         'recent_group_assessments': recent_group_assessments,
         'sessions_for_coach_card': sessions_for_coach_card,
         'show_bulk_availability_reminder': show_bulk_availability_reminder,
+        'availability_all_set': availability_all_set,
         'next_month_name': prompt_month_name,
         'bulk_availability_url': bulk_availability_url,
     }
