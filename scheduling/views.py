@@ -13,7 +13,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
-from django.db.models import Prefetch, F, ExpressionWrapper, DateTimeField, Exists, OuterRef
+from django.db.models import Prefetch, F, ExpressionWrapper, DateTimeField, Exists, OuterRef, Q
 from django.db import IntegrityError, transaction
 import time 
 
@@ -45,7 +45,6 @@ def is_staff(user):
 
 
 # scheduling/views.py
-
 @login_required
 def homepage(request):
     today = timezone.now().date()
@@ -113,6 +112,7 @@ def homepage(request):
         try:
             coach = request.user.coach_profile
             four_weeks_ago = today - timedelta(weeks=4)
+            tomorrow = today + timedelta(days=1)
 
             # --- REVISED LOGIC FOR "My Availability" CARD ---
             this_month_start = today.replace(day=1)
@@ -145,16 +145,16 @@ def homepage(request):
             else:
                 availability_all_set = True
 
-
-            # --- THIS IS THE FIX ---
+            # --- Logic for Upcoming Sessions Card (Today & Tomorrow) ---
             upcoming_coach_sessions = Session.objects.filter(
+                Q(session_date=today, session_start_time__gte=now.time()) | Q(session_date=tomorrow),
                 coaches_attending=coach,
-                session_date__gte=today,
                 is_cancelled=False
             ).prefetch_related(
                 Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability'),
                 Prefetch('sessioncoach_set', queryset=SessionCoach.objects.filter(coach=coach), to_attr='my_session_coach_assignment')
-            ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')[:5]
+            ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')
+
 
             for session in upcoming_coach_sessions:
                 availability = session.my_availability[0] if session.my_availability else None
