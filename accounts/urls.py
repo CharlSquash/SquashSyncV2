@@ -12,6 +12,6 @@ urlpatterns = [
     path('coaches/<int:coach_id>/', views.coach_profile, name='coach_profile'),
 
     path('accept-invitation/<uuid:token>/', views.accept_invitation, name='accept_invitation'),
+    
  
-    path('', include('django.contrib.auth.urls')),
 ]

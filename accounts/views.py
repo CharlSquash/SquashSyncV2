@@ -80,7 +80,7 @@ def accept_invitation(request, token):
 
     if invitation.is_accepted or invitation.is_expired():
         messages.error(request, "This invitation is no longer valid.")
-        return redirect('accounts:login')
+        return redirect('login')
 
     if request.method == 'POST':
         form = CoachRegistrationForm(request.POST)

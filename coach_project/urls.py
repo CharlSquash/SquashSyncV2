@@ -19,6 +19,9 @@ urlpatterns = [
     # We now point /accounts/ to our own app's urls.py file.
     path('accounts/', include('accounts.urls')),
 
+    #password reset
+    path('accounts/', include('django.contrib.auth.urls')),
+
     # --- The rest of your app includes ---
     path('', homepage, name='homepage'),
     path('players/', include('players.urls')),
