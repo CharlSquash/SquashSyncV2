@@ -32,25 +32,44 @@
                 <div class="assessment-tasks-grid">
                     <div class="assessment-task-item">
                         <h4>Player Assessments</h4>
-                        {% if not item.players_to_assess and not item.is_marked_complete and not item.group_assessment_pending %}
-                             <p class="text-success"><i class="bi bi-check-circle-fill"></i> All players assessed.</p>
-                        {% elif item.players_to_assess %}
-                            <p>You have {{ item.players_to_assess|length }} player(s) left to assess:</p>
-                            <div class="players-to-assess-list-container">
-                                <ul class="players-to-assess-list">
-                                    {% for player in item.players_to_assess %}
-                                        <li>
-                                            <span class="player-name">{{ player.full_name }}</span>
-                                            <a href="{% url 'assessments:assess_player' session_id=item.session.id player_id=player.pk %}" class="assess-link-small">
-                                                Assess <i class="bi bi-pencil"></i>
-                                            </a>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
+
+                        {% comment %} --- START: Modified Logic --- {% endcomment %}
+
+                        {% comment %} Always show the attendance button/link {% endcomment %}
+                        <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="assess-link-secondary mb-3"> {# <-- Changed class #}
+                            {% if item.attendance_taken %}
+                                <i class="bi bi-pencil-square me-1"></i> View/Edit Attendance {# <-- Changed text/icon #}
+                            {% else %}
+                                <i class="bi bi-person-check me-1"></i> Take Attendance Now {# <-- Original text/icon #}
+                            {% endif %}
+                        </a>
+
+                        {% comment %} Only show the player list if attendance HAS been taken {% endcomment %}
+                        {% if item.attendance_taken %}
+                            {% if not item.players_to_assess and not item.is_marked_complete and not item.group_assessment_pending %}
+                                 <p class="text-success"><i class="bi bi-check-circle-fill"></i> All players assessed.</p>
+                            {% elif item.players_to_assess %}
+                                <p>You have {{ item.players_to_assess|length }} player(s) left to assess:</p>
+                                <div class="players-to-assess-list-container">
+                                    <ul class="players-to-assess-list">
+                                        {% for player in item.players_to_assess %}
+                                            <li>
+                                                <span class="player-name">{{ player.full_name }}</span>
+                                                <a href="{% url 'assessments:assess_player' session_id=item.session.id player_id=player.pk %}" class="assess-link-small">
+                                                    Assess <i class="bi bi-pencil"></i>
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% else %}
+                                 <p class="text-muted">No players left to assess for this session.</p>
+                            {% endif %}
                         {% else %}
-                             <p class="text-muted">No players left to assess for this session.</p>
+                             <p class="text-warning small"><i class="bi bi-exclamation-triangle-fill me-1"></i>Take attendance first to see which players need assessment.</p>
                         {% endif %}
+                        {% comment %} --- END: Modified Logic --- {% endcomment %}
+
                     </div>
 
                     <div class="assessment-task-item">
@@ -67,7 +86,7 @@
                             </a>
                          {% endif %}
                     </div>
-                    
+
                     <div class="assessment-task-item">
                         <div class="accordion" id="match-results-accordion-{{ item.session.id }}">
                             <div class="accordion-item">
@@ -78,7 +97,9 @@
                                 </h2>
                                 <div id="collapse-{{ item.session.id }}" class="accordion-collapse collapse" data-bs-parent="#match-results-accordion-{{ item.session.id }}">
                                     <div class="accordion-body">
-                                        {% if item.match_form.fields.player.queryset.count < 2 %}
+                                        {% if not item.attendance_taken %}
+                                            <p class="text-muted small">Take attendance first to enable adding match results.</p>
+                                        {% elif item.match_form.fields.player.queryset.count < 2 %}
                                             <p class="text-muted small">At least two players must be marked as "Attending" to log match results.</p>
                                         {% else %}
                                             <h6 class="mb-3">Add New Result</h6>
@@ -141,4 +162,3 @@
     {% endif %}
 </div>
 {% endblock %}
-

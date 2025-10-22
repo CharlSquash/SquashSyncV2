@@ -446,7 +446,8 @@ def update_attendance_status(request, session_id):
 @login_required
 def visual_attendance(request, session_id):
     session = get_object_or_404(Session.objects.select_related('school_group'), pk=session_id)
-    
+    redirect_target = request.GET.get('next', 'session_detail') # Default to session_detail
+
     if not session.school_group:
         messages.error(request, "This session is not linked to a school group.")
         return redirect('scheduling:session_calendar')
@@ -455,77 +456,67 @@ def visual_attendance(request, session_id):
 
     if request.method == 'POST':
         attending_player_ids = set(request.POST.getlist('attendees'))
-        
-        # --- NEW DISCREPANCY LOGIC ---
+        # Determine redirect target from hidden input, fallback to GET param check
+        post_redirect_target = request.POST.get('redirect_next', 'session_detail')
+
+        # --- (Keep the discrepancy logic as it is) ---
         for player in players_in_group:
             record, _ = AttendanceTracking.objects.get_or_create(session=session, player=player)
-            
             final_attendance = AttendanceTracking.CoachAttended.YES if str(player.id) in attending_player_ids else AttendanceTracking.CoachAttended.NO
-            
-            # Only update if changed
             if record.attended != final_attendance:
                 record.attended = final_attendance
                 record.save()
-
-            # Check for discrepancies
             parent_response = record.parent_response
             discrepancy_type = None
-
             if parent_response == 'ATTENDING' and final_attendance == 'NO':
                 discrepancy_type = 'NO_SHOW'
             elif parent_response == 'NOT_ATTENDING' and final_attendance == 'YES':
                 discrepancy_type = 'UNEXPECTED'
             elif parent_response == 'PENDING' and final_attendance == 'NO':
                 discrepancy_type = 'NEVER_NOTIFIED'
-
-            # Create or update discrepancy record
             if discrepancy_type:
                 AttendanceDiscrepancy.objects.update_or_create(
-                    player=player,
-                    session=session,
-                    defaults={
-                        'discrepancy_type': discrepancy_type,
-                        'parent_response': parent_response,
-                        'coach_marked_attendance': final_attendance,
-                    }
+                    player=player, session=session,
+                    defaults={'discrepancy_type': discrepancy_type, 'parent_response': parent_response, 'coach_marked_attendance': final_attendance}
                 )
             else:
-                # If there's no discrepancy, delete any existing record for this player/session
                 AttendanceDiscrepancy.objects.filter(player=player, session=session).delete()
+        # --- (End of discrepancy logic) ---
 
         messages.success(request, "Final attendance has been recorded successfully.")
-        return redirect('scheduling:session_detail', session_id=session.id)
 
-    # --- The GET request logic remains the same, as it was correct ---
+        # --- UPDATED REDIRECT LOGIC ---
+        if post_redirect_target == 'pending_assessments':
+            return redirect('assessments:pending_assessments')
+        else:
+            # Default redirect back to the session planner/detail page
+            return redirect('scheduling:session_detail', session_id=session.id)
+        # --- END UPDATED REDIRECT LOGIC ---
+
+    # --- GET request logic (remains mostly the same) ---
     tracking_records = {
         record.player_id: record for record in
         AttendanceTracking.objects.filter(session=session, player__in=players_in_group)
     }
-
     player_list = []
     for player in players_in_group:
         record = tracking_records.get(player.id)
         is_attending = False
-
         if record:
             if record.attended != AttendanceTracking.CoachAttended.UNSET:
                 is_attending = (record.attended == AttendanceTracking.CoachAttended.YES)
             else:
                 is_attending = (record.parent_response == AttendanceTracking.ParentResponse.ATTENDING)
-        
-        player_list.append({
-            'player': player,
-            'is_attending': is_attending
-        })
+        player_list.append({'player': player, 'is_attending': is_attending})
 
     context = {
         'session': session,
         'school_group': session.school_group,
         'player_list': player_list,
-        'page_title': "Take Final Attendance"
+        'page_title': "Take Final Attendance",
+        'redirect_next': redirect_target # Pass the redirect target to the template
     }
     return render(request, 'scheduling/visual_attendance.html', context)
-#... (rest of the file is unchanged)
 
 @login_required
 def session_calendar(request):

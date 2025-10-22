@@ -11,6 +11,7 @@ from django.http import Http404, JsonResponse
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 
+from django.db.models import Exists, OuterRef
 
 from accounts.models import Coach
 from scheduling.models import Session, AttendanceTracking
@@ -29,7 +30,8 @@ def is_coach(user):
 def pending_assessments(request):
     """
     Displays a list of past sessions for a coach that are pending assessments
-    or were completed within the last week.
+    or were completed within the last week. Now includes a check for whether
+    final attendance has been taken.
     """
     try:
         coach = request.user.coach_profile
@@ -67,15 +69,31 @@ def pending_assessments(request):
             submitted_by=request.user, session_id__in=session_ids
         ).values_list('session_id', flat=True)
     )
-    
+
+    # --- NEW: Check if attendance has been taken for each session ---
+    attendance_taken_subquery = AttendanceTracking.objects.filter(
+        session=OuterRef('pk'),
+        attended__in=[AttendanceTracking.CoachAttended.YES, AttendanceTracking.CoachAttended.NO]
+    )
+    attendance_taken_session_ids = set(
+        Session.objects.filter(
+            id__in=session_ids
+        ).annotate(
+            attendance_taken=Exists(attendance_taken_subquery)
+        ).filter(
+            attendance_taken=True
+        ).values_list('id', flat=True)
+    )
+    # --- END NEW ---
+
     session_attendees = AttendanceTracking.objects.filter(
         session_id__in=session_ids,
         attended=AttendanceTracking.CoachAttended.YES
     ).values_list('session_id', 'player_id')
-    
+
     player_pks_to_fetch = {player_pk for _, player_pk in session_attendees}
     players_by_pk = {p.pk: p for p in Player.objects.filter(pk__in=player_pks_to_fetch)}
-    
+
     attendees_by_session = defaultdict(list)
     for session_id, player_pk in session_attendees:
         if player_pk in players_by_pk:
@@ -88,7 +106,6 @@ def pending_assessments(request):
     for assessment in assessments_by_coach:
         assessments_by_session_id[assessment.session_id].append(assessment)
 
-    # --- ADD THIS: Fetch all recent matches for the sessions ---
     session_matches = MatchResult.objects.filter(
         session_id__in=session_ids
     ).select_related('player', 'opponent').order_by('-id')
@@ -96,7 +113,6 @@ def pending_assessments(request):
     matches_by_session = defaultdict(list)
     for match in session_matches:
         matches_by_session[match.session_id].append(match)
-    # --- END ADDITION ---
 
     pending_items_for_template = []
     for session in sessions_qs:
@@ -105,8 +121,9 @@ def pending_assessments(request):
 
         if is_marked_complete and session.session_date < one_week_ago:
             continue
-            
+
         if session.end_datetime and session.end_datetime > timezone.now():
+             # Don't show sessions that haven't technically ended yet
             continue
 
         has_group_assessment = session_id in group_assessments_done_ids
@@ -118,10 +135,14 @@ def pending_assessments(request):
         assessed_player_pks = {a.player_id for a in assessments_for_this_session}
         players_to_assess = [p for p in players_in_session if p.pk not in assessed_player_pks]
 
-        attendee_pks = [p.pk for p in players_in_session]
-        attendees_queryset = Player.objects.filter(pk__in=attendee_pks)
+        # --- NEW: Get the attendance taken flag ---
+        attendance_has_been_taken = session_id in attendance_taken_session_ids
+        # --- END NEW ---
+
+        attendee_pks = [p.pk for p in players_in_session] if attendance_has_been_taken else [] # Only query if needed
+        attendees_queryset = Player.objects.filter(pk__in=attendee_pks) if attendee_pks else Player.objects.none()
         match_form = QuickMatchResultForm(attendees_queryset=attendees_queryset)
-        
+
         pending_items_for_template.append({
             'session': session,
             'players_to_assess': players_to_assess,
@@ -129,7 +150,8 @@ def pending_assessments(request):
             'group_assessment_pending': not has_group_assessment,
             'can_mark_complete': can_mark_complete,
             'match_form': match_form,
-            'session_matches': matches_by_session.get(session.id, []), # <-- Pass the matches to the template
+            'session_matches': matches_by_session.get(session.id, []),
+            'attendance_taken': attendance_has_been_taken, # <-- NEW FLAG
         })
 
     context = {

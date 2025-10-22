@@ -12,8 +12,14 @@
 
     <form method="post">
         {% csrf_token %}
+        
+        {% comment %} --- ADD THIS HIDDEN INPUT --- {% endcomment %}
+        <input type="hidden" name="redirect_next" value="{{ redirect_next }}">
+        {% comment %} --- END ADDITION --- {% endcomment %}
+
         <div class="attendance-grid">
-            {% for item in player_list %}
+            {% comment %} ... (rest of the player cards) ... {% endcomment %}
+             {% for item in player_list %}
             <label class="player-card {% if item.is_attending %}selected{% endif %}">
                 {% if item.player.photo %}
                     <img src="{{ item.player.photo.url }}" alt="Photo of {{ item.player.full_name }}">
@@ -23,8 +29,8 @@
                     </div>
                 {% endif %}
                 <span class="player-name">{{ item.player.full_name }}</span>
-                <input type="checkbox" class="visually-hidden" name="attendees" 
-                       value="{{ item.player.id }}" 
+                <input type="checkbox" class="visually-hidden" name="attendees"
+                       value="{{ item.player.id }}"
                        id="player_{{ item.player.id }}"
                        {% if item.is_attending %}checked{% endif %}>
             </label>
@@ -35,11 +41,18 @@
 
         <div class="mt-4 text-center">
             <button type="submit" class="btn btn-primary btn-lg px-5">Save Attendance</button>
-            <a href="{% url 'scheduling:session_detail' session.id %}" class="btn btn-secondary btn-lg">Cancel</a>
+            
+            {% comment %} --- Conditionally change Cancel button's destination --- {% endcomment %}
+            {% if redirect_next == 'pending_assessments' %}
+                <a href="{% url 'assessments:pending_assessments' %}" class="btn btn-secondary btn-lg">Cancel</a>
+            {% else %}
+                <a href="{% url 'scheduling:session_detail' session.id %}" class="btn btn-secondary btn-lg">Cancel</a>
+            {% endif %}
         </div>
     </form>
 </div>
 
+{% comment %} ... (keep the <style> and <script> blocks) ... {% endcomment %}
 <style>
 /* Basic styling for the visual attendance page */
 .attendance-grid {
