@@ -29,6 +29,7 @@ urlpatterns = [
     path('live-session/', include('live_session.urls')),
     path('assessments/', include('assessments.urls')),
     path('finance/', include('finance.urls')),
+    path('awards/', include('awards.urls')),
 
     #// solosync2 urls
     path('api/solosync2/', include('solosync2.urls')),

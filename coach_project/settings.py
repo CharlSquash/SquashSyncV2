@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'solosync2', 
     'crispy_forms',
     "crispy_bootstrap5",
+    'awards',
 ]
 
 MIDDLEWARE = [

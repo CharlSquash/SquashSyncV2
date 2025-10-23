@@ -1,0 +1,157 @@
+{# awards/templates/awards/nominate_prize.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - SquashSync{% endblock %}
+
+{% block extra_head %}
+<style>
+    .nomination-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 1rem;
+    }
+    .player-card {
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        background-color: var(--container-bg);
+        position: relative; /* For justification input positioning */
+    }
+    .player-card:hover {
+        border-color: var(--link-color);
+        transform: translateY(-2px);
+    }
+    .player-card.selected {
+        border-color: #198754; /* Success color */
+        background-color: #d1e7dd; /* Success subtle background */
+    }
+    html.dark-mode .player-card.selected {
+        background-color: #032816;
+        border-color: #20c997;
+    }
+
+    .player-card img, .player-card .photo-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        margin: 0 auto 10px;
+        display: block;
+        background-color: var(--container-light-bg);
+        border: 1px solid var(--border-light);
+    }
+    .player-card img { object-fit: cover; object-position: top; }
+    .photo-placeholder { display: flex; align-items: center; justify-content: center; }
+    .photo-placeholder .bi { font-size: 2.5rem; color: #adb5bd; }
+    .player-name { font-weight: 600; font-size: 0.9rem; line-height: 1.2; color: var(--text-color); }
+
+    .justification-input {
+        width: calc(100% - 10px); /* Adjust width */
+        margin: 5px auto 0;
+        padding: 3px 5px;
+        font-size: 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        display: none; /* Hidden by default */
+        box-sizing: border-box; /* Include padding/border in width */
+    }
+     .player-card.selected .justification-input {
+        display: block; /* Show when card is selected */
+    }
+
+    .visually-hidden {
+        position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+        overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>{{ page_title }}</h1>
+            <p class="text-muted">{{ prize.description|default:"No description available." }}</p>
+            <p><strong>Eligibility:</strong>
+                Grade {{ prize.min_grade|default:"Any" }} - {{ prize.max_grade|default:"Any" }}
+            </p>
+        </div>
+        <a href="{% url 'awards:prize_list' %}?year={{ prize.year }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Prize List
+        </a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">Select Eligible Players to Nominate</div>
+            <div class="card-body">
+                <p class="text-muted small">Click on a player's card to nominate or un-nominate them. Add optional justification notes below their name when nominated.</p>
+                <div class="nomination-grid">
+                    {% for item in player_list %}
+                    <label class="player-card {% if item.is_nominated %}selected{% endif %}">
+                        {% if item.player.photo %}
+                            <img src="{{ item.player.photo.url }}" alt="Photo of {{ item.player.full_name }}">
+                        {% else %}
+                            <div class="photo-placeholder"><i class="bi bi-person-fill"></i></div>
+                        {% endif %}
+                        <span class="player-name">{{ item.player.full_name }}</span>
+                        <input type="checkbox" class="visually-hidden nomination-checkbox" name="nominees"
+                            value="{{ item.player.id }}"
+                            id="player_{{ item.player.id }}"
+                            {% if item.is_nominated %}checked{% endif %}>
+                        <textarea name="justification_{{ item.player.id }}" class="form-control justification-input"
+                            rows="2" placeholder="Reason (optional)">{{ item.justification|default:"" }}</textarea>
+                    </label>
+                    {% empty %}
+                        <p>No players found matching the eligibility criteria for this prize.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <button type="submit" class="btn btn-primary btn-lg px-5">Save Nominations</button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.player-card');
+    cards.forEach(card => {
+        card.addEventListener('click', function(event) {
+            // Prevent click on textarea from toggling selection
+            if (event.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            const checkbox = this.querySelector('.nomination-checkbox');
+            checkbox.checked = !checkbox.checked;
+            this.classList.toggle('selected', checkbox.checked);
+
+            // Focus the textarea when selected, if it exists
+            const textarea = this.querySelector('.justification-input');
+            if (textarea && checkbox.checked) {
+                // Slight delay to allow display:block to apply
+                setTimeout(() => textarea.focus(), 0);
+            }
+        });
+
+        // Prevent clicks inside textarea from propagating to the label
+        const textarea = card.querySelector('.justification-input');
+        if (textarea) {
+            textarea.addEventListener('click', function(event) {
+                event.stopPropagation();
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
