@@ -1,22 +1,49 @@
 # Virtual Environment
 venv/
+env/
+.env
+.venv
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
 
 # Django stuff
 *.log
 *.pot
-*.pyc
-__pycache__/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Media files
+# Media & Static files (User Uploads / Collected)
 mediafiles/
+staticfiles/
 
-# IDE settings
+# Data Import Files (Untracked Data)
+data_imports/
+data_imports.zip
+
+# IDE / System Files
 .vscode/
 .idea/
 *.swp
+.DS_Store
 
-# NEW: Add this line to ignore your environment variables file
-.env
+# Distribution / packaging (Less critical for you, but good practice)
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test / Coverage outputs (Less critical for you, but good practice)
+.coverage
+.cache
+htmlcov/
+
