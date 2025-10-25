@@ -6,7 +6,7 @@
 
 {% block extra_head %}
 <style>
-    /* New: A grid for the two main columns: 'Assigned/Available' and 'Other' */
+    /* ... existing styles ... */
     .assignment-columns {
         display: grid;
         grid-template-columns: minmax(220px, 1fr) 3fr; /* First column is 1 part, second is 3 parts */
@@ -31,140 +31,245 @@
     .assignment-columns h6:first-child {
         margin-top: 0;
     }
+
+    /* --- NEW STYLES FOR OVERVIEW TABLE --- */
+    #staffing-overview-table {
+        width: 100%;
+        border-collapse: collapse;
+        /* MODIFICATION: Removed margin-top */
+        font-size: 0.85rem; /* Slightly smaller font for table */
+        background-color: #fff; /* Ensure table is not transparent for download */
+        table-layout: fixed; /* Helps with column widths */
+    }
+    #staffing-overview-table th,
+    #staffing-overview-table td {
+        border: 1px solid #dee2e6; /* Lighter border */
+        padding: 0.5rem;
+        text-align: left;
+        vertical-align: top;
+        word-wrap: break-word; /* Wrap long text */
+    }
+    #staffing-overview-table th {
+        background-color: #f8f9fa; /* Lighter header */
+        font-weight: bold;
+        position: sticky; /* Keep header visible on scroll if needed */
+        top: 0;
+        z-index: 1;
+    }
+    /* NEW: Add a heavier border to the bottom of the last row of a day group */
+    #staffing-overview-table tr.day-group-end td {
+        border-bottom: 2px solid #adb5bd; /* A slightly heavier grey border */
+    }
+    #staffing-overview-table .coach-details {
+        font-size: 0.8rem; /* Smaller font for coach details */
+        display: block; /* Ensure each coach entry is on a new line */
+        margin-bottom: 0.25rem;
+    }
+    #staffing-overview-table .coach-confirmed {
+        color: var(--bs-success);
+        font-weight: bold;
+    }
+    #staffing-overview-table .coach-pending {
+        color: var(--bs-warning-text-emphasis);
+    }
+    #staffing-overview-table .coach-declined {
+        color: var(--bs-danger);
+    }
+
+    /* MODIFICATION: Adjusted Fixed column widths for 6 columns */
+    #staffing-overview-table th:nth-child(1), #staffing-overview-table td:nth-child(1) { width: 10%; } /* Day */
+    #staffing-overview-table th:nth-child(2), #staffing-overview-table td:nth-child(2) { width: 8%; } /* Time */
+    #staffing-overview-table th:nth-child(3), #staffing-overview-table td:nth-child(3) { width: 25%; } /* Class */
+    #staffing-overview-table th:nth-child(4), #staffing-overview-table td:nth-child(4) { width: 32%; } /* Coach(es) */
+    #staffing-overview-table th:nth-child(5), #staffing-overview-table td:nth-child(5) { width: 10%; } /* Duration */
+    #staffing-overview-table th:nth-child(6), #staffing-overview-table td:nth-child(6) { width: 15%; } /* Venue */
+
+
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="content-wrapper">
     <h1><i class="bi bi-person-check-fill"></i> {{ page_title }}</h1>
-    
+
     <div class="week-navigation">
         <a href="?week={{ prev_week_offset }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Previous Week</a>
         <h4>{{ week_start|date:"d M Y" }} to {{ week_end|date:"d M Y" }}</h4>
         <a href="?week={{ next_week_offset }}" class="btn btn-sm btn-secondary">Next Week <i class="bi bi-arrow-right"></i></a>
     </div>
-    <hr>
-    
-    {% for day in display_week %}
-        {% if day.sessions %}
-            <details class="day-accordion-item">
-                <summary>
-                    <span>{{ day.day_name }}, {{ day.date|date:"j F" }}</span>
-                    <span class="arrow"></span>
-                </summary>
-                <div class="day-content">
-                    {% for item in day.sessions %}
-                        <details class="session-staffing-item">
-                            <summary>
-                                <div class="session-summary-info">
-                                    <h3>
+
+    <!-- === NEW FEATURE: Overview Buttons === -->
+    <div class="my-3">
+        <button id="toggle-overview-btn" class="btn btn-sm btn-primary"><i class="bi bi-table"></i> Show Weekly Overview</button>
+        <button id="download-overview-btn" class="btn btn-sm btn-success" style="display: none;"><i class="bi bi-download"></i> Download Overview</button>
+    </div>
+    <!-- === END NEW FEATURE === -->
+
+
+    <!-- === NEW FEATURE: Overview Table Container === -->
+    <div id="staffing-overview-container" style="display: none;">
+        <div class="table-responsive">
+            <table id="staffing-overview-table" class="table table-bordered table-sm">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Time</th>
+                        <th>Class</th>
+                        <th>Coach</th>
+                        <th>Duration</th>
+                        <th>Venue</th> <!-- MODIFICATION: Re-added Venue Header -->
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in display_week %}
+                        {% if day.sessions %}
+                            {% for item in day.sessions %}
+                                <tr {% if forloop.last %}class="day-group-end"{% endif %}>
+                                    {% if forloop.first %}
+                                        <td rowspan="{{ day.sessions|length }}" style="vertical-align: middle; text-align: center;">
+                                            <strong>{{ day.day_name }}</strong><br>{{ item.session_obj.session_date|date:"d M" }}
+                                        </td>
+                                    {% endif %}
+                                    <td>{{ item.session_obj.session_start_time|time:"H:i" }}</td>
+                                    <!-- MODIFICATION: Removed Venue display from here -->
+                                    <td>
                                         {{ item.session_obj.school_group.name|default:"General Session" }}
-                                        <a href="{% url 'scheduling:session_detail' item.session_obj.id %}" title="View Session Plan" class="view-plan-link">(View Plan)</a>
-                                    </h3>
-                                    <p class="session-meta">
-                                        <i class="bi bi-clock"></i> {{ item.session_obj.session_start_time|time:"H:i" }} ({{ item.session_obj.planned_duration_minutes }} min)
-                                        {% if item.session_obj.venue %}| <i class="bi bi-geo-alt-fill"></i> {{ item.session_obj.venue.name }}{% endif %}
-                                    </p>
-                                    <div class="staffing-counts">
-                                        <span title="Confirmed Players">
-                                            <i class="bi bi-people-fill text-info"></i> 
-                                            {{ item.confirmed_players_count }}/{{ item.total_players }}
-                                        </span>
-                                        <span class="ms-3" title="Confirmed Coaches">
-                                            <i class="bi bi-person-check-fill text-success"></i>
-                                            {{ item.confirmed_coaches_count }}/{{ item.total_coaches_assigned }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="session-status-indicators">
-                                    <span class="status-indicator indicator-pending" title="Pending responses" style="display: {% if item.has_pending_confirmations %}inline-block{% else %}none{% endif %};"><i class="bi bi-hourglass-split"></i> Pending</span>
-                                    <span class="status-indicator indicator-declined" title="Declined" style="display: {% if item.has_declined_coaches %}inline-block{% else %}none{% endif %};"><i class="bi bi-x-circle"></i> Declined</span>
-                                    <span class="status-indicator indicator-unstaffed" title="Unstaffed" style="display: {% if not item.assigned_coaches_with_status %}inline-block{% else %}none{% endif %};"><i class="bi bi-exclamation-triangle"></i> Unstaffed</span>
-                                </div>
-                            </summary>
-                            <div class="session-details-body">
-                                <div class="staffing-details-grid">
-                                    <div class="staffing-column assigned-coaches-list">
-                                        <h4>Assigned Coaches</h4>
-                                        {% for assigned in item.assigned_coaches_with_status|dictsort:"coach.name" %}
-                                            <div class="assigned-coach-item mb-2">
-                                                <p class="mb-1">
-                                                    {% if assigned.status == 'Confirmed' %}<i class="bi bi-check-circle-fill text-success" title="Confirmed"></i>
-                                                    {% elif assigned.status == 'Declined' %}<i class="bi bi-x-circle-fill text-danger" title="Declined"></i>
-                                                    {% else %}<i class="bi bi-hourglass-split text-muted" title="Pending Confirmation"></i>
-                                                    {% endif %}
-                                                    {{ assigned.coach.name }} 
-                                                    <span class="text-muted">({{ assigned.status }})</span>
-                                                    {% if assigned.conflict_warning %}
-                                                        <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ assigned.conflict_warning }}"></i>
-                                                    {% endif %}
-                                                    {% if assigned.notes %}<span class="availability-notes"> - <em>{{ assigned.notes }}</em></span>{% endif %}
-                                                </p>
-                                                <div class="input-group input-group-sm" style="max-width: 150px;">
-                                                    <input type="number" class="form-control duration-input" value="{{ assigned.coaching_duration }}"
-                                                           data-session-id="{{ item.session_obj.id }}" data-coach-id="{{ assigned.coach.id }}"
-                                                           min="15" step="15">
-                                                    <span class="input-group-text">min</span>
-                                                </div>
-                                            </div>
-                                        {% empty %}
-                                            <p class="text-muted">None assigned.</p>
-                                        {% endfor %}
-                                    </div>
-
-                                    <div class="staffing-column available-coaches-list">
-                                        <h4>Available Coaches</h4>
-                                        {% for avail in item.available_coaches_for_assignment|dictsort:"coach.name" %}
-                                            <p>
-                                                {% if avail.is_emergency %}<i class="bi bi-hand-thumbs-up-fill text-primary" title="Emergency Only"></i>
-                                                {% else %}<i class="bi bi-hand-thumbs-up-fill text-success" title="Available"></i>
+                                    </td>
+                                    <td>
+                                        {% for coach_status in item.assigned_coaches_with_status %}
+                                            <span class="coach-details coach-{{ coach_status.status|default:'pending'|lower }}">
+                                                {{ coach_status.coach.name }}
+                                                {% if coach_status.status == "Confirmed" %}
+                                                    (Confirmed
+                                                {% elif coach_status.status == "Declined" %}
+                                                    (Declined
+                                                {% else %}
+                                                    (Pending
                                                 {% endif %}
-                                                {{ avail.coach.name }}
-                                                {% if avail.is_emergency %}<span class="emergency-label">(emergency)</span>{% endif %}
-                                                {% if avail.conflict_warning %}
-                                                    <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ avail.conflict_warning }}"></i>
+                                                {% if coach_status.coaching_duration %}
+                                                    , {{ coach_status.coaching_duration }} min
                                                 {% endif %}
-                                            </p>
+                                                )
+                                            </span>
                                         {% empty %}
-                                            <p class="text-muted">No other coaches have marked themselves available.</p>
+                                            <span class="text-muted fst-italic">Unstaffed</span>
                                         {% endfor %}
-                                    </div>
+                                    </td>
+                                    <td>{{ item.session_obj.planned_duration_minutes }} min</td>
+                                    <td>{{ item.session_obj.venue.name|default:"N/A" }}</td> <!-- MODIFICATION: Re-added Venue cell -->
+                                </tr>
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- === END NEW FEATURE === -->
 
-                                    <div class="staffing-column">
-                                        <h4>Assign / Update</h4>
-                                        <form class="assignment-form" data-session-id="{{ item.session_obj.id }}">
-                                            {% csrf_token %}
-                                            
-                                            {% with assigned_coach_ids=item.assigned_coaches_with_status|map_attribute:'coach.id' available_coach_ids=item.available_coaches_for_assignment|map_attribute:'coach.id' %}
-                                            
-                                            <div class="assignment-columns">
-                                                {# Column 1: Assigned & Available #}
-                                                <div>
-                                                    <h6>Assigned & Available</h6>
-                                                    {% for coach in all_coaches_for_form %}
-                                                        {% if coach.id in assigned_coach_ids or coach.id in available_coach_ids %}
-                                                            {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if coach.id in assigned_coach_ids %}checked{% endif %} {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
-                                                                <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
-                                                                    {{ coach.name }}
-                                                                    {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
-                                                                </label>
-                                                            </div>
-                                                            {% endwith %}
+    <!-- Existing Daily Accordion View (Wrapped in a div for toggling) -->
+    <div id="daily-accordion-view">
+        {% for day in display_week %}
+            {% if day.sessions %}
+                <details class="day-accordion-item">
+                    <summary>
+                        <span>{{ day.day_name }}, {{ day.date|date:"j F" }}</span>
+                        <span class="arrow"></span>
+                    </summary>
+                    <div class="day-content">
+                        {% for item in day.sessions %}
+                            <details class="session-staffing-item">
+                                <summary>
+                                    <div class="session-summary-info">
+                                        <h3>
+                                            {{ item.session_obj.school_group.name|default:"General Session" }}
+                                            <a href="{% url 'scheduling:session_detail' item.session_obj.id %}" title="View Session Plan" class="view-plan-link">(View Plan)</a>
+                                        </h3>
+                                        <p class="session-meta">
+                                            <i class="bi bi-clock"></i> {{ item.session_obj.session_start_time|time:"H:i" }} ({{ item.session_obj.planned_duration_minutes }} min)
+                                            {% if item.session_obj.venue %}| <i class="bi bi-geo-alt-fill"></i> {{ item.session_obj.venue.name }}{% endif %}
+                                        </p>
+                                        <div class="staffing-counts">
+                                            <span title="Confirmed Players">
+                                                <i class="bi bi-people-fill text-info"></i>
+                                                {{ item.confirmed_players_count }}/{{ item.total_players }}
+                                            </span>
+                                            <span class="ms-3" title="Confirmed Coaches">
+                                                <i class="bi bi-person-check-fill text-success"></i>
+                                                {{ item.confirmed_coaches_count }}/{{ item.total_coaches_assigned }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="session-status-indicators">
+                                        <span class="status-indicator indicator-pending" title="Pending responses" style="display: {% if item.has_pending_confirmations %}inline-block{% else %}none{% endif %};"><i class="bi bi-hourglass-split"></i> Pending</span>
+                                        <span class="status-indicator indicator-declined" title="Declined" style="display: {% if item.has_declined_coaches %}inline-block{% else %}none{% endif %};"><i class="bi bi-x-circle"></i> Declined</span>
+                                        <span class="status-indicator indicator-unstaffed" title="Unstaffed" style="display: {% if not item.assigned_coaches_with_status %}inline-block{% else %}none{% endif %};"><i class="bi bi-exclamation-triangle"></i> Unstaffed</span>
+                                    </div>
+                                </summary>
+                                <div class="session-details-body">
+                                    <div class="staffing-details-grid">
+                                        <div class="staffing-column assigned-coaches-list">
+                                            <h4>Assigned Coaches</h4>
+                                            {% for assigned in item.assigned_coaches_with_status|dictsort:"coach.name" %}
+                                                <div class="assigned-coach-item mb-2">
+                                                    <p class="mb-1">
+                                                        {% if assigned.status == 'Confirmed' %}<i class="bi bi-check-circle-fill text-success" title="Confirmed"></i>
+                                                        {% elif assigned.status == 'Declined' %}<i class="bi bi-x-circle-fill text-danger" title="Declined"></i>
+                                                        {% else %}<i class="bi bi-hourglass-split text-muted" title="Pending Confirmation"></i>
                                                         {% endif %}
-                                                    {% endfor %}
+                                                        {{ assigned.coach.name }}
+                                                        <span class="text-muted">({{ assigned.status }})</span>
+                                                        {% if assigned.conflict_warning %}
+                                                            <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ assigned.conflict_warning }}"></i>
+                                                        {% endif %}
+                                                        {% if assigned.notes %}<span class="availability-notes"> - <em>{{ assigned.notes }}</em></span>{% endif %}
+                                                    </p>
+                                                    <div class="input-group input-group-sm" style="max-width: 150px;">
+                                                        <input type="number" class="form-control duration-input" value="{{ assigned.coaching_duration }}"
+                                                               data-session-id="{{ item.session_obj.id }}" data-coach-id="{{ assigned.coach.id }}"
+                                                               min="15" step="15">
+                                                        <span class="input-group-text">min</span>
+                                                    </div>
                                                 </div>
+                                            {% empty %}
+                                                <p class="text-muted">None assigned.</p>
+                                            {% endfor %}
+                                        </div>
 
-                                                {# Column 2: Other Coaches #}
-                                                <div>
-                                                    <h6>Other Coaches</h6>
-                                                    <div class="other-coaches-grid">
+                                        <div class="staffing-column available-coaches-list">
+                                            <h4>Available Coaches</h4>
+                                            {% for avail in item.available_coaches_for_assignment|dictsort:"coach.name" %}
+                                                <p>
+                                                    {% if avail.is_emergency %}<i class="bi bi-hand-thumbs-up-fill text-primary" title="Emergency Only"></i>
+                                                    {% else %}<i class="bi bi-hand-thumbs-up-fill text-success" title="Available"></i>
+                                                    {% endif %}
+                                                    {{ avail.coach.name }}
+                                                    {% if avail.is_emergency %}<span class="emergency-label">(emergency)</span>{% endif %}
+                                                    {% if avail.conflict_warning %}
+                                                        <i class="bi bi-exclamation-triangle-fill text-warning" title="{{ avail.conflict_warning }}"></i>
+                                                    {% endif %}
+                                                </p>
+                                            {% empty %}
+                                                <p class="text-muted">No other coaches have marked themselves available.</p>
+                                            {% endfor %}
+                                        </div>
+
+                                        <div class="staffing-column">
+                                            <h4>Assign / Update</h4>
+                                            <form class="assignment-form" data-session-id="{{ item.session_obj.id }}">
+                                                {% csrf_token %}
+
+                                                {% with assigned_coach_ids=item.assigned_coaches_with_status|map_attribute:'coach.id' available_coach_ids=item.available_coaches_for_assignment|map_attribute:'coach.id' %}
+
+                                                <div class="assignment-columns">
+                                                    {# Column 1: Assigned & Available #}
+                                                    <div>
+                                                        <h6>Assigned & Available</h6>
                                                         {% for coach in all_coaches_for_form %}
-                                                            {% if coach.id not in assigned_coach_ids and coach.id not in available_coach_ids %}
+                                                            {% if coach.id in assigned_coach_ids or coach.id in available_coach_ids %}
                                                                 {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
                                                                 <div class="form-check">
-                                                                    <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
+                                                                    <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if coach.id in assigned_coach_ids %}checked{% endif %} {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
                                                                     <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
                                                                         {{ coach.name }}
                                                                         {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
@@ -174,29 +279,54 @@
                                                             {% endif %}
                                                         {% endfor %}
                                                     </div>
+
+                                                    {# Column 2: Other Coaches #}
+                                                    <div>
+                                                        <h6>Other Coaches</h6>
+                                                        <div class="other-coaches-grid">
+                                                            {% for coach in all_coaches_for_form %}
+                                                                {% if coach.id not in assigned_coach_ids and coach.id not in available_coach_ids %}
+                                                                    {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
+                                                                        <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
+                                                                            {{ coach.name }}
+                                                                            {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
+                                                                        </label>
+                                                                    </div>
+                                                                    {% endwith %}
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            
-                                            {% endwith %}
-                                            
-                                            <button type="button" class="btn btn-primary btn-sm mt-3 update-assignments-btn">Update Assignments</button>
-                                        </form>
+
+                                                {% endwith %}
+
+                                                <button type="button" class="btn btn-primary btn-sm mt-3 update-assignments-btn">Update Assignments</button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </details>
-                    {% endfor %}
-                </div>
-            </details>
-        {% endif %}
-    {% endfor %}
+                            </details>
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
+        {% endfor %}
+    </div> {# End of daily-accordion-view #}
 </div>
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
+<!-- === NEW FEATURE: CDN for html2canvas === -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- === END NEW FEATURE === -->
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // ... existing JS for getCookie, assignment form, duration update ...
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -218,9 +348,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (updateButton) {
             updateButton.addEventListener('click', function(event) {
                 event.preventDefault();
-                
+
                 const staffingItem = form.closest('.session-staffing-item');
-                staffingItem.open = true;
+                // Ensure the parent details are open if needed, though interaction implies they might be
+                // const dayAccordion = staffingItem.closest('.day-accordion-item');
+                // if (dayAccordion && !dayAccordion.open) dayAccordion.open = true;
+                // if (!staffingItem.open) staffingItem.open = true;
 
                 const sessionId = form.dataset.sessionId;
                 const coachCheckboxes = form.querySelectorAll(`input[name="coaches_for_session_${sessionId}"]:checked`);
@@ -238,9 +371,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.status === 'success') {
                         updateButton.innerHTML = '<i class="bi bi-check-lg"></i> Updated';
-                        
+
                         const detailsBody = form.closest('.session-details-body');
-                        
+
                         // Update Assigned Coaches List
                         const assignedContainer = detailsBody.querySelector('.assigned-coaches-list');
                         let assignedHtml = '<h4>Assigned Coaches</h4>';
@@ -252,12 +385,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                                 const conflict_html = coach.conflict_warning ? `<i class="bi bi-exclamation-triangle-fill text-warning" title="${coach.conflict_warning}"></i>` : '';
                                 const notes_html = coach.notes ? `<span class="availability-notes"> - <em>${coach.notes}</em></span>` : '';
-                                
+
                                 assignedHtml += `
                                     <div class="assigned-coach-item mb-2">
                                         <p class="mb-1">
                                             <i class="bi ${status_icon_class}" title="${coach.status}"></i>
-                                            ${coach.name} 
+                                            ${coach.name}
                                             <span class="text-muted">(${coach.status})</span>
                                             ${conflict_html}
                                             ${notes_html}
@@ -299,15 +432,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             availableHtml += '<p class="text-muted">No other coaches have marked themselves available.</p>';
                         }
                         availableContainer.innerHTML = availableHtml;
-                        
+
                         // Update Summary Header
                         const summaryDetails = staffingItem.querySelector('summary');
-                        
+
                         const countsEl = summaryDetails.querySelector('.staffing-counts span[title="Confirmed Coaches"]');
                         if (countsEl) {
                             countsEl.innerHTML = `<i class="bi bi-person-check-fill text-success"></i> ${data.confirmed_coaches_count}/${data.total_coaches_assigned}`;
                         }
-                        
+
                         const indicatorsEl = summaryDetails.querySelector('.session-status-indicators');
                         if (indicatorsEl) {
                            const pendingIndicator = indicatorsEl.querySelector('.indicator-pending');
@@ -327,13 +460,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     } else {
                         updateButton.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Error';
-                        alert('Error: ' + data.message);
+                        // Using console.error instead of alert
+                        console.error('Error updating assignments:', data.message);
+                        // Optionally add a non-blocking visual feedback for the error
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     updateButton.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Error';
-                    alert('An unexpected error occurred. Check the console for details.');
+                    // Using console.error instead of alert
+                    console.error('An unexpected error occurred during assignment update.');
                 })
                 .finally(() => {
                     setTimeout(() => {
@@ -344,14 +480,17 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        form.addEventListener('click', function(event) {
+        // --- Handle conflict warnings ---
+        // MODIFICATION: Reverted to using confirm()
+        form.addEventListener('change', function(event) { // Use change instead of click for checkboxes
             const checkbox = event.target;
             if (checkbox.matches('input[type="checkbox"]')) {
                 const warning = checkbox.dataset.conflictWarning;
                 if (checkbox.checked && warning) {
                     const message = `⚠️ Potential Scheduling Conflict:\n\n${warning}\n\nAre you sure you want to assign this coach?`;
                     if (!confirm(message)) {
-                        event.preventDefault();
+                        event.preventDefault(); // Prevent checking the box if user cancels
+                        checkbox.checked = false; // Explicitly uncheck
                     }
                 }
             }
@@ -369,6 +508,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const coachId = input.dataset.coachId;
                 const duration = input.value;
 
+                // Basic validation
+                if (!sessionId || !coachId || duration === null || duration === '' || parseInt(duration) < 0) {
+                    console.warn('Invalid duration input or missing data attributes.');
+                    input.classList.add('is-invalid'); // Add visual feedback
+                    return;
+                } else {
+                    input.classList.remove('is-invalid'); // Remove error state if valid now
+                }
+
+
                 fetch("{% url 'scheduling:update_coach_duration_ajax' %}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
@@ -382,17 +531,96 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.status !== 'success') {
                         console.error('Error updating duration:', data.message);
-                        // Optional: add visual error feedback
+                        input.classList.add('is-invalid'); // Show error state
+                        // Optional: add more specific visual error feedback near the input
                     } else {
-                        // Optional: add visual success feedback
+                        input.classList.remove('is-invalid');
                         input.classList.add('is-valid');
                         setTimeout(() => input.classList.remove('is-valid'), 2000);
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                     console.error('Error:', error);
+                     input.classList.add('is-invalid');
+                });
             }, 750); // Debounce for 750ms
         }
     });
+
+    // --- NEW FEATURE: Toggle and Download Logic ---
+    const toggleBtn = document.getElementById('toggle-overview-btn');
+    const downloadBtn = document.getElementById('download-overview-btn');
+    const overviewContainer = document.getElementById('staffing-overview-container');
+    const dailyView = document.getElementById('daily-accordion-view'); // Target the wrapper div
+
+    if (toggleBtn && downloadBtn && overviewContainer && dailyView) {
+        toggleBtn.addEventListener('click', function() {
+            // Check if the overview is currently hidden
+            if (overviewContainer.style.display === 'none') {
+                // Show overview
+                overviewContainer.style.display = 'block';
+                downloadBtn.style.display = 'inline-block';
+                dailyView.style.display = 'none'; // Hide the daily accordion view
+                toggleBtn.innerHTML = '<i class="bi bi-card-list"></i> Show Daily View'; // Update icon/text
+                toggleBtn.classList.remove('btn-primary');
+                toggleBtn.classList.add('btn-info');
+            } else {
+                // Hide overview
+                overviewContainer.style.display = 'none';
+                downloadBtn.style.display = 'none';
+                dailyView.style.display = 'block'; // Show the daily accordion view
+                toggleBtn.innerHTML = '<i class="bi bi-table"></i> Show Weekly Overview'; // Update icon/text
+                toggleBtn.classList.remove('btn-info');
+                toggleBtn.classList.add('btn-primary');
+            }
+        });
+
+        downloadBtn.addEventListener('click', function() {
+            const overviewTable = document.getElementById('staffing-overview-table');
+            if (!overviewTable) {
+                console.error('Overview table element not found!');
+                return;
+            }
+            const originalBg = overviewTable.style.backgroundColor;
+            overviewTable.style.backgroundColor = '#FFFFFF'; // Ensure white background for capture
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
+
+
+            html2canvas(overviewTable, {
+                scale: 2, // Increase scale for better resolution
+                useCORS: true, // If there were any external images/styles (though unlikely here)
+                logging: false // Reduce console noise
+            }).then(canvas => {
+                // Restore original background color if needed
+                overviewTable.style.backgroundColor = originalBg;
+
+                // Create a link to download the image
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+                link.href = canvas.toDataURL('image/png');
+                link.download = `staffing_overview_{{ week_start|date:"Ymd" }}_${timestamp}.png`;
+
+                // Append to body, click, and remove
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            }).catch(err => {
+                console.error('Error capturing table with html2canvas:', err);
+                overviewTable.style.backgroundColor = originalBg; // Restore background on error
+                // Using console.error instead of alert
+                console.error('Sorry, there was an error generating the image. Please try again.');
+            }).finally(() => {
+                 downloadBtn.disabled = false;
+                 downloadBtn.innerHTML = '<i class="bi bi-download"></i> Download Overview';
+            });
+        });
+    } else {
+        console.warn("One or more elements for the overview feature were not found. Check element IDs.");
+    }
+     // --- END NEW FEATURE ---
 });
 </script>
 {% endblock %}
+
