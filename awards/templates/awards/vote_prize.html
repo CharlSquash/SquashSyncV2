@@ -29,8 +29,10 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         border-color: var(--bs-link-color); /* Updated variable */
     }
-    .player-card.disabled { /* Style for when vote limit reached FOR OTHER CARDS */
-        cursor: not-allowed;
+    /* --- Adjusted Disabled Style --- */
+    /* Only apply 'not-allowed' cursor and opacity if the card itself cannot be interacted with */
+    .player-card.is-disabled-interaction {
+        cursor: not-allowed !important; /* Make sure this overrides hover */
         opacity: 0.7;
     }
     .player-card.saving { /* Indicate saving state */
@@ -370,7 +372,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             } else {
                  card.style.cursor = 'default'; // No pointer if voting closed
-                 card.classList.add('disabled'); // Visually disable if voting closed
+                 // Add the interaction disabling class if voting is not allowed
+                 card.classList.add('is-disabled-interaction');
             }
         });
     }
@@ -381,21 +384,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const hasVoted = userVotes.hasOwnProperty(playerIdStr);
         card.classList.toggle('voted-by-user', hasVoted);
 
-        // Disable clicking OTHER cards if limit is reached and this card ISN'T voted
+        // Determine if interaction with THIS card should be disabled
         const limitReached = userVoteCount >= 3;
-        const isDisabled = limitReached && !hasVoted;
-        card.classList.toggle('disabled', isDisabled);
+        // Interaction is disabled if:
+        // 1. Voting isn't allowed OR
+        // 2. The limit is reached AND the user hasn't voted for THIS specific player
+        const isDisabledInteraction = !votingAllowed || (limitReached && !hasVoted);
 
-        // Update cursor based on voting allowance and state
-        if (votingAllowed) {
-            // If it's disabled (limit reached for others), not-allowed cursor
-            // If it's not disabled (either limit not reached, or this IS voted), pointer cursor
-            card.style.cursor = isDisabled ? 'not-allowed' : 'pointer';
-        } else {
-            card.style.cursor = 'default'; // Always default if voting closed
-        }
-        // console.log(`Updated card ${playerIdStr}: voted=${hasVoted}, disabled=${isDisabled}, count=${userVoteCount}`); // DEBUG - Can be noisy
+        card.classList.toggle('is-disabled-interaction', isDisabledInteraction);
+
+        // Update cursor based ONLY on whether interaction is disabled
+        card.style.cursor = isDisabledInteraction ? 'not-allowed' : 'pointer';
+
+        // console.log(`Updated card ${playerIdStr}: voted=${hasVoted}, disabledInteraction=${isDisabledInteraction}, count=${userVoteCount}`); // DEBUG - Can be noisy
     }
+
 
     function updateVoteCounterUI() {
         console.log(`Updating Vote Counter UI. Current JS Count: ${userVoteCount}`); // DEBUG
@@ -460,8 +463,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Event Handlers & AJAX ---
     function handleCardClick(card, playerIdStr) {
         console.log(`Card clicked: Player ID ${playerIdStr}`); // DEBUG
-        if (!votingAllowed || card.classList.contains('saving')) {
-            console.log("Click ignored: Voting not allowed or card is saving."); // DEBUG
+        // Prevent click if voting isn't allowed, card is saving, or card interaction is specifically disabled
+        if (card.classList.contains('saving') || card.classList.contains('is-disabled-interaction')) {
+            console.log("Click ignored: Card is saving or interaction disabled."); // DEBUG
+            // Optionally show a message if interaction is disabled due to limit
+            if (card.classList.contains('is-disabled-interaction') && votingAllowed) {
+                 showTemporaryMessage(card, "Vote limit reached! Remove another vote first.", true);
+            }
             return;
         }
 
@@ -469,25 +477,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const hasVoted = userVotes.hasOwnProperty(playerIdStr);
         console.log(`Has voted for ${playerIdStr}? ${hasVoted}. Current count: ${userVoteCount}`); // DEBUG
 
-
-        // Prevent casting vote if limit reached AND clicking a NEW player
-        if (userVoteCount >= 3 && !hasVoted) {
-            console.log("Vote limit reached, cannot vote for new player."); // DEBUG
-            showTemporaryMessage(card, "Vote limit reached! Remove another vote first.", true);
-            return; // Stop processing
-        }
-
         // Determine action: always remove if already voted, otherwise cast
+        // No need for limit check here anymore, as the is-disabled-interaction check handles it
         const action = hasVoted ? 'remove' : 'cast';
         console.log(`Determined action: ${action}`); // DEBUG
-
 
         sendVoteUpdate(card, parseInt(playerIdStr), action); // Send integer ID to backend
     }
 
+
     async function sendVoteUpdate(card, playerIdInt, action) {
         console.log(`Sending AJAX request: Action=${action}, PlayerID=${playerIdInt}`); // DEBUG
         card.classList.add('saving'); // Show spinner
+        // --- Temporarily disable interaction while saving ---
+        card.classList.add('is-disabled-interaction');
+
         try {
             const response = await fetch(castVoteUrl, {
                 method: 'POST',
@@ -576,8 +580,10 @@ document.addEventListener('DOMContentLoaded', function() {
              // We don't revert state here, rely on refresh or next successful action to sync
         } finally {
             card.classList.remove('saving'); // Hide spinner
+            // --- Re-enable interaction AFTER saving (state will be updated by updateVoteCounterUI) ---
+            // We just need to remove the temporary saving disable, the main logic is in updateCardVoteState
+            // Note: updateVoteCounterUI was already called which recalculates the disabled state.
              console.log(`AJAX complete for ${playerIdInt}. Removed 'saving' class.`); // DEBUG
-
         }
     }
 
