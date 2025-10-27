@@ -29,8 +29,9 @@
 
     <div class="dashboard-grid">
 
-      {% comment %} --- RESTORED & UPDATED SECTION FOR COACHES --- {% endcomment %}
+      {% comment %} --- SECTION FOR COACHES/STAFF (NON-SUPERUSER) --- {% endcomment %}
       {% if user.is_staff and not user.is_superuser %}
+        {# --- Upcoming Sessions Card --- #}
         <div class="dashboard-card" id="coach-upcoming-sessions-card">
             <div class="card-header">
                 <h3><i class="bi bi-calendar-event"></i> My Upcoming Sessions</h3>
@@ -82,6 +83,24 @@
             </div>
         </div>
 
+        {# --- NEW AWARDS VOTING CARD (MOVED HERE) --- #}
+        {% if show_awards_voting_card %}
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-trophy-fill"></i> Vote for Awards</h3>
+            </div>
+            <div class="card-body">
+                <p>Voting for the end-of-year awards is now open!</p>
+                <p class="text-muted small">Cast your votes for the most deserving players across various categories.</p>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'awards:prize_list' %}" class="card-action-link">Go to Awards Voting <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+        {% endif %}
+        {# --- END AWARDS VOTING CARD --- #}
+
+        {# --- Pending Assessments Card --- #}
         <div class="dashboard-card">
             <div class="card-header">
                 <h3><i class="bi bi-card-checklist"></i> Pending Assessments</h3>
@@ -107,7 +126,8 @@
                 <a href="{% url 'assessments:pending_assessments' %}" class="card-action-link">Go to My Assessments <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
-        
+
+        {# --- My Availability Card --- #}
         <div class="dashboard-card">
             <div class="card-header">
                 <h3><i class="bi bi-calendar-check-fill"></i> My Availability</h3>
@@ -130,9 +150,13 @@
                 <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Go to My Weekly Availability <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
+
+        {# --- Awards Voting Card (Original Position - Removed from here) --- #}
+
       {% endif %}
 
 
+      {% comment %} --- SECTION FOR SUPERUSERS --- {% endcomment %}
       {% if user.is_superuser %}
       <div class="dashboard-card">
           <div class="card-header">
@@ -293,6 +317,7 @@
                        <li><a href="{% url 'accounts:coach_list' %}">Manage Coaches</a></li>
                        <li><a href="{% url 'players:school_group_list' %}">Manage School Groups</a></li>
                        <li><a href="{% url 'admin:finance_payslip_changelist' %}">Manage Payslips</a></li>
+                       <li><a href="{% url 'awards:prize_list' %}">Awards</a></li>
                        <li><a href="{% url 'admin:index' %}">Full Admin Site</a></li>
                    </ul>
               </div>
@@ -301,6 +326,7 @@
     </div>
 </div>
 
+{# --- Modals for Coach Decline Reason --- #}
 {% for item in sessions_for_coach_card %}
 {% if item.show_actions and item.status == 'PENDING' %}
 <div class="modal fade" id="declineReasonModal-{{ item.session.id }}" tabindex="-1" aria-labelledby="declineReasonModalLabel-{{ item.session.id }}" aria-hidden="true">

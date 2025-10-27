@@ -32,6 +32,7 @@ from .notifications import verify_confirmation_token, send_coach_decline_notific
 from accounts.models import Coach
 from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
+from awards.models import Prize
 # --- End: Replacement block ---
 User = get_user_model()
 
@@ -49,6 +50,7 @@ def is_staff(user):
 def homepage(request):
     today = timezone.now().date()
     now = timezone.now()
+    current_year = today.year # <<< ADDED
 
     # Common context variables
     upcoming_sessions_for_admin = None
@@ -65,6 +67,9 @@ def homepage(request):
     availability_all_set = False
     prompt_month_name = ""
     bulk_availability_url = ""
+
+    # --- NEW: Variable for awards voting card ---
+    show_awards_voting_card = False
 
     if request.user.is_superuser:
         two_weeks_from_now = today + timedelta(days=14)
@@ -163,9 +168,9 @@ def homepage(request):
                 status = "PENDING"
                 if availability and availability.last_action:
                     status = availability.last_action
-                
+
                 show_actions = session.session_date <= (today + timedelta(days=1))
-                
+
                 sessions_for_coach_card.append({
                     'session': session,
                     'status': status,
@@ -189,6 +194,16 @@ def homepage(request):
                 if s.end_datetime and s.end_datetime < now
             ]
 
+            # --- CORRECTED: Check if awards voting is open ---
+            now_dt = timezone.now()
+            show_awards_voting_card = Prize.objects.filter(
+                Q(voting_opens__isnull=True) | Q(voting_opens__lte=now_dt),  # Positional Arg
+                Q(voting_closes__isnull=True) | Q(voting_closes__gte=now_dt), # Positional Arg
+                year=current_year,                                            # Keyword Arg
+                status=Prize.PrizeStatus.VOTING                               # Keyword Arg
+            ).exists()
+            # --- END CORRECTION ---
+
         except Coach.DoesNotExist:
             pass
 
@@ -206,10 +221,10 @@ def homepage(request):
         'availability_all_set': availability_all_set,
         'next_month_name': prompt_month_name,
         'bulk_availability_url': bulk_availability_url,
+        'show_awards_voting_card': show_awards_voting_card,
     }
 
     return render(request, 'scheduling/homepage.html', context)
-
 
 def _get_default_plan(session):
     # This function remains the same as the last version
