@@ -1,4 +1,3 @@
-{# awards/templates/awards/vote_prize.html #}
 {% extends "base.html" %}
 {% load static %}
 
@@ -6,269 +5,251 @@
 
 {% block extra_head %}
 <style>
-    .nominee-grid {
+    /* Grid for both leaders and other players */
+    .player-vote-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Slightly wider cards */
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Slightly narrower cards */
         gap: 1.5rem;
-        margin-top: 1.5rem;
+        margin-top: 1rem;
     }
-    .nominee-card {
-        border: 2px solid var(--border-color); /* Thicker border */
+    .player-card {
+        border: 2px solid var(--border-color);
         border-radius: 8px;
         background-color: var(--container-bg);
         text-align: center;
         transition: all 0.2s ease;
-        position: relative; /* For score badge & vote controls */
-        cursor: pointer; /* Indicate clickable */
-        display: flex; /* Use flexbox for layout */
-        flex-direction: column; /* Stack elements vertically */
-        padding-bottom: 50px; /* Space for controls */
-        min-height: 280px; /* Ensure consistent height */
+        position: relative;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 10px; /* Reduced padding */
+        min-height: 220px; /* Adjusted height */
     }
-    .nominee-card:hover {
+    .player-card:hover {
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         border-color: var(--link-color);
     }
-    .nominee-card-content {
-        padding: 1rem;
-        flex-grow: 1; /* Allow content to take space */
+    .player-card.disabled { /* Style for when vote limit reached */
+        cursor: not-allowed;
+        opacity: 0.7;
     }
-    .nominee-photo img, .nominee-photo .photo-placeholder {
-        width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 0.75rem;
-        display: block; background-color: var(--container-light-bg); border: 2px solid var(--border-light);
+    .player-card-content { padding: 1rem 1rem 0.5rem 1rem; flex-grow: 1; }
+    .player-photo img, .player-photo .photo-placeholder {
+        width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 0.75rem; display: block;
+        background-color: var(--container-light-bg); border: 2px solid var(--border-light);
     }
-    .nominee-photo img { object-fit: cover; object-position: top; }
+    .player-photo img { object-fit: cover; object-position: top; }
     .photo-placeholder { display: flex; align-items: center; justify-content: center; }
-    .photo-placeholder .bi { font-size: 3rem; color: #adb5bd; }
-    .nominee-name { font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; }
-    .nominee-justification {
-        font-size: 0.85rem; color: var(--subheading-color); margin-top: 0.5rem;
-        font-style: italic; border-left: 3px solid var(--border-light); padding-left: 0.75rem;
-        text-align: left;
-    }
-    .nominee-score-badge {
+    .photo-placeholder .bi { font-size: 2.5rem; color: #adb5bd; }
+    .player-name { font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem; }
+
+    /* Score Badge */
+    .player-score-badge {
         position: absolute; top: 10px; right: 10px; background-color: var(--bs-primary);
-        color: white; border-radius: 50%; width: 30px; height: 30px;
+        color: white; border-radius: 50%; width: 28px; height: 28px;
         display: flex; align-items: center; justify-content: center;
-        font-weight: bold; font-size: 0.9em;
+        font-weight: bold; font-size: 0.8em;
     }
-    .vote-details { margin-top: 1rem; text-align: left; font-size: 0.8em; }
-    .vote-details summary { cursor: pointer; color: var(--link-color); }
+    /* Vote Details (collapsible) */
+    .vote-details { margin-top: 0.5rem; text-align: left; font-size: 0.8em; }
+    .vote-details summary { cursor: pointer; color: var(--link-color); font-weight: 500;}
     .vote-details ul { list-style-type: none; padding-left: 0.5rem; margin-top: 0.25rem; }
     .vote-details li { margin-bottom: 0.25rem; }
 
-    /* --- New Styles for Interactive Voting --- */
-    .vote-controls {
-        position: absolute;
-        bottom: 10px; /* Position at the bottom */
-        left: 10px;
-        right: 10px;
-        display: none; /* Hidden by default */
-        flex-direction: column;
-        gap: 5px;
-        background: rgba(var(--bs-body-bg-rgb), 0.9); /* Slight background */
-        padding-top: 5px; /* Space from content */
+    /* Vote Highlighting */
+    .player-card.voted-by-user {
+        border-color: var(--bs-success); /* Green border */
+        background-color: var(--bs-success-bg-subtle);
     }
-    .nominee-card.is-active .vote-controls {
-        display: flex; /* Show when card is active */
+    html.dark-mode .player-card.voted-by-user {
+         background-color: #032816;
+         border-color: #20c997;
     }
-    .vote-rank-buttons {
-        display: flex;
-        justify-content: space-around;
-        gap: 5px;
-    }
-    .vote-rank-button {
-        flex: 1;
-        font-size: 0.8rem;
-        padding: 0.25rem 0.5rem;
-        border: 1px solid var(--bs-border-color);
-        background-color: var(--bs-secondary-bg);
-        color: var(--bs-body-color);
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    .vote-rank-button:hover {
-        border-color: var(--bs-primary);
-        background-color: var(--bs-primary-bg-subtle);
-    }
-    .vote-rank-button.selected {
-        background-color: var(--bs-success);
-        border-color: var(--bs-success);
-        color: white;
-        font-weight: bold;
-    }
-    .vote-comment-input {
-        width: 100%;
-        font-size: 0.8rem;
-        padding: 3px 5px;
-        border: 1px solid var(--bs-border-color);
-        border-radius: 4px;
-        resize: vertical; /* Allow vertical resize only */
-    }
-    /* Style for showing which rank is currently assigned */
-    .nominee-card.voted-rank-1 { border-color: #ffd700; /* Gold */ }
-    .nominee-card.voted-rank-2 { border-color: #c0c0c0; /* Silver */ }
-    .nominee-card.voted-rank-3 { border-color: #cd7f32; /* Bronze */ }
 
-    /* Feedback Spinner */
-    .vote-spinner {
-        position: absolute;
-        top: 5px; left: 5px;
-        width: 20px; height: 20px;
-        border: 2px solid rgba(var(--bs-primary-rgb), 0.3);
-        border-top-color: var(--bs-primary);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        display: none; /* Hidden by default */
-    }
-    .nominee-card.saving .vote-spinner { display: block; }
+    /* Spinner */
+    .vote-spinner { position: absolute; top: 5px; left: 5px; width: 20px; height: 20px; border: 2px solid rgba(var(--bs-primary-rgb), 0.3); border-top-color: var(--bs-primary); border-radius: 50%; animation: spin 1s linear infinite; display: none; }
+    .player-card.saving .vote-spinner { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Other Eligible Players Section */
+    .other-players-section { margin-top: 3rem; }
+    .search-input { max-width: 400px; margin-bottom: 1rem; }
+
+    /* Winner Display */
+    .winner-banner { background-color: var(--bs-success-bg-subtle); border-left: 5px solid var(--bs-success); padding: 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;}
+    .winner-banner i { font-size: 2rem; color: var(--bs-success); }
+    .winner-banner strong { font-size: 1.2rem; }
+
+    /* Vote Counter */
+    #vote-counter {
+        font-weight: bold;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        background-color: var(--bs-secondary-bg);
+        border: 1px solid var(--bs-border-color);
+        display: inline-block; /* Makes background fit content */
+        margin-top: 5px; /* Add some space */
+    }
+    #vote-counter.limit-reached {
+        background-color: var(--bs-warning-bg-subtle);
+        border-color: var(--bs-warning-border-subtle);
+        color: var(--bs-warning-text);
+    }
+    /* Simple feedback message styling */
+    .vote-feedback {
+        position: absolute; bottom: 5px; left: 5px; right: 5px; font-size: 0.75rem;
+        padding: 2px 5px; border-radius: 3px; opacity: 0; transition: opacity 0.5s ease-out;
+        z-index: 10; /* Ensure it's above other elements if needed */
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4" id="awards-vote-page" data-prize-id="{{ prize.id }}" data-cast-vote-url="{% url 'awards:cast_vote_ajax' %}">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    {# --- Header & Prize Info --- #}
+    <div class="d-flex justify-content-between align-items-center mb-2">
         <div>
             <h1><i class="bi bi-person-check-fill me-2"></i>{{ page_title }}</h1>
-            <p class="text-muted">{{ prize.description|default:"No description available." }}</p>
-            <p><strong>Status:</strong> {{ prize.get_status_display }}</p>
+            <p class="text-muted mb-1">{{ prize.description|default:"No description available." }}</p>
+            <p class="mb-1"><strong>Status:</strong> {{ prize.get_status_display }}</p>
             {% if prize.voting_start_date and prize.voting_end_date %}
-                <p><strong>Voting Period:</strong> {{ prize.voting_start_date|date:"d M Y" }} to {{ prize.voting_end_date|date:"d M Y" }}</p>
+                <p class="mb-1"><strong>Voting Period:</strong> {{ prize.voting_start_date|date:"d M Y" }} to {{ prize.voting_end_date|date:"d M Y" }}</p>
             {% endif %}
         </div>
         <div>
             <a href="{% url 'awards:prize_list' %}?year={{ prize.year }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Prize List
             </a>
-            {% if user.is_superuser %}
-            <a href="{% url 'awards:nominate_prize' prize.id %}" class="btn btn-outline-info ms-2">
-                <i class="bi bi-pencil-square"></i> Edit Nominations
-            </a>
-            {% endif %}
+            {# Removed Edit Nominations link #}
         </div>
     </div>
 
-    {# Display Winner if Decided #}
-    {% if prize.status == 'DECIDED' or prize.status == 'ARCHIVED' %}
-        {% with winner_entry=prize.winners.first %}
-            {% if winner_entry %}
-            <div class="alert alert-success" role="alert">
-                <h4 class="alert-heading"><i class="bi bi-trophy-fill me-2"></i>Winner Decided!</h4>
-                <p>The winner for {{ prize.name }} ({{ prize.year }}) is <strong>{{ winner_entry.player.full_name }}</strong>.</p>
-                <hr>
-                <p class="mb-0">Awarded on: {{ winner_entry.award_date|date:"d M Y" }}</p>
-            </div>
-            {% else %}
-             <div class="alert alert-secondary" role="alert">
-                Voting for this prize is closed, but the winner has not been formally recorded yet.
-            </div>
-            {% endif %}
-        {% endwith %}
-    {% endif %}
-
-    {% if not nominations_with_votes %}
-        <div class="alert alert-warning" role="alert">
-            No players have been nominated for this prize yet.
+    {# --- Winner Display --- #}
+    {% if winner %}
+    <div class="winner-banner rounded">
+        <i class="bi bi-trophy-fill"></i>
+        <div>
+            <strong>Winner Decided: {{ winner.player.full_name }}</strong><br>
+            Awarded on {{ winner.award_date|date:"d M Y" }} by {{ winner.awarded_by.get_full_name|default:winner.awarded_by.username }}.
+            (Final Score: {{ winner.final_score|default:"N/A" }})
         </div>
-    {% elif not voting_allowed and prize.status != 'DECIDED' and prize.status != 'ARCHIVED' %} {# Show voting closed/not open message only if not already decided #}
-        {% if prize.status == 'NOMINATING' %}
-            <div class="alert alert-info" role="alert">
-                Nominations are currently open. Voting will begin {% if prize.voting_start_date %}on {{ prize.voting_start_date|date:"d M Y" }}{% else %}soon{% endif %}.
-            </div>
-        {% else %} {# Catch-all for invalid dates etc. but not Decided/Archived #}
-            <div class="alert alert-warning" role="alert">
-                Voting is not currently open for this prize. Check the voting period dates.
-            </div>
-        {% endif %}
-    {% elif voting_allowed %} {# Voting is allowed and there are nominees #}
-        <p class="lead">Click on a nominee's card to cast or change your vote.</p>
-        <p class="text-muted small">Your votes are saved automatically when you select a rank.</p>
+    </div>
     {% endif %}
 
-    {# Nominee Display Section - Always shown if there are nominees #}
-    {% if nominations_with_votes %}
-        <h3 class="mt-5 {% if prize.status == 'DECIDED' or prize.status == 'ARCHIVED' %}mb-4{% else %}my-3{% endif %}">
-            Nominees & {% if prize.status == 'DECIDED' or prize.status == 'ARCHIVED' %}Final Standing{% else %}Current Standing{% endif %}
-        </h3>
-        <div class="nominee-grid" id="nominee-grid">
-            {% for item in nominations_with_votes %}
-                <div class="nominee-card {% if prize.status == 'DECIDED' or prize.status == 'ARCHIVED' %}no-click{% endif %}"
-                     data-nomination-id="{{ item.nomination.id }}"
-                     {% if voting_allowed %}tabindex="0"{% endif %}>
-                    <div class="nominee-score-badge" id="score-{{ item.nomination.id }}">{{ item.nomination.total_vote_score }}</div>
-                    <div class="vote-spinner" id="spinner-{{ item.nomination.id }}"></div> {# Spinner added #}
-                    <div class="nominee-card-content">
-                        <div class="nominee-photo">
-                            {% if item.nomination.player.photo %}
-                                <img src="{{ item.nomination.player.photo.url }}" alt="Photo of {{ item.nomination.player.full_name }}">
+    {# --- Voting Instructions / Status --- #}
+    {% if not current_results and not eligible_not_voted_players %}
+        <div class="alert alert-warning mt-4" role="alert">
+            No players are eligible for this prize based on the criteria (Grade {{ prize.min_grade|default:"Any" }} - {{ prize.max_grade|default:"Any" }}).
+        </div>
+    {% elif not voting_allowed and not winner %}
+         <div class="alert alert-info mt-4" role="alert">
+             Voting is not currently open. It {% if prize.voting_start_date %}starts {{ prize.voting_start_date|date:"d M Y" }}{% else %}will open soon{% endif %}.
+         </div>
+    {% elif voting_allowed %}
+        <p class="lead mt-3">Click on a player's card to cast or remove your vote.</p>
+        <p>You can cast up to 3 votes in total for this prize.
+            <span id="vote-counter">Votes Used: {{ user_vote_count }} / 3</span>
+        </p>
+    {% endif %}
+
+
+    {# --- Current Leaders Section --- #}
+    {% if current_results %}
+        <h3 class="mt-4">Current Leaders</h3>
+        <div class="player-vote-grid" id="leaders-grid">
+            {% for result in current_results %}
+                <div class="player-card" data-player-id="{{ result.player.id }}" tabindex="0">
+                    <div class="player-score-badge" id="score-{{ result.player.id }}">{{ result.score }}</div>
+                    <div class="vote-spinner" id="spinner-{{ result.player.id }}"></div>
+                    <div class="player-card-content">
+                        <div class="player-photo">
+                            {% if result.player.photo %}
+                                <img src="{{ result.player.photo.url }}" alt="Photo of {{ result.player.full_name }}">
                             {% else %}
                                 <div class="photo-placeholder"><i class="bi bi-person-fill"></i></div>
                             {% endif %}
                         </div>
-                        <div class="nominee-name">{{ item.nomination.player.full_name }}</div>
-                        {% if item.nomination.justification %}
-                            <div class="nominee-justification">
-                                <strong>Nomination Note:</strong> {{ item.nomination.justification }}
-                            </div>
-                        {% endif %}
+                        <div class="player-name">{{ result.player.full_name }}</div>
 
-                        {% if item.votes_by_rank %}
+                        {% if result.votes_by_voter %}
                             <details class="vote-details">
-                                <summary>View Votes</summary>
-                                {% for rank, votes in item.votes_by_rank.items %}
-                                    {% if votes %}
-                                        <strong>{{ rank }}{% if rank == 1 %}st{% elif rank == 2 %}nd{% elif rank == 3 %}rd{% endif %} Choice:</strong>
-                                        <ul>
-                                            {% for vote in votes %}
-                                                <li>
-                                                    {{ vote.voter }}
-                                                    {% if vote.comment %}<small class="text-muted"> - "{{ vote.comment }}"</small>{% endif %}
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    {% endif %}
-                                {% endfor %}
+                                <summary>View Votes ({{ result.vote_count }})</summary>
+                                <ul>
+                                    {% for vote in result.votes_by_voter.voters %} {# Adjusted loop based on new structure #}
+                                        <li>{{ vote.voter }}</li>
+                                    {% endfor %}
+                                </ul>
                             </details>
                         {% endif %}
-                    </div> {# End nominee-card-content #}
-
-                    {% if voting_allowed %}
-                    <div class="vote-controls">
-                        <div class="vote-rank-buttons">
-                            <button class="vote-rank-button" data-rank="1">1st</button>
-                            <button class="vote-rank-button" data-rank="2">2nd</button>
-                            <button class="vote-rank-button" data-rank="3">3rd</button>
-                        </div>
-                        <textarea class="vote-comment-input" rows="1" placeholder="Optional comment..."></textarea>
-                    </div>
-                    {% endif %}
-                </div> {# End nominee-card #}
+                    </div> {# End player-card-content #}
+                    {# Vote controls removed from here #}
+                </div> {# End player-card #}
             {% endfor %}
-        </div> {# End nominee-grid #}
+        </div>
+    {% endif %} {# End if current_results #}
 
-        {# --- BEGIN: Admin Winner Selection Section --- #}
-        {% if user.is_superuser and prize.status != 'DECIDED' and prize.status != 'ARCHIVED' %}
+
+    {# --- Other Eligible Players Section --- #}
+    {% if eligible_not_voted_players %}
+        <div class="other-players-section">
+            <h3 class="mt-4">Other Eligible Players</h3>
+            <input type="text" id="player-search" class="form-control search-input" placeholder="Search eligible players...">
+            <div class="player-vote-grid" id="other-players-grid">
+                {% for player in eligible_not_voted_players %}
+                    <div class="player-card" data-player-id="{{ player.id }}" tabindex="0" data-player-name="{{ player.full_name|lower }}">
+                        <div class="player-score-badge" id="score-{{ player.id }}">0</div>
+                        <div class="vote-spinner" id="spinner-{{ player.id }}"></div>
+                        <div class="player-card-content">
+                            <div class="player-photo">
+                                {% if player.photo %}
+                                    <img src="{{ player.photo.url }}" alt="Photo of {{ player.full_name }}">
+                                {% else %}
+                                    <div class="photo-placeholder"><i class="bi bi-person-fill"></i></div>
+                                {% endif %}
+                            </div>
+                            <div class="player-name">{{ player.full_name }}</div>
+                            {# No vote details initially #}
+                        </div> {# End player-card-content #}
+                        {# Vote controls removed from here #}
+                    </div> {# End player-card #}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %} {# End if eligible_not_voted_players #}
+
+
+    {# --- Admin Winner Confirmation Section --- #}
+    {# Use the simple boolean flag passed from the view #}
+    {% if show_admin_confirm_section %}
         <hr class="my-5">
-        <div class="card shadow-sm mt-4 bg-light"> {# Light background for admin section #}
+        <div class="card shadow-sm mt-4 bg-light">
             <div class="card-header bg-secondary text-white">
                 <i class="bi bi-award-fill me-1"></i> Admin: Confirm Winner
             </div>
             <div class="card-body">
-                <form method="post" action="{% url 'awards:confirm_winner' prize.id %}"> {# URL to be created next #}
+                <form method="post" action="{% url 'awards:confirm_winner' prize.id %}">
                     {% csrf_token %}
                     <p>Select the final winner for this prize based on votes or admin decision:</p>
-                    {% for item in nominations_with_votes %}
+                    {% comment %} Combine results and other players for the selection list {% endcomment %}
+                    {% for result in current_results %}
                         <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="winner_nomination_id"
-                                   id="winner_{{ item.nomination.id }}" value="{{ item.nomination.id }}" required>
-                            <label class="form-check-label" for="winner_{{ item.nomination.id }}">
-                                {{ item.nomination.player.full_name }} (Score: {{ item.nomination.total_vote_score }})
+                            <input class="form-check-input" type="radio" name="winner_player_id"
+                                   id="winner_{{ result.player.id }}" value="{{ result.player.id }}" required>
+                            <label class="form-check-label" for="winner_{{ result.player.id }}">
+                                {{ result.player.full_name }} (Current Score: {{ result.score }})
                             </label>
                         </div>
                     {% endfor %}
+                    {% for player in eligible_not_voted_players %}
+                         <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="winner_player_id"
+                                   id="winner_{{ player.id }}" value="{{ player.id }}" required>
+                            <label class="form-check-label" for="winner_{{ player.id }}">
+                                {{ player.full_name }} (Current Score: 0)
+                            </label>
+                        </div>
+                    {% endfor %}
+
                     <button type="submit" class="btn btn-success mt-3"
                             onclick="return confirm('Are you sure you want to confirm this winner? This will change the prize status to Decided and close voting.')">
                         <i class="bi bi-check-circle-fill me-1"></i> Confirm Winner & Close Voting
@@ -276,15 +257,13 @@
                 </form>
             </div>
         </div>
-        {% endif %}
-        {# --- END: Admin Winner Selection Section --- #}
+    {% endif %} {# End Admin Winner Section #}
 
-    {% endif %} {# End if nominations_with_votes #}
 
 </div> {# End container #}
 
 {# Pass initial user votes to JavaScript #}
-{{ user_votes_json|json_script:"user-votes-data" }}
+{{ user_votes_simple_json|json_script:"user-votes-data" }}
 {% endblock %}
 
 {% block extra_js %}
@@ -295,253 +274,197 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const prizeId = pageContainer.dataset.prizeId;
     const castVoteUrl = pageContainer.dataset.castVoteUrl;
-    const nomineeGrid = document.getElementById('nominee-grid');
-    const votingAllowed = {{ voting_allowed|yesno:"true,false" }}; // Get from context
-    let userVotes = {};
-    let activeCard = null; // Track the currently open card
-    let saveTimeout = null; // For debouncing comment saves
+    const leadersGrid = document.getElementById('leaders-grid');
+    const otherPlayersGrid = document.getElementById('other-players-grid');
+    const searchInput = document.getElementById('player-search');
+    const voteCounterElement = document.getElementById('vote-counter');
+    let userVotes = {}; // Will store { player_id: 1 } if voted
+    let userVoteCount = 0;
+    const votingAllowed = {{ voting_allowed|yesno:"true,false" }};
 
     try {
         userVotes = JSON.parse(document.getElementById('user-votes-data').textContent);
+        userVoteCount = Object.keys(userVotes).length; // Initial count
+        updateVoteCounterUI(); // Update counter on load
     } catch (e) {
         console.error("Could not parse user votes data:", e);
     }
 
-    function getCookie(name) { // Helper to get CSRF token
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
+    function getCookie(name) { /* ... CSRF token function ... */
+        let cookieValue = null; if (document.cookie && document.cookie !== '') { const cookies = document.cookie.split(';'); for (let i = 0; i < cookies.length; i++) { const cookie = cookies[i].trim(); if (cookie.substring(0, name.length + 1) === (name + '=')) { cookieValue = decodeURIComponent(cookie.substring(name.length + 1)); break; } } } return cookieValue;
+     }
     const csrfToken = getCookie('csrftoken');
 
     // --- Initialization ---
-    function initializeCards() {
-        nomineeGrid.querySelectorAll('.nominee-card').forEach(card => {
-            const nomId = parseInt(card.dataset.nominationId);
-            updateCardVoteState(card, nomId);
+    function initializeCards(grid) {
+        if (!grid) return;
+        grid.querySelectorAll('.player-card').forEach(card => {
+            const playerId = parseInt(card.dataset.playerId);
+            updateCardVoteState(card, playerId);
 
-            if (votingAllowed) { // Only add interactive listeners if voting is allowed
-                // Click listener for the whole card (except controls)
+            if (votingAllowed) {
+                // Click listener for the whole card
                 card.addEventListener('click', (event) => {
-                    // Don't activate if clicking inside controls or details
-                    if (event.target.closest('.vote-controls, .vote-details')) {
-                        return;
-                    }
-                    toggleActiveCard(card);
+                    // Prevent clicks on details toggling vote
+                    if (event.target.closest('.vote-details')) return;
+                    handleCardClick(card, playerId);
                 });
-
-                // Listeners for rank buttons
-                card.querySelectorAll('.vote-rank-button').forEach(button => {
-                    button.addEventListener('click', (event) => {
-                        event.stopPropagation(); // Prevent card click
-                        handleRankButtonClick(card, nomId, parseInt(button.dataset.rank));
-                    });
-                });
-
-                // Listener for comment input (using 'input' for real-time, but debounced)
-                const commentInput = card.querySelector('.vote-comment-input');
-                if (commentInput) {
-                    commentInput.addEventListener('input', () => {
-                        debounceSaveComment(card, nomId);
-                    });
-                     // Stop card activation when clicking textarea
-                    commentInput.addEventListener('click', (event) => {
-                        event.stopPropagation();
-                    });
-                }
             } else {
-                 card.style.cursor = 'default'; // Remove pointer cursor if voting inactive
+                 card.style.cursor = 'default'; // No pointer if voting closed
             }
         });
     }
 
     // --- UI Update Functions ---
-    function updateCardVoteState(card, nomId) {
-        let currentRank = null;
-        let currentComment = '';
+    function updateCardVoteState(card, playerId) {
+        const hasVoted = userVotes.hasOwnProperty(playerId);
+        card.classList.toggle('voted-by-user', hasVoted);
 
-        // Find if this nominee has a vote from the current user
-        for (const rank in userVotes) {
-            if (userVotes[rank] && userVotes[rank].nomination_id === nomId) {
-                currentRank = parseInt(rank);
-                currentComment = userVotes[rank].comment || '';
-                break;
-            }
-        }
-
-        // Update rank button styles (only if controls exist)
-        card.querySelectorAll('.vote-rank-button').forEach(button => {
-            const rank = parseInt(button.dataset.rank);
-            button.classList.toggle('selected', rank === currentRank);
-        });
-
-        // Update card border style
-        card.classList.remove('voted-rank-1', 'voted-rank-2', 'voted-rank-3');
-        if (currentRank) {
-            card.classList.add(`voted-rank-${currentRank}`);
-        }
-
-        // Update comment input value (only if controls exist)
-        const commentInput = card.querySelector('.vote-comment-input');
-        if (commentInput) {
-            commentInput.value = currentComment;
+        // Disable clicking other cards if limit is reached and this card isn't voted
+        const limitReached = userVoteCount >= 3;
+        card.classList.toggle('disabled', limitReached && !hasVoted);
+        // Only make cursor not-allowed if voting is generally allowed but limit reached for this card
+        if (votingAllowed) {
+            card.style.cursor = (limitReached && !hasVoted) ? 'not-allowed' : 'pointer';
+        } else {
+            card.style.cursor = 'default'; // Always default if voting closed
         }
     }
 
-    function toggleActiveCard(cardToActivate) {
-        if (!votingAllowed) return; // Don't allow toggling if voting inactive
-
-        if (activeCard && activeCard !== cardToActivate) {
-            activeCard.classList.remove('is-active');
+    function updateVoteCounterUI() {
+        if (voteCounterElement) {
+            voteCounterElement.textContent = `Votes Used: ${userVoteCount} / 3`;
+            voteCounterElement.classList.toggle('limit-reached', userVoteCount >= 3);
         }
-        if (cardToActivate && activeCard !== cardToActivate) {
-            cardToActivate.classList.add('is-active');
-            activeCard = cardToActivate;
-             // Focus comment input when card becomes active
-            const commentInput = activeCard.querySelector('.vote-comment-input');
-            // if (commentInput) { // Focusing might be annoying, maybe remove
-            //      setTimeout(() => commentInput.focus(), 50); // Slight delay helps
-            // }
-        } else if (cardToActivate) {
-            // Clicking the already active card deactivates it
-            cardToActivate.classList.remove('is-active');
-            activeCard = null;
-        }
+        // Update disabled state for all cards
+         [leadersGrid, otherPlayersGrid].forEach(grid => {
+            if (!grid) return;
+            grid.querySelectorAll('.player-card').forEach(card => {
+                const playerId = parseInt(card.dataset.playerId);
+                updateCardVoteState(card, playerId); // Re-apply state based on new count
+            });
+         });
     }
 
     // --- Event Handlers & AJAX ---
-    function handleRankButtonClick(card, nomId, rank) {
-        if (!votingAllowed) return; // Extra check
-
-        let currentRank = null;
-        for (const r in userVotes) {
-            if (userVotes[r] && userVotes[r].nomination_id === nomId) {
-                currentRank = parseInt(r);
-                break;
-            }
+    function handleCardClick(card, playerId) {
+        if (!votingAllowed) return; // Double check
+        // Prevent action if limit reached and clicking a card user hasn't voted for
+        if (userVoteCount >= 3 && !userVotes.hasOwnProperty(playerId)) {
+            showTemporaryMessage(card, "Vote limit reached! Remove another vote first.", true);
+            return;
         }
 
-        const action = (currentRank === rank) ? 'remove' : 'cast';
-        const comment = card.querySelector('.vote-comment-input')?.value || '';
+        const hasVoted = userVotes.hasOwnProperty(playerId);
+        const action = hasVoted ? 'remove' : 'cast';
 
-        sendVoteUpdate(card, nomId, rank, comment, action);
+        sendVoteUpdate(card, playerId, action);
     }
 
-    function debounceSaveComment(card, nomId) {
-         if (!votingAllowed) return; // Extra check
-
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-            let currentRank = null;
-            for (const r in userVotes) {
-                if (userVotes[r] && userVotes[r].nomination_id === nomId) {
-                    currentRank = parseInt(r);
-                    break;
-                }
-            }
-            // Only save comment if a rank is actually selected for this nominee
-            if (currentRank) {
-                const comment = card.querySelector('.vote-comment-input')?.value || '';
-                // Check if comment actually changed before sending
-                if (userVotes[currentRank]?.comment !== comment) {
-                     sendVoteUpdate(card, nomId, currentRank, comment, 'cast');
-                }
-            }
-        }, 750); // Wait 750ms after typing stops
-    }
-
-    async function sendVoteUpdate(card, nomId, rank, comment, action) {
-        card.classList.add('saving'); // Show spinner
-
+    async function sendVoteUpdate(card, playerId, action) {
+        card.classList.add('saving');
         try {
             const response = await fetch(castVoteUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                    nomination_id: nomId,
-                    rank: rank,
-                    comment: comment,
-                    action: action
-                }),
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'Accept': 'application/json' },
+                body: JSON.stringify({ prize_id: prizeId, player_id: playerId, action: action }),
             });
-
             const data = await response.json();
 
             if (data.status === 'success') {
-                // Update local state BEFORE updating UI
-                updateLocalUserVotes(nomId, rank, comment, action);
+                // Update local state first (crucial before UI updates depending on count)
+                updateLocalUserVotes(playerId, action); // Update userVotes object
+                userVoteCount = data.user_vote_count; // Sync count with server response
 
-                // Update UI for all cards (to handle rank conflicts)
-                nomineeGrid.querySelectorAll('.nominee-card').forEach(el => {
-                    updateCardVoteState(el, parseInt(el.dataset.nominationId));
-                });
+                // Update UI based on new local state
+                updateCardVoteState(card, playerId); // Update the clicked card
+                updateVoteCounterUI(); // Update counter and potentially disable/enable other cards
 
-                // Update score badge for the affected card
-                const scoreBadge = card.querySelector('.nominee-score-badge');
+                // Update score badge
+                const scoreBadge = card.querySelector('.player-score-badge');
                 if (scoreBadge && data.new_score !== undefined) {
                     scoreBadge.textContent = data.new_score;
                 }
+                showTemporaryMessage(card, data.message);
 
-                // Brief visual confirmation
-                card.style.transition = 'background-color 0.3s ease, border-color 0.3s ease'; // Include border transition
-                card.style.backgroundColor = 'var(--bs-success-bg-subtle)';
-                setTimeout(() => {
-                    card.style.backgroundColor = '';
-                    // Re-apply correct border based on final state
-                    updateCardVoteState(card, nomId);
-                 }, 1000);
+                // --- Optional: Move card between grids (Add later if needed) ---
 
+            } else if (data.status === 'limit_reached') {
+                 showTemporaryMessage(card, data.message, true); // Show limit message
+                 userVoteCount = 3; // Ensure local count is synced
+                 updateVoteCounterUI(); // Update UI states
             } else {
-                console.error("Error casting vote:", data.message);
-                alert(`Error: ${data.message}`);
-                // Revert UI? More complex, maybe just rely on refresh for now on error
+                // Handle other specific errors if needed, otherwise throw generic
+                 throw new Error(data.message || 'Unknown error from server.');
             }
-
         } catch (error) {
-            console.error("Network or parsing error:", error);
-            alert("Could not save vote. Please check your connection and try again.");
+            console.error("Error casting vote:", error);
+            showTemporaryMessage(card, `Error: ${error.message || 'Could not save vote.'}`, true);
+             // Optionally revert local state if AJAX failed critically
+             // revertLocalUserVotes(playerId, action); // Need to implement revert logic if desired
         } finally {
-            card.classList.remove('saving'); // Hide spinner
+            card.classList.remove('saving');
         }
     }
 
-    // Helper to update the local userVotes object
-    function updateLocalUserVotes(nomId, rank, comment, action) {
-        // Remove any existing vote for this RANK (might be on another nominee)
-        if (userVotes[rank]) {
-            delete userVotes[rank];
+    // Update local state *before* UI updates that depend on the count
+    function updateLocalUserVotes(playerId, action) {
+        const wasVoted = userVotes.hasOwnProperty(playerId);
+        if (action === 'cast' && !wasVoted) {
+            userVotes[playerId] = 1; // Add to voted set
+        } else if (action === 'remove' && wasVoted) {
+            delete userVotes[playerId]; // Remove from voted set
         }
-        // Remove any existing vote for this NOMINEE (might be a different rank)
-        for (const r in userVotes) {
-            if (userVotes[r] && userVotes[r].nomination_id === nomId) {
-                delete userVotes[r];
-                break;
-            }
-        }
+        // userVoteCount is updated directly from server response in sendVoteUpdate
+    }
 
-        // If casting, add the new vote back
-        if (action === 'cast') {
-            userVotes[rank] = { nomination_id: nomId, comment: comment };
-        }
-        // If removing, it's already removed by the loops above
+     // Simple feedback mechanism
+    function showTemporaryMessage(card, message, isError = false) {
+         let feedbackEl = card.querySelector('.vote-feedback');
+         if (!feedbackEl) {
+             feedbackEl = document.createElement('div');
+             feedbackEl.className = 'vote-feedback';
+             // Apply styles via JS for simplicity here
+             Object.assign(feedbackEl.style, {
+                position: 'absolute', bottom: '5px', left: '5px', right: '5px',
+                fontSize: '0.75rem', padding: '2px 5px', borderRadius: '3px',
+                opacity: '0', transition: 'opacity 0.5s ease-out', zIndex: '10'
+             });
+             card.appendChild(feedbackEl);
+         }
+         feedbackEl.textContent = message;
+         feedbackEl.style.backgroundColor = isError ? 'var(--bs-danger-bg-subtle)' : 'var(--bs-success-bg-subtle)';
+         feedbackEl.style.color = isError ? 'var(--bs-danger-text)' : 'var(--bs-success-text)';
+         // Force reflow before changing opacity for transition
+         void feedbackEl.offsetWidth;
+         feedbackEl.style.opacity = '1';
+
+         setTimeout(() => {
+             feedbackEl.style.opacity = '0';
+         }, 2500); // Hide after 2.5 seconds
+     }
+
+
+    // --- Search Filter ---
+    function filterPlayers() {
+        const searchTerm = searchInput.value.toLowerCase();
+        if (!otherPlayersGrid) return;
+        otherPlayersGrid.querySelectorAll('.player-card').forEach(card => {
+            const playerName = card.dataset.playerName || '';
+            const isVisible = playerName.includes(searchTerm);
+            card.style.display = isVisible ? 'flex' : 'none'; // Use flex for display
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filterPlayers);
     }
 
     // --- Run Initialization ---
-    initializeCards();
+    initializeCards(leadersGrid);
+    initializeCards(otherPlayersGrid);
 
 });
 </script>
 {% endblock %}
+

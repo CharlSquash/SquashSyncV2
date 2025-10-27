@@ -1,4 +1,3 @@
-{# awards/templates/awards/prize_list.html #}
 {% extends "base.html" %}
 
 {% block title %}{{ page_title }} - SquashSync{% endblock %}
@@ -7,8 +6,8 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1><i class="bi bi-trophy-fill me-2"></i>{{ page_title }}</h1>
-        {# Add button for admins to create prizes later #}
-        {# Example: <a href="{% url 'awards:create_prize' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Create Prize</a> #}
+        {# Admins can create prizes via the Django Admin interface for now #}
+        {# Example: <a href="{% url 'admin:awards_prize_add' %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Create Prize</a> #}
     </div>
 
     <form method="get" class="row g-3 align-items-end mb-4">
@@ -28,29 +27,31 @@
     </form>
 
     {% if prizes %}
-    <div class="list-group">
-        {% for prize in prizes %}
-            {# --- CHANGE THIS LINK to point to the voting page --- #}
-            <a href="{% url 'awards:vote_prize' prize.id %}" class="list-group-item list-group-item-action">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{ prize.name }}</h5>
-                    <small class="text-muted">{{ prize.get_status_display }}</small>
-                </div>
-                <p class="mb-1">{{ prize.description|default:"No description." }}</p>
-                <small class="text-muted">
-                    {% if prize.category %}Category: {{ prize.category.name }} | {% endif %}
-                    Eligibility: Grade {{ prize.min_grade|default:"Any" }} - {{ prize.max_grade|default:"Any" }}
-                    {# Optional: Add Edit Nominations link for admins here if desired #}
-                    {% if user.is_superuser %}
-                     | <a href="{% url 'awards:nominate_prize' prize.id %}" class="text-info">Edit Nominations</a>
-                    {% endif %}
-                </small>
-            </a>
-        {% endfor %}
-    </div>
+        <div class="list-group">
+            {% for prize in prizes %}
+                {# Link now correctly points only to the voting page #}
+                <a href="{% url 'awards:vote_prize' prize.id %}" class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ prize.name }}</h5>
+                         {# Show winner if decided #}
+                        {% if prize.winner_details %}
+                             <span class="badge bg-success"><i class="bi bi-trophy-fill me-1"></i> Winner: {{ prize.winner_details.player.short_name }}</span>
+                        {% else %}
+                             <small class="text-muted">{{ prize.get_status_display }}</small>
+                        {% endif %}
+                    </div>
+                    <p class="mb-1">{{ prize.description|default:"No description." }}</p>
+                    <small class="text-muted">
+                        {% if prize.category %}Category: {{ prize.category.name }} | {% endif %}
+                        Eligibility: Grade {{ prize.min_grade|default:"Any" }} - {{ prize.max_grade|default:"Any" }}
+                        {# --- REMOVED the 'Edit Nominations' link --- #}
+                    </small>
+                </a>
+            {% endfor %}
+        </div>
     {% else %}
         <div class="alert alert-info" role="alert">
-            No prizes found for the year {{ selected_year }}.
+            No prizes found for the year {{ selected_year }}. Create them in the Admin interface.
         </div>
     {% endif %}
 
