@@ -40,10 +40,13 @@ class SchoolGroupAdmin(admin.ModelAdmin):
 
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'contact_number', 'parent_contact_number', 'is_active')
-    list_filter = ('is_active', 'school_groups')
-    search_fields = ('first_name', 'last_name')
+    # Add 'gender' to list_display, list_editable, list_filter
+    list_display = ('full_name', 'grade', 'gender', 'school', 'is_active')
+    list_editable = ('grade', 'gender', 'school', 'is_active') # Add gender here
+    list_filter = ('is_active', 'school_groups', 'grade', 'gender') # Add gender here
+    search_fields = ('first_name', 'last_name', 'school') # Add school here
     filter_horizontal = ('school_groups',)
+    list_per_page = 50 # Show more players per page for easier bulk editing
 
 # Register the metric models so they appear in the admin
 admin.site.register(CourtSprintRecord)

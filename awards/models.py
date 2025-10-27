@@ -5,7 +5,8 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q, F
 
-from players.models import Player # Explicit import from players app
+# Explicit import from players app, including GenderChoices
+from players.models import Player, GenderChoices
 
 User = get_user_model()
 
@@ -28,6 +29,12 @@ class Prize(models.Model):
         VOTING = 'VOTING', 'Voting Open'
         DECIDED = 'DECIDED', 'Winner Decided'
         ARCHIVED = 'ARCHIVED', 'Archived'
+
+    # NEW: Gender Eligibility Choices
+    class GenderEligibility(models.TextChoices):
+        ANY = 'A', 'Any Gender'
+        MALE_ONLY = 'M', 'Male Only'
+        FEMALE_ONLY = 'F', 'Female Only'
 
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
@@ -54,6 +61,13 @@ class Prize(models.Model):
         null=True, blank=True,
         choices=Player.GradeLevel.choices,
         help_text="Maximum grade (inclusive) to be eligible."
+    )
+    # NEW: Gender Eligibility Field
+    gender_eligibility = models.CharField(
+        max_length=1,
+        choices=GenderEligibility.choices,
+        default=GenderEligibility.ANY,
+        help_text="Which gender(s) are eligible for this prize?"
     )
 
     # Link to the winner record (can be null before decided)
@@ -84,13 +98,22 @@ class Prize(models.Model):
         ends_ok = self.voting_closes is None or now <= self.voting_closes
         return starts_ok and ends_ok
 
+    # UPDATED: get_eligible_players method
     def get_eligible_players(self):
-        """ Returns a queryset of players eligible for this prize based on grade. """
+        """ Returns a queryset of players eligible for this prize based on grade AND gender. """
         players = Player.objects.filter(is_active=True)
         if self.min_grade is not None:
             players = players.filter(grade__gte=self.min_grade)
         if self.max_grade is not None:
             players = players.filter(grade__lte=self.max_grade)
+
+        # Add gender filtering using GenderChoices from players.models
+        if self.gender_eligibility == self.GenderEligibility.MALE_ONLY:
+            players = players.filter(gender=GenderChoices.MALE)
+        elif self.gender_eligibility == self.GenderEligibility.FEMALE_ONLY:
+            players = players.filter(gender=GenderChoices.FEMALE)
+        # No filter needed for 'ANY'
+
         return players.order_by('last_name', 'first_name')
 
     def get_results(self):
@@ -121,7 +144,7 @@ class Vote(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='cast_prize_votes',
-        limit_choices_to={'is_staff': True}
+        limit_choices_to={'is_staff': True} # Keep this if only staff can vote
     )
     voted_at = models.DateTimeField(auto_now=True)
 
@@ -136,15 +159,13 @@ class Vote(models.Model):
         return f"{voter_name}'s vote for {player_name} in {prize_name}"
 
     def clean(self):
-        # Check eligibility on save
+        # Check eligibility on save (now includes gender check implicitly via prize.get_eligible_players)
         if self.prize and self.player:
-            if not (
-                (self.prize.min_grade is None or self.player.grade >= self.prize.min_grade) and
-                (self.prize.max_grade is None or self.player.grade <= self.prize.max_grade)
-            ):
-                raise ValidationError(f"{self.player.full_name} is not eligible for this prize based on grade.")
+             # Use the updated get_eligible_players method which includes gender check
+            if not self.prize.get_eligible_players().filter(pk=self.player.pk).exists():
+                 raise ValidationError(f"{self.player.full_name} is not eligible for this prize based on grade or gender criteria.")
 
-        # Check vote limit (in theory handled by frontend/view, but good backup)
+        # Check vote limit
         if self.pk is None: # Only check on creation
             current_votes = Vote.objects.filter(prize=self.prize, voter=self.voter).count()
             if current_votes >= 3:

@@ -14,15 +14,19 @@ class PrizeAdmin(admin.ModelAdmin):
         'year',
         'category',
         'status',
+        'gender_eligibility', # Correctly added here
+        'min_grade',
+        'max_grade',
         'voting_opens',
         'voting_closes',
-        'winner_player_name', # Use the method below
+        'winner_player_name',
         'created_at'
     )
-    list_filter = ('year', 'status', 'category', 'voting_opens', 'voting_closes')
+    # Also add gender_eligibility to list_filter
+    list_filter = ('year', 'status', 'category', 'gender_eligibility', 'min_grade', 'max_grade', 'voting_opens', 'voting_closes')
     search_fields = ('name', 'description', 'winner__player__first_name', 'winner__player__last_name')
     ordering = ('-year', 'category__name', 'name')
-    readonly_fields = ('created_at', 'updated_at', 'winner') # Make winner readonly here
+    readonly_fields = ('created_at', 'updated_at', 'winner')
     fieldsets = (
         (None, {
             'fields': ('name', 'year', 'category', 'description')
@@ -31,7 +35,8 @@ class PrizeAdmin(admin.ModelAdmin):
             'fields': ('status', ('voting_opens', 'voting_closes'))
         }),
         ('Eligibility', {
-            'fields': (('min_grade', 'max_grade'),)
+            # --- ADD 'gender_eligibility' HERE ---
+            'fields': ('gender_eligibility', ('min_grade', 'max_grade'),)
         }),
         ('Winner Info (Readonly)', {
             'fields': ('winner',),
@@ -43,12 +48,11 @@ class PrizeAdmin(admin.ModelAdmin):
         }),
     )
 
-    # Method to display winner name safely
     @admin.display(description='Winner', ordering='winner__player__last_name')
     def winner_player_name(self, obj):
         if obj.winner and obj.winner.player:
             return obj.winner.player.full_name
-        return "–" # Use em dash for empty
+        return "–"
 
 
 @admin.register(Vote)
@@ -57,12 +61,9 @@ class VoteAdmin(admin.ModelAdmin):
     list_filter = ('prize__year', 'prize__category', 'prize', 'voter')
     search_fields = ('prize__name', 'player__first_name', 'player__last_name', 'voter__username')
     ordering = ('-voted_at',)
-    # Votes shouldn't be manually edited here
     readonly_fields = ('prize', 'player', 'voter', 'voted_at')
-    # Prevent adding votes directly in admin
     def has_add_permission(self, request):
         return False
-    # Prevent changing votes directly in admin
     def has_change_permission(self, request, obj=None):
         return False
 
@@ -73,7 +74,6 @@ class PrizeWinnerAdmin(admin.ModelAdmin):
     search_fields = ('prize__name', 'player__first_name', 'player__last_name', 'awarded_by__username')
     ordering = ('-year', 'prize__category__name', 'prize__name')
     readonly_fields = ('prize', 'player', 'year', 'final_score', 'awarded_by', 'award_date')
-    # Prevent adding/changing winners directly in admin (use the voting page confirm button)
     def has_add_permission(self, request):
         return False
     def has_change_permission(self, request, obj=None):

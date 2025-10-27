@@ -25,6 +25,11 @@ class SchoolGroup(models.Model):
             ("can_manage_school_groups", "Can manage school groups"),
         ]
 
+class GenderChoices(models.TextChoices):
+    MALE = 'M', 'Male'
+    FEMALE = 'F', 'Female'
+    OTHER = 'O', 'Other / Prefer not to say'
+    UNSPECIFIED = 'U', 'Unspecified' # Default
 # --- MODEL: Player ---
 class Player(models.Model):
 
@@ -54,6 +59,14 @@ class Player(models.Model):
 
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
+    gender = models.CharField(
+        max_length=1,
+        choices=GenderChoices.choices,
+        default=GenderChoices.UNSPECIFIED,
+        null=True, # Allows existing records to be null initially
+        blank=True, # Allows the field to be blank in forms/admin
+        verbose_name="Gender"
+    )
     school = models.CharField(max_length=100, blank=True, help_text="The school the player attends.")
     grade = models.IntegerField(
         choices=GradeLevel.choices,
