@@ -11,7 +11,7 @@ from django.contrib import messages
 import json
 from collections import defaultdict # Import defaultdict
 
-from .models import Prize, Vote, PrizeWinner
+from .models import Prize, Vote, PrizeWinner, PrizeCategory
 from players.models import Player
 from django.contrib.auth import get_user_model
 
@@ -23,28 +23,49 @@ def is_superuser(user):
 
 # --- Permissions Updated: Removed user_passes_test decorator ---
 @login_required
-# @user_passes_test(is_staff_or_superuser) # Removed staff check
 def prize_list(request):
     """
-    Display a list of prizes, optionally filtered by year.
-    Now accessible to all logged-in users.
+    Display a list of prizes, optionally filtered by year and category.
+    Accessible to all logged-in users.
     """
     current_year = timezone.now().year
     selected_year = request.GET.get('year', current_year)
+    # Get selected category ID from GET parameters
+    selected_category_id = request.GET.get('category')
 
     try:
         selected_year = int(selected_year)
     except (ValueError, TypeError):
         selected_year = current_year
 
-    prizes = Prize.objects.filter(year=selected_year).select_related('category', 'winner', 'winner__player').order_by('category__name', 'name')
+    # Start with the base queryset filtered by year
+    prizes = Prize.objects.filter(year=selected_year).select_related(
+        'category', 'winner', 'winner__player'
+    )
+
+    # Apply category filter if a category ID is provided and valid
+    selected_category_id_int = None
+    if selected_category_id:
+        try:
+            selected_category_id_int = int(selected_category_id)
+            prizes = prizes.filter(category_id=selected_category_id_int)
+        except (ValueError, TypeError):
+            selected_category_id_int = None # Reset if invalid ID
+
+    # Order the final queryset
+    prizes = prizes.order_by('category__name', 'name')
+
     available_years = Prize.objects.values_list('year', flat=True).distinct().order_by('-year')
+    # Get all categories for the filter dropdown
+    categories = PrizeCategory.objects.all().order_by('name')
 
     context = {
         'page_title': f'Prizes {selected_year}',
         'prizes': prizes,
         'selected_year': selected_year,
         'available_years': available_years,
+        'categories': categories, # Pass categories to template
+        'selected_category_id': selected_category_id_int, # Pass selected ID
     }
     return render(request, 'awards/prize_list.html', context)
 
