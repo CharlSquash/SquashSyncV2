@@ -110,7 +110,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4" id="awards-vote-page" data-prize-id="{{ prize.id }}" data-cast-vote-url="{% url 'awards:cast_vote_ajax' %}">
+<div class="container mt-4" id="awards-vote-page" data-prize-id="{{ prize.id }}" data-cast-vote-url="{% url 'awards:cast_vote_ajax' prize.id %}">
     {# --- Header & Prize Info --- #}
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div>
@@ -311,7 +311,11 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         const votesDataElement = document.getElementById('user-votes-data');
         if (votesDataElement) {
+             // *** THIS IS THE FIX ***
+             // Directly parse the textContent of the json_script element
              const parsedVotes = JSON.parse(votesDataElement.textContent);
+             // *** END OF FIX ***
+
              // Basic validation: Check if it's an object
              if (typeof parsedVotes === 'object' && parsedVotes !== null) {
                  userVotes = parsedVotes;
@@ -496,7 +500,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch(castVoteUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'Accept': 'application/json' },
-                body: JSON.stringify({ prize_id: prizeId, player_id: playerIdInt, action: action }), // Send integer ID
+                body: JSON.stringify({ prize_id: prizeId, player_id: playerIdInt, action_request: action }), // FIX: send 'action_request'
             });
 
             console.log(`AJAX Response Status: ${response.status}`); // DEBUG
@@ -509,6 +513,21 @@ document.addEventListener('DOMContentLoaded', function() {
                      const errorData = await response.json();
                      errorMsg = errorData.message || errorMsg;
                      console.error("Server returned error:", errorData); // DEBUG
+                     
+                     // --- FIX for Limit Reached ---
+                     // If the server sends back 'limit_reached', handle it here
+                     if (errorData.status === 'limit_reached') {
+                         console.log("Server reported vote limit reached."); // DEBUG
+                         showTemporaryMessage(card, errorData.message, true); // Show limit message as error
+                         // Trust the server's count when limit is hit
+                         userVoteCount = errorData.user_vote_count !== undefined ? errorData.user_vote_count : 3;
+                         console.log(`Set userVoteCount to ${userVoteCount} based on server limit response.`); // DEBUG
+                         console.log("Calling updateVoteCounterUI after limit reached..."); // DEBUG
+                         updateVoteCounterUI(); // Update UI states to reflect limit
+                         return; // Stop further processing
+                     }
+                     // --- End Fix ---
+                     
                  } catch (e) { console.error("Could not parse error response body:", e); /* Ignore if response wasn't JSON */ }
                  throw new Error(errorMsg); // Throw error to be caught below
              }
@@ -562,6 +581,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  // --- Optional: Move card between grids (implement later if needed) ---
 
             } else if (data.status === 'limit_reached') {
+                 // This block might be redundant now, but harmless to keep
                  console.log("Server reported vote limit reached."); // DEBUG
                  showTemporaryMessage(card, data.message, true); // Show limit message as error
                  // Trust the server's count when limit is hit
@@ -613,4 +633,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

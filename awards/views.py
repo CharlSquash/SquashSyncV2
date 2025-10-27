@@ -1,292 +1,290 @@
-import json
-import logging # Import logging
-from django.http import JsonResponse, HttpResponseForbidden, Http404
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse, Http404
+from django.views.decorators.http import require_POST
+from django.db.models import Count, F
+from django.db import transaction
 from django.utils import timezone
 from django.contrib import messages
-from django.db.models import Q, Prefetch, Count
-from django.db import transaction
-from django.views.decorators.http import require_POST
-from collections import defaultdict
-from players.models import Player # Correct specific import
-# --- Corrected Import ---
-from .models import Prize, PrizeCategory, Vote, PrizeWinner # Removed PrizeStatus
+import json
 
-# --- Get Logger ---
-logger = logging.getLogger(__name__)
+from .models import Prize, Vote, PrizeWinner
+from players.models import Player
+from accounts.models import Coach # Assuming Coach is in accounts.models
 
-# --- Helper Functions ---
-def is_admin(user):
-    return user.is_superuser
+# ... (other views like prize_list) ...
 
-def is_staff_or_admin(user):
-    return user.is_staff
-
-# --- Views ---
 @login_required
-@user_passes_test(is_admin)
 def prize_list(request):
+    """
+    Display a list of prizes, optionally filtered by year.
+    If no year is specified, default to the current year.
+    """
     current_year = timezone.now().year
     selected_year = request.GET.get('year', current_year)
+    
     try:
         selected_year = int(selected_year)
-    except (ValueError, TypeError):
+    except ValueError:
         selected_year = current_year
 
-    prizes = Prize.objects.filter(year=selected_year).select_related(
-        'category', 'winner', 'winner__player'
-    ).order_by('category__name', 'name')
+    prizes = Prize.objects.filter(year=selected_year).order_by('name')
     available_years = Prize.objects.values_list('year', flat=True).distinct().order_by('-year')
 
     context = {
+        'page_title': f'Prizes {selected_year}',
         'prizes': prizes,
         'selected_year': selected_year,
         'available_years': available_years,
-        'page_title': f"Awards & Prizes ({selected_year})",
     }
     return render(request, 'awards/prize_list.html', context)
 
 
 @login_required
-@user_passes_test(is_staff_or_admin)
 def vote_prize(request, prize_id):
-    prize = get_object_or_404(Prize.objects.select_related('winner', 'winner__player'), pk=prize_id)
-    voting_allowed = prize.is_voting_open()
-    winner_details = prize.winner
-
-    current_results = prize.get_results() # Gets [{'player': Player, 'score': int}]
-
-    # --- Query for user's votes for THIS prize ---
-    user_votes_qs = Vote.objects.filter(prize=prize, voter=request.user)
-    user_vote_count = user_votes_qs.count() # Get the count
-
-    # --- MORE DEBUG LOGGING ---
-    logger.debug(f"[Vote View] User '{request.user.username}' for Prize '{prize.name}' (ID: {prize_id}): Initial vote count from DB query = {user_vote_count}")
-    # Log the actual IDs found by the query
-    vote_ids_found = list(user_votes_qs.values_list('player_id', flat=True))
-    logger.debug(f"[Vote View] Player IDs voted for by user (from DB query): {vote_ids_found}")
-    # Check if count matches length of list - they SHOULD match!
-    if user_vote_count != len(vote_ids_found):
-         logger.error(f"[Vote View] MISMATCH! .count() gave {user_vote_count} but values_list has {len(vote_ids_found)} items!")
-    # --- END DEBUG LOGGING ---
-
-
-    eligible_players = prize.get_eligible_players()
-
-    # Get IDs of players who already have votes (leaders)
-    players_with_scores_ids = set(result['player'].id for result in current_results)
-
-    # Get eligible players who DON'T have votes yet
-    eligible_not_voted_players = eligible_players.exclude(
-        id__in=players_with_scores_ids
-    ).order_by('last_name', 'first_name')
-
-    # Prepare data for JavaScript: { "player_id_as_string": 1 }
-    user_votes_simple = {}
-    user_votes_simple_json = json.dumps({}) # Default to empty
-    try:
-         # Ensure keys are strings for JSON compatibility using the list we already fetched
-         user_votes_simple = { str(player_id): 1 for player_id in vote_ids_found }
-         user_votes_simple_json = json.dumps(user_votes_simple)
-         logger.debug(f"[Vote View] Generated user_votes_simple_json: {user_votes_simple_json}")
-    except Exception as e:
-        logger.error(f"[Vote View] Error creating JSON for user votes: {e}")
-        # user_votes_simple_json remains empty dict
-
-    # Calculate boolean flag for admin section visibility
-    show_admin_confirm_section = (
-        request.user.is_superuser and
-        not winner_details and
-        (current_results or eligible_not_voted_players.exists()) # Check if results OR other players exist
+    """
+    Display the voting page for a specific prize.
+    Shows current leaders and other eligible players.
+    """
+    prize = get_object_or_404(Prize, id=prize_id)
+    user = request.user
+    
+    # Determine voting status
+    now = timezone.now()
+    voting_allowed = (
+        (prize.voting_opens is None or prize.voting_opens <= now) and
+        (prize.voting_closes is None or prize.voting_closes >= now) and
+        prize.status == Prize.VOTING_OPEN
     )
 
+    # Get all eligible players based on prize criteria
+    eligible_players = Player.objects.filter(
+        player_grade__gte=prize.min_grade,
+        player_grade__lte=prize.max_grade,
+        # is_active=True # Consider if only active players should be eligible
+    ).distinct()
+
+    # Get current vote counts for all players in this prize
+    vote_counts = Vote.objects.filter(prize=prize) \
+        .values('player_id') \
+        .annotate(score=Count('player_id')) \
+        .order_by('-score')
+
+    # Map player_id to score
+    scores_map = {item['player_id']: item['score'] for item in vote_counts}
+
+    # Get votes cast by the *current* user for *this* prize
+    user_votes_for_this_prize = Vote.objects.filter(prize=prize, voter=user)
+    user_vote_count = user_votes_for_this_prize.count()
+    
+    # --- THIS IS THE MAIN FIX ---
+    # Create the dictionary of player IDs the user has voted for
+    # Pass this *dictionary* directly to the template
+    user_votes_data = {str(vote.player_id): 1 for vote in user_votes_for_this_prize}
+    # --- END OF FIX ---
+
+
+    # Separate players into leaders (voted) and others (not voted)
+    current_results = [] # List of {'player': Player, 'score': int}
+    eligible_not_voted_players = [] # List of Player objects
+    
+    voted_player_ids = set(scores_map.keys())
+    
+    for player in eligible_players:
+        if player.id in voted_player_ids:
+            current_results.append({
+                'player': player,
+                'score': scores_map.get(player.id, 0)
+            })
+        else:
+            eligible_not_voted_players.append(player)
+
+    # Sort leaders by score (descending) then name (ascending)
+    current_results.sort(key=lambda x: (-x['score'], x['player'].full_name))
+    
+    # Sort other eligible players by name (ascending)
+    eligible_not_voted_players.sort(key=lambda x: x.full_name)
+
+
+    # Check for winner
+    winner = PrizeWinner.objects.filter(prize=prize).first() # Get the winner, if any
+
+    # Check if admin confirm section should be shown
+    # Simple check: user is staff and prize is not yet decided
+    show_admin_confirm_section = (
+        user.is_staff and 
+        prize.status != Prize.DECIDED and
+        (eligible_players.exists()) # Only show if there are players
+    )
+    
     context = {
+        'page_title': f'Vote: {prize.name}',
         'prize': prize,
         'voting_allowed': voting_allowed,
-        'winner': winner_details,
-        'current_results': current_results, # List of dicts
-        'eligible_not_voted_players': eligible_not_voted_players, # QuerySet
-        'user_vote_count': user_vote_count, # Initial count for display (Still potentially wrong if DB is weird)
-        'user_votes_simple_json': user_votes_simple_json, # For JS init
+        'current_results': current_results,
+        'eligible_not_voted_players': eligible_not_voted_players, # Pass this list
+        
+        # --- PASS THE DICTIONARY ---
+        'user_votes_data': user_votes_data, # Pass the raw dictionary
+        # --- END ---
+        
+        'user_vote_count': user_vote_count, # Pass the initial count
+        'winner': winner,
         'show_admin_confirm_section': show_admin_confirm_section,
-        'page_title': f"Vote for '{prize.name}' ({prize.year})",
     }
     return render(request, 'awards/vote_prize.html', context)
 
 
-@require_POST
 @login_required
-@user_passes_test(is_staff_or_admin)
-def cast_vote_ajax(request):
+@require_POST
+def cast_vote_ajax(request, prize_id):
+    """
+    Handle AJAX vote casting/removal.
+    """
     try:
         data = json.loads(request.body)
-        prize_id = int(data.get('prize_id'))
         player_id = int(data.get('player_id'))
-        action_request = data.get('action', 'cast') # 'cast' or 'remove'
+        action_request = data.get('action_request') # 'cast' or 'remove'
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid request.'}, status=400)
 
-        prize = get_object_or_404(Prize, pk=prize_id)
+    prize = get_object_or_404(Prize, id=prize_id)
+    player = get_object_or_404(Player, id=player_id)
+    voter = request.user
 
-        if not prize.is_voting_open():
-            logger.warning(f"[Cast Vote] User '{request.user.username}' tried to vote on closed prize ID {prize_id}")
-            return JsonResponse({'status': 'error', 'message': 'Voting is not open for this prize.'}, status=403)
+    # Check if voting is open
+    now = timezone.now()
+    voting_allowed = (
+        (prize.voting_opens is None or prize.voting_opens <= now) and
+        (prize.voting_closes is None or prize.voting_closes >= now) and
+        prize.status == Prize.VOTING_OPEN
+    )
+    if not voting_allowed:
+        return JsonResponse({'status': 'error', 'message': 'Voting is currently closed.'}, status=403)
 
-        # Verify player is eligible for this prize
-        try:
-            player = get_object_or_404(prize.get_eligible_players(), pk=player_id)
-        except Http404:
-             logger.warning(f"[Cast Vote] User '{request.user.username}' tried to vote for ineligible player ID {player_id} on prize ID {prize_id}")
-             return JsonResponse({'status': 'error', 'message': 'Player is not eligible for this prize.'}, status=400)
+    # Check player eligibility
+    if not (prize.min_grade <= player.player_grade <= prize.max_grade):
+        return JsonResponse({'status': 'error', 'message': 'This player is not eligible for this prize.'}, status=403)
 
-        # Use player's full_name property safely for messages
-        player_display_name = getattr(player, 'full_name', f"{player.first_name} {player.last_name}")
-
-        current_user_votes = Vote.objects.filter(prize=prize, voter=request.user)
-        # --- Recalculate count *before* action ---
-        current_vote_count = current_user_votes.count()
-        already_voted_for_player = current_user_votes.filter(player=player).exists() # Check existence separately
-
-        message = ""
-        new_score = 0
-        vote_status_changed = False # Flag to indicate if UI needs update
-        action_taken = None # 'added' or 'removed'
-
-        logger.debug(f"[Cast Vote] User '{request.user.username}', Prize ID {prize_id}, Player ID {player_id}, Action: {action_request}. Current votes (DB): {current_vote_count}, Already voted for player (DB): {already_voted_for_player}")
-
+    try:
         with transaction.atomic():
+            # Get current vote status *before* making changes
+            current_user_votes = Vote.objects.filter(prize=prize, voter=voter)
+            current_vote_count = current_user_votes.count()
+            already_voted_for_player = current_user_votes.filter(player=player).exists()
+
             if action_request == 'remove':
                 if already_voted_for_player:
-                    # Target the specific vote to delete
-                    deleted_count, _ = Vote.objects.filter(prize=prize, player=player, voter=request.user).delete()
-                    if deleted_count > 0:
-                        message = f"Removed vote for {player_display_name}."
-                        vote_status_changed = True
-                        action_taken = 'removed'
-                        logger.info(f"[Cast Vote] Vote removed by '{request.user.username}' for player {player_id} on prize {prize_id}")
-                    else:
-                         # This case means already_voted_for_player was true, but delete failed? Very unlikely in transaction.
-                         message = "Could not remove vote."
-                         logger.error(f"[Cast Vote] Failed to delete existing vote for user '{request.user.username}', player {player_id}, prize {prize_id}")
-
+                    # Find and delete the vote
+                    vote_to_remove = Vote.objects.get(prize=prize, voter=voter, player=player)
+                    vote_to_remove.delete()
+                    message = "Vote removed."
                 else:
-                    message = "No vote found to remove." # User tried removing vote they didn't have
-                    logger.warning(f"[Cast Vote] User '{request.user.username}' tried to remove non-existent vote for player {player_id} on prize {prize_id}")
+                    # This shouldn't happen if frontend is correct, but handle it
+                    message = "You had not voted for this player."
 
             elif action_request == 'cast':
                 if already_voted_for_player:
-                    message = f"You have already voted for {player_display_name}."
-                    # No status change, return existing state
-                elif current_vote_count >= 3:
-                    message = "You have already used all 3 votes for this prize."
-                    logger.warning(f"[Cast Vote] User '{request.user.username}' hit vote limit ({current_vote_count}/3) on prize {prize_id}")
-                    return JsonResponse({'status': 'limit_reached', 'message': message}, status=400) # Specific status
-                else:
-                    Vote.objects.create(
-                        prize=prize,
-                        player=player,
-                        voter=request.user
-                    )
-                    message = f"Cast vote for {player_display_name}."
-                    vote_status_changed = True
-                    action_taken = 'added'
-                    logger.info(f"[Cast Vote] Vote added by '{request.user.username}' for player {player_id} on prize {prize_id}")
+                    # This also shouldn't happen if frontend is correct
+                    return JsonResponse({'status': 'success', 'message': 'You have already voted for this player.'})
 
+                if current_vote_count >= 3:
+                    # Check limit
+                    return JsonResponse({
+                        'status': 'limit_reached',
+                        'message': 'Vote limit (3) reached. Remove a vote first.',
+                        'user_vote_count': current_vote_count, # Return current count
+                    }, status=403) # 403 Forbidden is appropriate for limit
 
-            # Recalculate score for the specific player after potential changes
+                # Create the new vote
+                Vote.objects.create(prize=prize, player=player, voter=voter)
+                message = "Vote cast!"
+            
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Invalid action.'}, status=400)
+
+            # Recalculate scores *after* transaction
             new_score = Vote.objects.filter(prize=prize, player=player).count()
+            final_user_vote_count = Vote.objects.filter(prize=prize, voter=voter).count()
+            # Check if user *now* has a vote for this player
+            user_has_vote_now = Vote.objects.filter(prize=prize, voter=voter, player=player).exists()
 
-        # Get updated total vote count for the user AFTER the transaction
-        # --- Use a fresh query AFTER transaction completes ---
-        final_user_vote_count = Vote.objects.filter(prize=prize, voter=request.user).count()
-        logger.debug(f"[Cast Vote] Final user vote count for prize {prize_id} (after TX) = {final_user_vote_count}")
-
-
-        # Determine the final 'voted' status for this specific player AFTER transaction
-        user_has_vote_now = Vote.objects.filter(prize=prize, player=player, voter=request.user).exists()
-        logger.debug(f"[Cast Vote] User has vote now for player {player_id}? {user_has_vote_now}")
-
-
-        response_data = {
+        return JsonResponse({
             'status': 'success',
             'message': message,
-            'player_id': player_id,
             'new_score': new_score,
-            'user_vote_count': final_user_vote_count, # Send the accurate final count
-            'voted': user_has_vote_now, # Send the accurate final state for this player
-            'vote_status_changed': vote_status_changed, # True only if a vote was added/removed in *this* request
-            'action': action_taken # 'added' or 'removed' or None
-        }
-        logger.debug(f"[Cast Vote] Response data: {response_data}")
-        return JsonResponse(response_data)
+            'user_vote_count': final_user_vote_count,
+            'voted': user_has_vote_now, # Tell frontend the *new* vote state for this player
+            'player_id': player_id
+        })
 
-    except json.JSONDecodeError:
-        logger.error("[Cast Vote] Invalid JSON received.", exc_info=True)
-        return JsonResponse({'status': 'error', 'message': 'Invalid JSON data.'}, status=400)
-    except (ValueError, TypeError, KeyError) as e:
-         logger.error(f"[Cast Vote] Invalid or missing data: {e}", exc_info=True)
-         return JsonResponse({'status': 'error', 'message': 'Invalid or missing data.'}, status=400)
-    except Prize.DoesNotExist:
-         logger.warning(f"[Cast Vote] Prize ID {locals().get('prize_id', 'unknown')} not found.")
-         return JsonResponse({'status': 'error', 'message': 'Prize not found.'}, status=404)
     except Exception as e:
-        player_name = getattr(locals().get('player'), 'full_name', 'unknown player')
-        logger.exception(f"[Cast Vote] Unexpected error for player_id {locals().get('player_id', 'unknown')}, player {player_name}: {type(e).__name__} - {e}") # Log full traceback
-        return JsonResponse({'status': 'error', 'message': 'An unexpected server error occurred.'}, status=500)
+        # Log the error e
+        return JsonResponse({'status': 'error', 'message': f'An unexpected error occurred: {e}'}, status=500)
 
 
-@require_POST
 @login_required
-@user_passes_test(is_admin)
+@require_POST
 def confirm_winner(request, prize_id):
-    prize = get_object_or_404(Prize, pk=prize_id)
+    """
+    Admin action to confirm a winner for a prize.
+    This closes voting and sets the prize status to Decided.
+    """
+    prize = get_object_or_404(Prize, id=prize_id)
+    
+    # Security check: Only staff can do this
+    if not request.user.is_staff:
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('awards:vote_prize', prize_id=prize.id)
 
-    # Use PrizeStatus enum defined in the model
-    if prize.status == Prize.PrizeStatus.DECIDED or prize.status == Prize.PrizeStatus.ARCHIVED:
+    # Check if prize is already decided
+    if prize.status == Prize.DECIDED:
         messages.warning(request, f"A winner has already been decided for {prize.name}.")
         return redirect('awards:vote_prize', prize_id=prize.id)
 
-    winner_player_id = request.POST.get('winner_player_id')
-
-    if not winner_player_id:
-        messages.error(request, "No winner selected.")
+    try:
+        winner_player_id = int(request.POST.get('winner_player_id'))
+        winner_player = get_object_or_404(Player, id=winner_player_id)
+    except (TypeError, ValueError):
+        messages.error(request, "Invalid player selected.")
+        return redirect('awards:vote_prize', prize_id=prize.id)
+    
+    # Check eligibility just in case
+    if not (prize.min_grade <= winner_player.player_grade <= prize.max_grade):
+        messages.error(request, f"{winner_player.full_name} is not eligible for this prize.")
         return redirect('awards:vote_prize', prize_id=prize.id)
 
     try:
-        winner_player_id = int(winner_player_id)
-        # Ensure selected winner is actually eligible
-        winner_player = get_object_or_404(prize.get_eligible_players(), pk=winner_player_id)
-        # Use player's full_name property safely for messages
-        winner_display_name = getattr(winner_player, 'full_name', f"{winner_player.first_name} {winner_player.last_name}")
-
-
-        final_score = Vote.objects.filter(prize=prize, player=winner_player).count()
-
         with transaction.atomic():
-            prize_winner_obj, created = PrizeWinner.objects.update_or_create(
+            # Get final score
+            final_score = Vote.objects.filter(prize=prize, player=winner_player).count()
+            
+            # Create the winner record
+            # Use update_or_create to prevent duplicates if this is re-run
+            winner_record, created = PrizeWinner.objects.update_or_create(
                 prize=prize,
                 defaults={
                     'player': winner_player,
-                    'year': prize.year,
-                    'awarded_by': request.user,
                     'award_date': timezone.now().date(),
+                    'awarded_by': request.user,
                     'final_score': final_score
                 }
             )
-            # Update the prize status and link the winner
-            prize.status = Prize.PrizeStatus.DECIDED
-            prize.winner = prize_winner_obj # Link directly to the winner object
-            prize.save(update_fields=['status', 'winner'])
-            logger.info(f"Winner confirmed for prize {prize_id}: Player {winner_player_id} by admin {request.user.username}")
+            
+            # Update prize status
+            prize.status = Prize.DECIDED
+            prize.save()
+            
+            if created:
+                messages.success(request, f"Confirmed {winner_player.full_name} as the winner for {prize.name}.")
+            else:
+                messages.info(request, f"Updated winner for {prize.name} to {winner_player.full_name}.")
 
-
-        messages.success(request, f"{winner_display_name} confirmed as the winner for {prize.name} ({prize.year})!")
-
-    except (ValueError, Player.DoesNotExist):
-        logger.warning(f"Error confirming winner for prize {prize_id}: Invalid player ID {winner_player_id}", exc_info=True)
-        messages.error(request, "Invalid winner selected or player not found/eligible.")
     except Exception as e:
-        logger.exception(f"Unexpected error confirming winner for prize {prize_id}")
-        messages.error(request, f"An error occurred while confirming winner: {e}")
+        # Log the error e
+        messages.error(request, f"An error occurred while confirming the winner: {e}")
 
     return redirect('awards:vote_prize', prize_id=prize.id)
 
+# Remove the 'nominate_prize' view if it's no longer used
+# ...
