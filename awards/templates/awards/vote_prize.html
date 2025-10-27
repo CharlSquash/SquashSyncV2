@@ -1,3 +1,4 @@
+{# awards/templates/awards/vote_prize.html #}
 {% extends "base.html" %}
 {% load static %}
 
@@ -8,46 +9,45 @@
     /* Grid for both leaders and other players */
     .player-vote-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Slightly narrower cards */
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Adjusted minmax */
         gap: 1.5rem;
         margin-top: 1rem;
     }
     .player-card {
-        border: 2px solid var(--bs-border-color); /* Updated variable */
+        border: 2px solid var(--bs-border-color);
         border-radius: 8px;
-        background-color: var(--bs-body-bg); /* Updated variable */
+        background-color: var(--bs-body-bg);
         text-align: center;
         transition: all 0.2s ease;
         position: relative;
         cursor: pointer;
         display: flex;
         flex-direction: column;
-        padding-bottom: 10px; /* Reduced padding */
-        min-height: 220px; /* Adjusted height */
+        padding-bottom: 30px; /* Space for feedback message */
+        min-height: 220px; /* Ensure cards have a minimum height */
     }
-    .player-card:hover:not(.disabled):not(.saving) { /* Add :not selectors */
+    .player-card:hover:not(.is-disabled-interaction):not(.saving) {
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        border-color: var(--bs-link-color); /* Updated variable */
+        border-color: var(--bs-primary); /* Use primary color for hover */
     }
-    /* --- Adjusted Disabled Style --- */
-    /* Only apply 'not-allowed' cursor and opacity if the card itself cannot be interacted with */
     .player-card.is-disabled-interaction {
-        cursor: not-allowed !important; /* Make sure this overrides hover */
-        opacity: 0.7;
+        cursor: not-allowed !important;
+        opacity: 0.65;
+        background-color: var(--bs-secondary-bg);
     }
-    .player-card.saving { /* Indicate saving state */
+    .player-card.saving {
          cursor: wait;
          opacity: 0.8;
     }
     .player-card-content { padding: 1rem 1rem 0.5rem 1rem; flex-grow: 1; }
     .player-photo img, .player-photo .photo-placeholder {
         width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 0.75rem; display: block;
-        background-color: var(--bs-secondary-bg); /* Updated variable */
-        border: 2px solid var(--bs-border-color-translucent); /* Updated variable */
+        background-color: var(--bs-secondary-bg);
+        border: 2px solid var(--bs-border-color-translucent);
     }
     .player-photo img { object-fit: cover; object-position: top; }
     .photo-placeholder { display: flex; align-items: center; justify-content: center; }
-    .photo-placeholder .bi { font-size: 2.5rem; color: #adb5bd; }
+    .photo-placeholder .bi { font-size: 2.5rem; color: var(--bs-secondary-color); }
     .player-name { font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem; }
 
     /* Score Badge */
@@ -56,61 +56,57 @@
         color: white; border-radius: 50%; width: 28px; height: 28px;
         display: flex; align-items: center; justify-content: center;
         font-weight: bold; font-size: 0.8em;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
-    /* Vote Details (collapsible) - Removed as detailed voter list isn't needed now */
-
     /* Vote Highlighting */
     .player-card.voted-by-user {
         border-color: var(--bs-success); /* Green border */
         background-color: var(--bs-success-bg-subtle);
     }
     html.dark-mode .player-card.voted-by-user {
-       background-color: #032816; /* Keep dark mode subtle green */
+       background-color: #032816;
        border-color: #20c997;
     }
-
     /* Spinner */
     .vote-spinner { position: absolute; top: 5px; left: 5px; width: 20px; height: 20px; border: 2px solid rgba(var(--bs-primary-rgb), 0.3); border-top-color: var(--bs-primary); border-radius: 50%; animation: spin 1s linear infinite; display: none; }
     .player-card.saving .vote-spinner { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Other Eligible Players Section */
-    .other-players-section { margin-top: 3rem; }
+    /* Search */
     .search-input { max-width: 400px; margin-bottom: 1rem; }
-
-    /* Winner Display */
+    /* Winner */
     .winner-banner { background-color: var(--bs-success-bg-subtle); border-left: 5px solid var(--bs-success); padding: 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;}
     .winner-banner i { font-size: 2rem; color: var(--bs-success); }
     .winner-banner strong { font-size: 1.2rem; }
-
     /* Vote Counter */
     #vote-counter {
-        font-weight: bold;
-        padding: 0.3rem 0.6rem;
-        border-radius: 4px;
-        background-color: var(--bs-secondary-bg);
-        border: 1px solid var(--bs-border-color);
-        display: inline-block; /* Makes background fit content */
-        margin-top: 5px; /* Add some space */
+        font-weight: bold; padding: 0.3rem 0.6rem; border-radius: 4px;
+        background-color: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);
+        display: inline-block; margin-top: 5px; transition: all 0.3s ease;
     }
     #vote-counter.limit-reached {
-        background-color: var(--bs-warning-bg-subtle);
-        border-color: var(--bs-warning-border-subtle);
-        color: var(--bs-warning-text);
+        background-color: var(--bs-warning-bg-subtle); border-color: var(--bs-warning-border-subtle);
+        color: var(--bs-warning-text-emphasis);
     }
-    /* Simple feedback message styling */
+    /* Feedback Message */
     .vote-feedback {
         position: absolute; bottom: 5px; left: 5px; right: 5px; font-size: 0.75rem;
-        padding: 2px 5px; border-radius: 3px; opacity: 0; transition: opacity 0.5s ease-out;
-        z-index: 10; /* Ensure it's above other elements if needed */
-        text-align: center; /* Center the text */
-        /* Will be styled further by JS */
+        padding: 2px 5px; border-radius: 3px; opacity: 0; transition: opacity 0.5s ease-out, background-color 0.2s, color 0.2s, border-color 0.2s;
+        z-index: 10; text-align: center; border: 1px solid transparent;
+        max-width: calc(100% - 10px); /* Ensure it doesn't overflow */
+        box-sizing: border-box;
     }
+    .vote-feedback.show { opacity: 1; }
+    .vote-feedback.success { background-color: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); border-color: var(--bs-success-border-subtle); }
+    .vote-feedback.error { background-color: var(--bs-danger-bg-subtle); color: var(--bs-danger-text-emphasis); border-color: var(--bs-danger-border-subtle); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4" id="awards-vote-page" data-prize-id="{{ prize.id }}" data-cast-vote-url="{% url 'awards:cast_vote_ajax' prize.id %}">
+<div class="container mt-4" id="awards-vote-page"
+     data-prize-id="{{ prize.id }}"
+     data-cast-vote-url="{% url 'awards:cast_vote_ajax' prize.id %}"
+     data-clear-votes-url="{% url 'awards:clear_my_votes_ajax' prize.id %}" {# Added clear votes URL #}
+>
     {# --- Header & Prize Info --- #}
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div>
@@ -129,7 +125,6 @@
             <a href="{% url 'awards:prize_list' %}?year={{ prize.year }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Prize List
             </a>
-            {# Removed Edit Nominations link #}
         </div>
     </div>
 
@@ -146,24 +141,28 @@
     {% endif %}
 
     {# --- Voting Instructions / Status --- #}
-    {% if not current_results and not eligible_not_voted_players.exists %} {# Check queryset directly #}
+    {% if not current_results and not eligible_not_voted_players %} {# Check lists directly #}
         <div class="alert alert-warning mt-4" role="alert">
-            No players are currently eligible for this prize based on the criteria (Grade {{ prize.min_grade|default:"Any" }} - {{ prize.max_grade|default:"Any" }}).
+            No players are currently eligible for this prize based on the criteria (Grade {{ prize.get_min_grade_display|default:"Any" }} - {{ prize.get_max_grade_display|default:"Any" }}).
         </div>
     {% elif not voting_allowed and not winner %}
        <div class="alert alert-info mt-4" role="alert">
-           Voting is not currently open. {% comment %} Check if prize.voting_opens exists before comparing {% endcomment %}
-           {% now "Y-m-d H:i:s" as current_datetime_str %} {# Get current time as string for comparison if needed #}
+           Voting is not currently open.
+           {% now "Y-m-d H:i:s" as current_datetime_str %}
            {% if prize.voting_opens and prize.voting_opens|date:"Y-m-d H:i:s" > current_datetime_str %}It starts {{ prize.voting_opens|date:"d M Y H:i" }}.
            {% elif prize.voting_closes and prize.voting_closes|date:"Y-m-d H:i:s" < current_datetime_str %} It closed {{ prize.voting_closes|date:"d M Y H:i" }}.
            {% else %} Check prize status or dates. {% endif %}
        </div>
     {% elif voting_allowed %}
         <p class="lead mt-3">Click on a player's card to cast or remove your vote.</p>
-        <p>You can cast up to 3 votes in total for this prize.
-            {# Display initial count from view, JS will update it #}
+        <div class="d-flex align-items-center gap-2 mb-3"> {# Added margin bottom #}
+            <span>You can cast up to 3 votes in total for this prize.</span>
             <span id="vote-counter">Votes Used: {{ user_vote_count }} / 3</span>
-        </p>
+            {# --- Add the new button --- #}
+            <button id="clear-my-votes-btn" class="btn btn-sm btn-outline-danger" title="Remove all your votes for this prize">
+                <i class="bi bi-trash me-1"></i> Clear My Votes
+            </button>
+        </div>
     {% endif %}
 
 
@@ -171,59 +170,58 @@
     {% if current_results %}
         <h3 class="mt-4">Current Leaders</h3>
         <div class="player-vote-grid" id="leaders-grid">
-            {% for result in current_results %} {# result is {'player': Player, 'score': int} #}
-                <div class="player-card" data-player-id="{{ result.player.id }}" tabindex="0">
+            {% for result in current_results %} {# result is {'player': Player, 'score': int, 'voted_by_user': bool} #}
+                <div class="player-card {% if result.voted_by_user %}voted-by-user{% endif %}" data-player-id="{{ result.player.id }}" tabindex="0">
                     <div class="player-score-badge" id="score-{{ result.player.id }}">{{ result.score }}</div>
                     <div class="vote-spinner" id="spinner-{{ result.player.id }}"></div>
                     <div class="player-card-content">
                         <div class="player-photo">
                             {% if result.player.photo %}
-                                <img src="{{ result.player.photo.url }}" alt="Photo of {{ result.player.full_name }}">
+                                <img src="{{ result.player.photo.url }}" alt="Photo of {{ result.player.full_name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="photo-placeholder" style="display: none;"><i class="bi bi-person-fill"></i></div> {# Fallback placeholder #}
                             {% else %}
                                 <div class="photo-placeholder"><i class="bi bi-person-fill"></i></div>
                             {% endif %}
                         </div>
                         <div class="player-name">{{ result.player.full_name }}</div>
-                        {# Removed vote details list #}
-                    </div> {# End player-card-content #}
-                    {# Feedback div will be added by JS #}
-                </div> {# End player-card #}
+                    </div>
+                    <div class="vote-feedback" id="feedback-{{ result.player.id }}"></div>
+                </div>
             {% endfor %}
         </div>
-    {% endif %} {# End if current_results #}
+    {% endif %}
 
 
     {# --- Other Eligible Players Section --- #}
-    {% if eligible_not_voted_players.exists %} {# Check queryset directly #}
+    {% if eligible_not_voted_players %} {# Check list directly #}
         <div class="other-players-section">
             <h3 class="mt-4">Other Eligible Players</h3>
             <input type="text" id="player-search" class="form-control search-input" placeholder="Search eligible players...">
             <div class="player-vote-grid" id="other-players-grid">
-                {% for player in eligible_not_voted_players %}
-                    <div class="player-card" data-player-id="{{ player.id }}" tabindex="0" data-player-name="{{ player.full_name|lower }}">
-                        <div class="player-score-badge" id="score-{{ player.id }}">0</div>
-                        <div class="vote-spinner" id="spinner-{{ player.id }}"></div>
+                {% for item in eligible_not_voted_players %} {# item is {'player': Player, 'score': int, 'voted_by_user': bool} #}
+                    <div class="player-card {% if item.voted_by_user %}voted-by-user{% endif %}" data-player-id="{{ item.player.id }}" tabindex="0" data-player-name="{{ item.player.full_name|lower }}">
+                        <div class="player-score-badge" id="score-{{ item.player.id }}">{{ item.score }}</div>
+                        <div class="vote-spinner" id="spinner-{{ item.player.id }}"></div>
                         <div class="player-card-content">
                             <div class="player-photo">
-                                {% if player.photo %}
-                                    <img src="{{ player.photo.url }}" alt="Photo of {{ player.full_name }}">
+                                {% if item.player.photo %}
+                                    <img src="{{ item.player.photo.url }}" alt="Photo of {{ item.player.full_name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="photo-placeholder" style="display: none;"><i class="bi bi-person-fill"></i></div> {# Fallback placeholder #}
                                 {% else %}
                                     <div class="photo-placeholder"><i class="bi bi-person-fill"></i></div>
                                 {% endif %}
                             </div>
-                            <div class="player-name">{{ player.full_name }}</div>
-                            {# No vote details initially #}
-                        </div> {# End player-card-content #}
-                         {# Feedback div will be added by JS #}
-                    </div> {# End player-card #}
+                            <div class="player-name">{{ item.player.full_name }}</div>
+                        </div>
+                        <div class="vote-feedback" id="feedback-{{ item.player.id }}"></div>
+                    </div>
                 {% endfor %}
             </div>
         </div>
-    {% endif %} {# End if eligible_not_voted_players #}
+    {% endif %}
 
 
     {# --- Admin Winner Confirmation Section --- #}
-    {# Use the simple boolean flag passed from the view #}
     {% if show_admin_confirm_section %}
         <hr class="my-5">
         <div class="card shadow-sm mt-4 bg-light">
@@ -235,50 +233,47 @@
                     {% csrf_token %}
                     <p>Select the final winner for this prize based on votes or admin decision:</p>
                     {% comment %} Combine results and other players for the selection list {% endcomment %}
-                    {% if not current_results and not eligible_not_voted_players.exists %}
+                    {% if not current_results and not eligible_not_voted_players %}
                          <p class="text-danger">No eligible players to choose from.</p>
                     {% else %}
-                        {% for result in current_results %}
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="radio" name="winner_player_id"
-                                       id="winner_{{ result.player.id }}" value="{{ result.player.id }}" required>
-                                <label class="form-check-label" for="winner_{{ result.player.id }}">
-                                    {{ result.player.full_name }} (Current Score: {{ result.score }})
-                                </label>
-                            </div>
-                        {% endfor %}
-                        {% for player in eligible_not_voted_players %}
-                             <div class="form-check mb-2">
-                                <input class="form-check-input" type="radio" name="winner_player_id"
-                                       id="winner_{{ player.id }}" value="{{ player.id }}" required>
-                                <label class="form-check-label" for="winner_{{ player.id }}">
-                                    {{ player.full_name }} (Current Score: 0)
-                                </label>
-                            </div>
-                        {% endfor %}
+                        {# Sort combined list alphabetically for consistent radio button order #}
+                        {% with all_eligible=current_results|add:eligible_not_voted_players %}
+                        {% regroup all_eligible|dictsort:"player.last_name"|dictsort:"player.first_name" by player as player_list %}
+                            {% for player_data in all_eligible %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="winner_player_id"
+                                           id="winner_{{ player_data.player.id }}" value="{{ player_data.player.id }}" required>
+                                    <label class="form-check-label" for="winner_{{ player_data.player.id }}">
+                                        {{ player_data.player.full_name }} (Current Score: {{ player_data.score }})
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        {% endwith %}
 
                         <button type="submit" class="btn btn-success mt-3"
                                 onclick="return confirm('Are you sure you want to confirm this winner? This will change the prize status to Decided and close voting.')">
                             <i class="bi bi-check-circle-fill me-1"></i> Confirm Winner & Close Voting
                         </button>
-                    {% endif %} {# End check if players exist #}
+                    {% endif %}
                 </form>
             </div>
         </div>
-    {% endif %} {# End Admin Winner Section #}
+    {% endif %}
 
 
 </div> {# End container #}
 
-{# Pass initial user votes to JavaScript #}
-{{ user_votes_simple_json|json_script:"user-votes-data" }}
+{# Pass initial user votes dictionary to JavaScript using json_script #}
+{{ user_votes_data_dict|json_script:"user-votes-data" }}
+
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // --- Basic setup ---
-    console.log("Vote JS Initializing..."); // DEBUG
+    console.log("Vote JS Initializing...");
     const pageContainer = document.getElementById('awards-vote-page');
     if (!pageContainer) {
         console.error("Vote page container not found!");
@@ -287,6 +282,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const prizeId = pageContainer.dataset.prizeId;
     const castVoteUrl = pageContainer.dataset.castVoteUrl;
+    const clearVotesUrl = pageContainer.dataset.clearVotesUrl; // Get new URL
+    const clearVotesBtn = document.getElementById('clear-my-votes-btn'); // Get new Button
+
     const leadersGrid = document.getElementById('leaders-grid');
     const otherPlayersGrid = document.getElementById('other-players-grid');
     const searchInput = document.getElementById('player-search');
@@ -294,317 +292,244 @@ document.addEventListener('DOMContentLoaded', function() {
     let userVotes = {}; // Stores { "player_id_string": 1 } if voted by current user
     let userVoteCount = 0; // Current user's vote count for this prize
     const votingAllowed = {{ voting_allowed|yesno:"true,false" }};
-    console.log(`Voting Allowed: ${votingAllowed}`); // DEBUG
+    console.log(`Initial Voting Allowed State (from Django): ${votingAllowed}`);
 
     // --- CSRF Token ---
     function getCookie(name) {
         let cookieValue = null; if (document.cookie && document.cookie !== '') { const cookies = document.cookie.split(';'); for (let i = 0; i < cookies.length; i++) { const cookie = cookies[i].trim(); if (cookie.substring(0, name.length + 1) === (name + '=')) { cookieValue = decodeURIComponent(cookie.substring(name.length + 1)); break; } } } return cookieValue;
     }
     const csrfToken = getCookie('csrftoken');
-    if (!csrfToken) {
-        console.error("CSRF token not found!");
-        // Maybe display an error to the user?
-    }
+    if (!csrfToken) console.error("CSRF token not found!");
 
-    // --- Initialization: Prioritize JSON, then fallback ---
-    let initialCountSource = "unknown"; // For debugging
+    // --- Initialization: Load initial votes from JSON ---
+    let initialCountSource = "unknown";
     try {
         const votesDataElement = document.getElementById('user-votes-data');
         if (votesDataElement) {
-             // *** THIS IS THE FIX ***
-             // Directly parse the textContent of the json_script element
-             const parsedVotes = JSON.parse(votesDataElement.textContent);
-             // *** END OF FIX ***
-
-             // Basic validation: Check if it's an object
+             const parsedVotes = JSON.parse(votesDataElement.textContent); // Parse from json_script content
              if (typeof parsedVotes === 'object' && parsedVotes !== null) {
                  userVotes = parsedVotes;
-                 // *** FIX: Calculate count directly from parsed object ***
                  userVoteCount = Object.keys(userVotes).length;
                  initialCountSource = "JSON";
-                 console.log("Initial user votes loaded from JSON:", userVotes); // DEBUG
-                 console.log(`Initial user vote count derived from JSON: ${userVoteCount}`); // DEBUG
-             } else {
-                 console.warn("Parsed votes data is not a valid object:", parsedVotes);
-                 throw new Error("Invalid votes data format"); // Trigger fallback
-             }
-        } else {
-            console.warn("User votes data script tag not found.");
-            throw new Error("Votes data element missing"); // Trigger fallback
-        }
+                 console.log("Initial user votes loaded from JSON:", userVotes, `Count: ${userVoteCount}`);
+             } else { throw new Error("Invalid votes data format"); }
+        } else { throw new Error("Votes data element missing"); }
     } catch (e) {
         console.error("Could not parse initial user votes data from JSON:", e);
-        // Fallback: Try reading initial count from the span
+        // Fallback using the displayed count
         if (voteCounterElement) {
-             // Match the pattern "Votes Used: X / 3"
              const match = voteCounterElement.textContent.match(/Votes Used:\s*(\d+)\s*\/\s*3/);
-             if (match && match[1]) {
-                 userVoteCount = parseInt(match[1], 10);
-                 initialCountSource = "Fallback Span";
-                 console.log(`Fallback: Initialized userVoteCount from span: ${userVoteCount}`); // DEBUG
-                 // Cannot reliably reconstruct userVotes object here, so leave it empty
-                 userVotes = {};
-                 console.warn("Could not reconstruct specific votes from fallback count.");
-             } else {
-                  console.error("Could not parse initial count from span during fallback."); // DEBUG
-                  userVoteCount = 0; // Default to 0 if everything fails
-                  initialCountSource = "Fallback Failed -> 0";
-             }
-        } else {
-             console.error("Vote counter element not found during fallback."); // DEBUG
-             userVoteCount = 0; // Default to 0
-             initialCountSource = "Fallback Failed -> 0";
-        }
+             userVoteCount = (match && match[1]) ? parseInt(match[1], 10) : 0;
+             initialCountSource = "Fallback Span";
+        } else { userVoteCount = 0; initialCountSource = "Fallback Failed -> 0"; }
+        console.warn(`Using fallback count: ${userVoteCount} (Source: ${initialCountSource})`);
+        userVotes = {}; // Cannot reconstruct specific votes from fallback count
     }
-    console.log(`Final Initial Count: ${userVoteCount} (Source: ${initialCountSource})`); // DEBUG
-    updateVoteCounterUI(); // Update counter display and card states on load using the determined initial count
-
+    updateVoteCounterUI(); // Update counter display and card states on load
 
     function initializeCards(grid) {
         if (!grid) return;
         grid.querySelectorAll('.player-card').forEach(card => {
-            const playerIdStr = card.dataset.playerId; // Keep as string for consistency with userVotes keys
-            if (!playerIdStr) {
-                console.warn("Card found without player ID:", card);
-                return;
-            }
+            const playerIdStr = card.dataset.playerId;
+            if (!playerIdStr) { console.warn("Card found without player ID:", card); return; }
             updateCardVoteState(card, playerIdStr); // Apply initial visual state
-
             if (votingAllowed) {
-                card.addEventListener('click', (event) => {
-                    handleCardClick(card, playerIdStr);
-                });
+                card.addEventListener('click', () => handleCardClick(card, playerIdStr));
             } else {
-                 card.style.cursor = 'default'; // No pointer if voting closed
-                 // Add the interaction disabling class if voting is not allowed
-                 card.classList.add('is-disabled-interaction');
+                 card.classList.add('is-disabled-interaction'); // Disable if voting closed globally
             }
         });
     }
 
     // --- UI Update Functions ---
     function updateCardVoteState(card, playerIdStr) {
-        // State depends *only* on the current JS variables userVotes and userVoteCount
         const hasVoted = userVotes.hasOwnProperty(playerIdStr);
         card.classList.toggle('voted-by-user', hasVoted);
-
-        // Determine if interaction with THIS card should be disabled
         const limitReached = userVoteCount >= 3;
-        // Interaction is disabled if:
-        // 1. Voting isn't allowed OR
-        // 2. The limit is reached AND the user hasn't voted for THIS specific player
+        // Interaction disabled if voting closed OR (limit reached AND user hasn't voted for THIS player)
         const isDisabledInteraction = !votingAllowed || (limitReached && !hasVoted);
 
-        card.classList.toggle('is-disabled-interaction', isDisabledInteraction);
-
-        // Update cursor based ONLY on whether interaction is disabled
-        card.style.cursor = isDisabledInteraction ? 'not-allowed' : 'pointer';
-
-        // console.log(`Updated card ${playerIdStr}: voted=${hasVoted}, disabledInteraction=${isDisabledInteraction}, count=${userVoteCount}`); // DEBUG - Can be noisy
+        if (isDisabledInteraction) {
+            card.classList.add('is-disabled-interaction');
+            card.style.cursor = 'not-allowed';
+        } else {
+            card.classList.remove('is-disabled-interaction');
+            card.style.cursor = 'pointer';
+        }
     }
 
-
     function updateVoteCounterUI() {
-        console.log(`Updating Vote Counter UI. Current JS Count: ${userVoteCount}`); // DEBUG
         if (voteCounterElement) {
             voteCounterElement.textContent = `Votes Used: ${userVoteCount} / 3`;
             const limitReached = userVoteCount >= 3;
             voteCounterElement.classList.toggle('limit-reached', limitReached);
-            console.log(`Counter element updated. Limit reached: ${limitReached}`); // DEBUG
-        } else {
-             console.warn("Vote counter element not found!"); // DEBUG
+        }
+        if (clearVotesBtn) {
+            // Disable clear button if user has no votes or voting is closed
+            clearVotesBtn.disabled = (userVoteCount === 0 || !votingAllowed);
         }
         // Update disabled state for ALL cards based on the new count
-        console.log("Updating disabled state for all cards..."); // DEBUG
         [leadersGrid, otherPlayersGrid].forEach(grid => {
             if (!grid) return;
             grid.querySelectorAll('.player-card').forEach(card => {
                 const playerIdStr = card.dataset.playerId;
-                if (playerIdStr) { // Check if playerIdStr exists
-                     updateCardVoteState(card, playerIdStr); // Re-apply state based on new count
-                }
+                if (playerIdStr) updateCardVoteState(card, playerIdStr);
             });
         });
-        console.log("Card disabled states updated."); // DEBUG
     }
 
-     // --- Feedback Message ---
      function showTemporaryMessage(card, message, isError = false) {
         let feedbackEl = card.querySelector('.vote-feedback');
-        if (!feedbackEl) {
-            feedbackEl = document.createElement('div');
-            feedbackEl.className = 'vote-feedback';
-            card.appendChild(feedbackEl); // Append inside the card
-        }
-
-        // Clear previous timeouts if any
-        if (feedbackEl.timeoutId) {
-            clearTimeout(feedbackEl.timeoutId);
-        }
-
-        console.log(`Showing feedback on card ${card.dataset.playerId}: "${message}" (Error: ${isError})`); // DEBUG
+        if (!feedbackEl) { console.warn("Feedback element not found for card"); return; }
+        if (feedbackEl.timeoutId) clearTimeout(feedbackEl.timeoutId);
         feedbackEl.textContent = message;
-        feedbackEl.style.backgroundColor = isError ? 'var(--bs-danger-bg-subtle)' : 'var(--bs-success-bg-subtle)';
-        feedbackEl.style.color = isError ? 'var(--bs-danger-text)' : 'var(--bs-success-text)';
-        feedbackEl.style.borderColor = isError ? 'var(--bs-danger-border-subtle)' : 'var(--bs-success-border-subtle)'; // Optional border
-        feedbackEl.style.border = '1px solid';
-
-        // Use requestAnimationFrame to ensure styles are applied before starting transition
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => { // Double RAF to be safe across browsers
-                 feedbackEl.style.opacity = '1';
-            });
-        });
-
-
-        feedbackEl.timeoutId = setTimeout(() => {
-            feedbackEl.style.opacity = '0';
-            feedbackEl.timeoutId = null; // Clear the stored ID
-        }, 2500); // Hide after 2.5 seconds
+        feedbackEl.classList.remove('success', 'error', 'show');
+        feedbackEl.classList.add(isError ? 'error' : 'success');
+        requestAnimationFrame(() => { requestAnimationFrame(() => { feedbackEl.classList.add('show'); }); });
+        feedbackEl.timeoutId = setTimeout(() => { feedbackEl.classList.remove('show'); feedbackEl.timeoutId = null; }, 2500);
     }
-
 
     // --- Event Handlers & AJAX ---
     function handleCardClick(card, playerIdStr) {
-        console.log(`Card clicked: Player ID ${playerIdStr}`); // DEBUG
-        // Prevent click if voting isn't allowed, card is saving, or card interaction is specifically disabled
-        if (card.classList.contains('saving') || card.classList.contains('is-disabled-interaction')) {
-            console.log("Click ignored: Card is saving or interaction disabled."); // DEBUG
-            // Optionally show a message if interaction is disabled due to limit
-            if (card.classList.contains('is-disabled-interaction') && votingAllowed) {
-                 showTemporaryMessage(card, "Vote limit reached! Remove another vote first.", true);
-            }
+        if (!votingAllowed) return; // Ignore if voting is globally closed
+        if (card.classList.contains('saving')) return; // Ignore if already processing
+
+        // Re-check interaction status specifically for this card
+        const limitReached = userVoteCount >= 3;
+        const hasVoted = userVotes.hasOwnProperty(playerIdStr);
+        const isDisabledInteraction = limitReached && !hasVoted; // Can't add more if limit reached and haven't voted for this one
+
+        if (isDisabledInteraction) {
+            showTemporaryMessage(card, "Vote limit reached! Remove another vote first.", true);
             return;
         }
 
-        // Check based on CURRENT JS state
-        const hasVoted = userVotes.hasOwnProperty(playerIdStr);
-        console.log(`Has voted for ${playerIdStr}? ${hasVoted}. Current count: ${userVoteCount}`); // DEBUG
-
-        // Determine action: always remove if already voted, otherwise cast
-        // No need for limit check here anymore, as the is-disabled-interaction check handles it
+        // Determine action based on whether user has voted for *this* player
         const action = hasVoted ? 'remove' : 'cast';
-        console.log(`Determined action: ${action}`); // DEBUG
-
-        sendVoteUpdate(card, parseInt(playerIdStr), action); // Send integer ID to backend
+        sendVoteUpdate(card, parseInt(playerIdStr), action);
     }
 
-
     async function sendVoteUpdate(card, playerIdInt, action) {
-        console.log(`Sending AJAX request: Action=${action}, PlayerID=${playerIdInt}`); // DEBUG
-        card.classList.add('saving'); // Show spinner
-        // --- Temporarily disable interaction while saving ---
-        card.classList.add('is-disabled-interaction');
+        card.classList.add('saving'); // Show spinner visually
+        card.style.cursor = 'wait'; // Change cursor while saving
 
         try {
             const response = await fetch(castVoteUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'Accept': 'application/json' },
-                body: JSON.stringify({ prize_id: prizeId, player_id: playerIdInt, action_request: action }), // FIX: send 'action_request'
+                body: JSON.stringify({ player_id: playerIdInt, action_request: action }),
             });
 
-            console.log(`AJAX Response Status: ${response.status}`); // DEBUG
-
-             // Check if response is ok and is JSON
-             if (!response.ok) {
+            if (!response.ok) {
                  let errorMsg = `Server error: ${response.status}`;
-                 try {
-                     // Try to get more specific error from server JSON response
-                     const errorData = await response.json();
-                     errorMsg = errorData.message || errorMsg;
-                     console.error("Server returned error:", errorData); // DEBUG
-                     
-                     // --- FIX for Limit Reached ---
-                     // If the server sends back 'limit_reached', handle it here
-                     if (errorData.status === 'limit_reached') {
-                         console.log("Server reported vote limit reached."); // DEBUG
-                         showTemporaryMessage(card, errorData.message, true); // Show limit message as error
-                         // Trust the server's count when limit is hit
-                         userVoteCount = errorData.user_vote_count !== undefined ? errorData.user_vote_count : 3;
-                         console.log(`Set userVoteCount to ${userVoteCount} based on server limit response.`); // DEBUG
-                         console.log("Calling updateVoteCounterUI after limit reached..."); // DEBUG
-                         updateVoteCounterUI(); // Update UI states to reflect limit
-                         return; // Stop further processing
-                     }
-                     // --- End Fix ---
-                     
-                 } catch (e) { console.error("Could not parse error response body:", e); /* Ignore if response wasn't JSON */ }
-                 throw new Error(errorMsg); // Throw error to be caught below
+                 let errorData = {};
+                 try { errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch(e) {/* ignore */}
+                 // Special handling for limit reached error
+                 if (errorData.status === 'limit_reached') {
+                     showTemporaryMessage(card, errorData.message, true);
+                     userVoteCount = errorData.user_vote_count !== undefined ? errorData.user_vote_count : 3;
+                     updateVoteCounterUI(); // Update UI states for all cards
+                     return; // Stop processing further for this specific error
+                 }
+                 throw new Error(errorMsg); // Throw for other errors
              }
 
-            const data = await response.json(); // Now safe to parse
-            console.log("AJAX Success Response Data:", data); // DEBUG
-
+            const data = await response.json();
 
             if (data.status === 'success') {
-                // --- Update Local State FIRST based *only* on Server Response ---
-                const playerIdStr = String(playerIdInt); // Convert back to string for JS object key
-
-                // CRITICAL: Update JS count *from server response*
+                // Update local state based on server response
                 userVoteCount = data.user_vote_count;
-                console.log(`Local userVoteCount updated to: ${userVoteCount} (from server response)`); // DEBUG
+                const playerIdStr = String(playerIdInt);
+                if (data.voted === true) userVotes[playerIdStr] = 1; // Add vote locally
+                else delete userVotes[playerIdStr]; // Remove vote locally
 
-                // Update the userVotes object based on the ACTUAL reported state ('voted' key)
-                if (data.voted === true) { // Server says user *now* has a vote for this player
-                    if (!userVotes.hasOwnProperty(playerIdStr)) {
-                         userVotes[playerIdStr] = 1; // Add if not present
-                         console.log(`Synced local userVotes: Added ${playerIdStr} based on server 'voted: true'.`); // DEBUG
-                    } else {
-                         console.log(`Synced local userVotes: ${playerIdStr} already present, matches server 'voted: true'.`); // DEBUG
-                    }
-                } else { // Server says user *does not* have a vote for this player now
-                    if (userVotes.hasOwnProperty(playerIdStr)) {
-                        delete userVotes[playerIdStr]; // Remove if present
-                        console.log(`Synced local userVotes: Removed ${playerIdStr} based on server 'voted: false'.`); // DEBUG
-                    } else {
-                         console.log(`Synced local userVotes: ${playerIdStr} already absent, matches server 'voted: false'.`); // DEBUG
-                    }
-                }
-                 console.log("Final updated local userVotes:", userVotes); // DEBUG
+                // Update UI based on new local state
+                updateVoteCounterUI(); // Updates counts and enables/disables cards globally
 
-
-                 // --- Update UI Based on New State ---
-                // 1. Update the counter display and disability state of ALL cards
-                 console.log("Calling updateVoteCounterUI after successful vote sync..."); // DEBUG
-                updateVoteCounterUI(); // This now uses the count received from the server
-
-                // 2. Update score badge for the specific card
+                // Update the specific card's score badge
                 const scoreBadge = card.querySelector('.player-score-badge');
                 if (scoreBadge && data.new_score !== undefined) {
                     scoreBadge.textContent = data.new_score;
-                     console.log(`Updated score badge for ${playerIdStr} to ${data.new_score}`); // DEBUG
                 }
-
-                // 3. Show success/info message from server
-                showTemporaryMessage(card, data.message); // Server message tells user what happened (e.g., "Vote removed", "Already voted")
-
-                 // --- Optional: Move card between grids (implement later if needed) ---
-
-            } else if (data.status === 'limit_reached') {
-                 // This block might be redundant now, but harmless to keep
-                 console.log("Server reported vote limit reached."); // DEBUG
-                 showTemporaryMessage(card, data.message, true); // Show limit message as error
-                 // Trust the server's count when limit is hit
-                 userVoteCount = data.user_vote_count !== undefined ? data.user_vote_count : 3;
-                 console.log(`Set userVoteCount to ${userVoteCount} based on server limit response.`); // DEBUG
-                 console.log("Calling updateVoteCounterUI after limit reached..."); // DEBUG
-                 updateVoteCounterUI(); // Update UI states to reflect limit
+                showTemporaryMessage(card, data.message); // Show success message
             } else {
-                 // Handle other specific errors reported by the server (e.g., 'error')
-                 console.error("Server returned non-success status:", data); // DEBUG
-                 throw new Error(data.message || 'Unknown error from server.');
+                 // Handle other potential non-success statuses from the server
+                 throw new Error(data.message || 'Unknown server response.');
             }
         } catch (error) {
-            console.error("Error casting vote (AJAX catch block):", error); // DEBUG
+            console.error("Error casting vote:", error);
             showTemporaryMessage(card, `Error: ${error.message || 'Could not save vote.'}`, true);
-             // We don't revert state here, rely on refresh or next successful action to sync
+            // Don't revert state on error, let next action/refresh fix
         } finally {
-            card.classList.remove('saving'); // Hide spinner
-            // --- Re-enable interaction AFTER saving (state will be updated by updateVoteCounterUI) ---
-            // We just need to remove the temporary saving disable, the main logic is in updateCardVoteState
-            // Note: updateVoteCounterUI was already called which recalculates the disabled state.
-             console.log(`AJAX complete for ${playerIdInt}. Removed 'saving' class.`); // DEBUG
+            card.classList.remove('saving');
+            // Re-evaluate interaction based on the final state *after* the update
+            const playerIdStr = String(playerIdInt);
+            updateCardVoteState(card, playerIdStr); // Correctly sets cursor and class
         }
+    }
+
+    // --- Function and Listener for the Clear Votes Button ---
+    async function sendClearVotesUpdate() {
+        if (!confirm("Are you sure you want to remove all your votes for this prize?")) {
+            return;
+        }
+
+        clearVotesBtn.disabled = true;
+        clearVotesBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Clearing...';
+
+        try {
+            const response = await fetch(clearVotesUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'Accept': 'application/json' },
+                // No body needed for clearing all votes
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Server error: ${response.status}`;
+                try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch(e) {/* ignore */}
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // Reset local state
+                userVotes = {};
+                userVoteCount = 0;
+
+                // Update scores from server response
+                if (data.updated_scores && Array.isArray(data.updated_scores)) {
+                    data.updated_scores.forEach(item => {
+                        const scoreBadge = document.getElementById(`score-${item.player_id}`);
+                        if (scoreBadge) {
+                            scoreBadge.textContent = item.new_score;
+                        }
+                    });
+                }
+
+                // Update all card UI (removes green borders, re-enables all cards)
+                updateVoteCounterUI();
+
+                // Show a success message (e.g., near the button or on the first card)
+                showTemporaryMessage(clearVotesBtn.closest('.d-flex'), data.message || "Votes cleared!"); // Show near button
+            } else {
+                throw new Error(data.message || 'Unknown server error.');
+            }
+
+        } catch (error) {
+            console.error("Error clearing votes:", error);
+            // Show error message near the button
+             showTemporaryMessage(clearVotesBtn.closest('.d-flex'), `Error: ${error.message}`, true);
+        } finally {
+            // Restore button text and re-evaluate disabled state
+            clearVotesBtn.innerHTML = '<i class="bi bi-trash me-1"></i> Clear My Votes';
+            updateVoteCounterUI(); // Re-checks if button should be disabled
+        }
+    }
+
+    // Add listener only if the button exists and voting is allowed
+    if (clearVotesBtn && votingAllowed) {
+        clearVotesBtn.addEventListener('click', sendClearVotesUpdate);
     }
 
 
@@ -615,7 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
         otherPlayersGrid.querySelectorAll('.player-card').forEach(card => {
             const playerName = card.dataset.playerName || '';
             const isVisible = playerName.includes(searchTerm);
-            card.style.display = isVisible ? 'flex' : 'none'; // Use flex for display type
+            card.style.display = isVisible ? 'flex' : 'none'; // Use flex for card layout
         });
     }
 
@@ -624,11 +549,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Run Initialization ---
-    console.log("Initializing cards..."); // DEBUG
     initializeCards(leadersGrid);
     initializeCards(otherPlayersGrid);
-    console.log("Card initialization complete."); // DEBUG
-
+    console.log("Card initialization complete.");
 
 });
 </script>
