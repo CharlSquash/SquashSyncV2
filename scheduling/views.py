@@ -335,7 +335,8 @@ def session_detail(request, session_id):
                         'name': player.full_name,
                         'status': parent_status
                     })
-
+        
+        all_players_for_display.sort(key=lambda p: p['name'])
     # The rest of the view remains the same...
     drills_queryset = Drill.objects.prefetch_related('tags').all()
     drills_data = []

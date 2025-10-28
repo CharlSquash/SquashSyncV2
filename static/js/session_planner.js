@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // This will parse the full attendance list for the top display section
                 this.allPlayersForDisplay = JSON.parse(document.getElementById('all-players-data').textContent);
+                this.allPlayersForDisplay.sort((a, b) => a.name.localeCompare(b.name));
 
                 const allTagsData = document.getElementById('all-tags-data');
                 if (allTagsData) {
@@ -108,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const container = this.elements.attendanceList;
             if (!container) return;
             container.innerHTML = '';
+            this.allPlayersForDisplay.sort((a, b) => a.name.localeCompare(b.name));
             // Use the new variable to render the top attendance list
             this.allPlayersForDisplay.forEach(player => {
                 const badgeClass = player.status === 'ATTENDING' ? 'text-bg-success' : player.status === 'DECLINED' ? 'text-bg-danger' : 'text-bg-secondary';
