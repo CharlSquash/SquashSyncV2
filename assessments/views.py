@@ -30,8 +30,9 @@ def is_coach(user):
 def pending_assessments(request):
     """
     Displays a list of past sessions for a coach that are pending assessments
-    or were completed within the last week. Now includes a check for whether
-    final attendance has been taken.
+    or were completed within the last week. Automatically confirms for payment
+    once either a group assessment or one player assessment is submitted.
+    Keeps the accordion open until ALL assessments for the session are done.
     """
     try:
         coach = request.user.coach_profile
@@ -52,9 +53,12 @@ def pending_assessments(request):
 
     session_ids = [s.id for s in sessions_qs]
 
+    # Check which sessions have already been marked complete AND confirmed in the database
     assessments_submitted_ids = set(
         CoachSessionCompletion.objects.filter(
-            coach=coach, session_id__in=session_ids, assessments_submitted=True
+            coach=coach, session_id__in=session_ids,
+            assessments_submitted=True,
+            confirmed_for_payment=True
         ).values_list('session_id', flat=True)
     )
 
@@ -70,7 +74,6 @@ def pending_assessments(request):
         ).values_list('session_id', flat=True)
     )
 
-    # --- NEW: Check if attendance has been taken for each session ---
     attendance_taken_subquery = AttendanceTracking.objects.filter(
         session=OuterRef('pk'),
         attended__in=[AttendanceTracking.CoachAttended.YES, AttendanceTracking.CoachAttended.NO]
@@ -84,7 +87,6 @@ def pending_assessments(request):
             attendance_taken=True
         ).values_list('id', flat=True)
     )
-    # --- END NEW ---
 
     session_attendees = AttendanceTracking.objects.filter(
         session_id__in=session_ids,
@@ -117,41 +119,64 @@ def pending_assessments(request):
     pending_items_for_template = []
     for session in sessions_qs:
         session_id = session.id
-        is_marked_complete = session_id in assessments_submitted_ids
+        # Check if it was already marked complete before this request
+        is_marked_complete_for_payment = session_id in assessments_submitted_ids # Renamed for clarity
 
-        if is_marked_complete and session.session_date < one_week_ago:
+        # Skip old, completed sessions unless they are recent
+        if is_marked_complete_for_payment and session.session_date < one_week_ago:
             continue
 
+        # Don't show sessions that haven't technically ended yet
         if session.end_datetime and session.end_datetime > timezone.now():
-             # Don't show sessions that haven't technically ended yet
             continue
 
         has_group_assessment = session_id in group_assessments_done_ids
         has_started_player_assessments = session_id in player_assessments_started_ids
-        can_mark_complete = has_group_assessment or has_started_player_assessments
+
+        # --- Automatic Confirmation Logic (Remains the same) ---
+        assessments_started_or_group_done = has_group_assessment or has_started_player_assessments
+
+        # If not already marked complete FOR PAYMENT and the condition is met, mark it complete automatically
+        if not is_marked_complete_for_payment and assessments_started_or_group_done:
+            completion, created = CoachSessionCompletion.objects.get_or_create(
+                coach=coach,
+                session=session,
+                defaults={'assessments_submitted': True, 'confirmed_for_payment': True}
+            )
+            if not created and (not completion.assessments_submitted or not completion.confirmed_for_payment):
+                completion.assessments_submitted = True
+                completion.confirmed_for_payment = True
+                completion.save(update_fields=['assessments_submitted', 'confirmed_for_payment'])
+
+            is_marked_complete_for_payment = True # Update flag
+
+        # --- END Automatic Confirmation Logic ---
 
         players_in_session = attendees_by_session.get(session.id, [])
         assessments_for_this_session = assessments_by_session_id.get(session.id, [])
         assessed_player_pks = {a.player_id for a in assessments_for_this_session}
         players_to_assess = [p for p in players_in_session if p.pk not in assessed_player_pks]
 
-        # --- NEW: Get the attendance taken flag ---
         attendance_has_been_taken = session_id in attendance_taken_session_ids
+
+        # --- NEW: Determine if ALL assessments are truly done for accordion state ---
+        all_players_assessed = not players_to_assess and players_in_session # Only true if list is empty AND there were players
+        all_assessments_truly_complete = has_group_assessment and all_players_assessed
         # --- END NEW ---
 
-        attendee_pks = [p.pk for p in players_in_session] if attendance_has_been_taken else [] # Only query if needed
+        attendee_pks = [p.pk for p in players_in_session] if attendance_has_been_taken else []
         attendees_queryset = Player.objects.filter(pk__in=attendee_pks) if attendee_pks else Player.objects.none()
         match_form = QuickMatchResultForm(attendees_queryset=attendees_queryset)
 
         pending_items_for_template.append({
             'session': session,
             'players_to_assess': players_to_assess,
-            'is_marked_complete': is_marked_complete,
+            'is_marked_complete': is_marked_complete_for_payment, # Flag for payment status icon
+            'all_assessments_truly_complete': all_assessments_truly_complete, # NEW flag for accordion
             'group_assessment_pending': not has_group_assessment,
-            'can_mark_complete': can_mark_complete,
             'match_form': match_form,
             'session_matches': matches_by_session.get(session.id, []),
-            'attendance_taken': attendance_has_been_taken, # <-- NEW FLAG
+            'attendance_taken': attendance_has_been_taken,
         })
 
     context = {

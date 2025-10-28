@@ -11,12 +11,15 @@
 
     {% if pending_items %}
         {% for item in pending_items %}
-            <details class="pending-session-card" {% if not item.is_marked_complete %}open{% endif %}>
+            <details class="pending-session-card" {% if not item.all_assessments_truly_complete %}open{% endif %}>
                 <summary class="pending-session-header">
                     <div class="header-content">
                         <h3>
+                            {# Use the is_marked_complete flag for the checkmark icon #}
                             {% if item.is_marked_complete %}
-                                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                <i class="bi bi-check-circle-fill text-success me-2" title="Marked as complete for payment"></i>
+                            {% else %}
+                                <i class="bi bi-hourglass-split text-muted me-2" title="Pending completion for payment"></i>
                             {% endif %}
                             {{ item.session.session_date|date:"l, d M Y" }} -
                             {{ item.session.school_group.name|default:"General Session" }}
@@ -141,17 +144,7 @@
                     </div>
                 </div>
 
-                {% if item.can_mark_complete and not item.is_marked_complete %}
-                <div class="card-footer-action">
-                    <form method="POST" action="{% url 'assessments:mark_player_assessments_complete' item.session.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn-mark-complete-main">
-                            <i class="bi bi-check-circle-fill"></i> Mark Assessments for this session as done
-                        </button>
-                        <small class="form-text text-muted">This will confirm your work for payment processing.</small>
-                    </form>
-                </div>
-                {% endif %}
+                
 
             </details>
         {% endfor %}
