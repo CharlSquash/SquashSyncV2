@@ -1119,15 +1119,6 @@ def update_coach_duration_ajax(request):
             session_coach.coaching_duration_minutes = int(duration)
             session_coach.save()
 
-            # --- THIS IS THE FIX ---
-            # Also update the actual duration in the completion record.
-            # Use get_or_create to handle cases where it might not exist yet.
-            completion_record, created = CoachSessionCompletion.objects.get_or_create(
-                session_id=session_id,
-                coach_id=coach_id,
-            )
-            completion_record.actual_duration_minutes = int(duration)
-            completion_record.save()
             # --- END OF FIX ---
 
         return JsonResponse({'status': 'success', 'message': 'Duration updated.'})
