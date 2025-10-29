@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,40 +9,52 @@
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             margin: 20px;
             color: #333;
-            font-size: 10pt; /* Adjusted for typical PDF view */
+            font-size: 10pt;
         }
         .payslip-container {
             border: 1px solid #ddd;
             padding: 20px;
-            max-width: 800px; /* Optional: constrain width */
-            margin: auto; /* Optional: center on page */
+            max-width: 800px;
+            margin: auto;
         }
         .header {
-            text-align: center;
+            display: flex;
+            align-items: center; /* Vertically center logo and text block */
+            justify-content: space-between;
             margin-bottom: 25px;
             border-bottom: 1px solid #eee;
             padding-bottom: 15px;
         }
+        .header .logo {
+            max-height: 70px;
+            max-width: 150px;
+            margin-right: 20px;
+            vertical-align: middle;
+        }
+        .header .header-text {
+             text-align: right; /* Keep text aligned right */
+         }
         .header h1 {
-            margin: 0;
-            font-size: 20pt;
-            color: #222;
+            margin: 0 0 2px 0; /* Add small bottom margin */
+            font-size: 22pt; /* Slightly larger */
+            color: #111; /* Darker */
+            font-weight: bold;
         }
         .header .org-name {
-            font-size: 12pt;
+            font-size: 11pt; /* Slightly smaller */
             color: #555;
-            margin-top: 5px;
+            margin-top: 0;
         }
         .info-section {
             margin-bottom: 20px;
-            display: flex; /* Using flex for side-by-side layout */
+            display: flex;
             justify-content: space-between;
-            flex-wrap: wrap; /* Allow wrapping if needed */
+            flex-wrap: wrap;
         }
         .info-section .left-info, .info-section .right-info {
-            width: 48%; /* Adjust as needed if using flex */
-            min-width: 250px; /* Ensure readability if wrapped */
-            margin-bottom: 10px; /* Space if wrapped */
+            width: 48%;
+            min-width: 250px;
+            margin-bottom: 10px;
         }
         .info-section p, .summary-section p, .bonus-details-section p {
             margin: 6px 0;
@@ -57,55 +70,65 @@
             font-size: 9pt;
         }
         th, td {
-            border: 1px solid #ccc; /* Lightened border */
-            padding: 7px; /* Slightly adjusted padding */
+            border: 1px solid #ccc;
+            padding: 7px;
             text-align: left;
-            vertical-align: top; /* Align content to top of cell */
+            vertical-align: top;
         }
         th {
             background-color: #f2f2f2;
             font-weight: bold;
             color: #333;
         }
+        /* --- Zebra Striping --- */
+        tbody tr:nth-child(odd) {
+            background-color: #f9f9f9;
+        }
+        /* --- End Zebra Striping --- */
         .text-right {
             text-align: right;
         }
         .text-center {
             text-align: center;
         }
-        .currency::before { /* For currency symbol if needed consistently */
-            content: "R"; /* Or {{ CURRENCY_SYMBOL }} if passed in context */
+        .currency::before {
+            content: "R";
         }
         .summary-section {
             margin-top: 25px;
             padding-top: 15px;
-            border-top: 1px solid #eee;
-            text-align: right; /* Align summary to the right */
+            border-top: 1px solid #ccc; /* Slightly darker line */
+            text-align: right;
         }
         .summary-section p {
             font-size: 11pt;
+            margin: 4px 0; /* Tighter spacing */
         }
         .bonus-details-section {
             margin-top: 20px;
             padding-top: 10px;
-            border-top: 1px dashed #eee; /* Dashed border for visual separation */
+            border-top: 1px dashed #ccc; /* Dashed line */
         }
         .bonus-details-section h4 {
             margin-top: 0;
             margin-bottom: 10px;
             font-size: 10pt;
+            font-weight: bold; /* Make bonus heading bolder */
             color: #444;
         }
         .bonus-details-section ul {
             list-style-type: none;
             padding-left: 0;
             font-size: 9pt;
+            margin-bottom: 0; /* Remove default bottom margin */
         }
         .bonus-details-section li {
             margin-bottom: 4px;
         }
         .footer {
             margin-top: 30px;
+            padding-top: 15px; /* Add padding above footer text */
+            border-top: 1px solid #ccc; /* Add line above footer */
             text-align: center;
             font-size: 8pt;
             color: #777;
@@ -115,8 +138,11 @@
 <body>
     <div class="payslip-container">
         <div class="header">
-            <h1>Payslip</h1>
-            <div class="org-name">Centurion Junior Squash</div> {# Or your organization's name #}
+            <img src="{% static 'images/company_logo.png' %}" alt="Company Logo" class="logo">
+            <div class="header-text">
+                <h1>Payslip</h1>
+                <div class="org-name">Centurion Junior Squash</div>
+            </div>
         </div>
 
         <div class="info-section">

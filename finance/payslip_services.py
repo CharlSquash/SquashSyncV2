@@ -3,16 +3,19 @@
 from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
 from django.template.loader import render_to_string
-from weasyprint import HTML
+from weasyprint import HTML, CSS
 from django.core.files.base import ContentFile
 from django.contrib.auth import get_user_model
 from django.conf import settings
 import datetime
-
+from django.templatetags.static import static
+from pathlib import Path #
 # Refactored imports for the new project structure
 from .models import Payslip, CoachSessionCompletion
 from accounts.models import Coach
 from scheduling.models import Session, SessionCoach
+
+User = get_user_model() # Define User using get_user_model
 
 def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | None:
     """
@@ -53,11 +56,11 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
     session_details = []
     total_duration_minutes = Decimal('0')
     coach_hourly_rate = Decimal(str(coach.hourly_rate))
-    
+
     total_base_pay_for_sessions = Decimal('0.00')
     total_bonus_amount_for_sessions = Decimal('0.00')
     bonus_session_details_list = []
-    bonus_session_count = 0  # <-- NEW: Initialize bonus session counter
+    bonus_session_count = 0  # Initialize bonus session counter
 
     bonus_qualifying_time = getattr(settings, 'BONUS_SESSION_START_TIME', datetime.time(6, 0, 0))
     bonus_amount_value = getattr(settings, 'BONUS_SESSION_AMOUNT', 0.00)
@@ -66,28 +69,28 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
     for completion in completions:
         session_obj = completion.session
         session_coach_entry = next((sc for sc in session_obj.sessioncoach_set.all() if sc.coach_id == coach.id), None)
-        
+
         duration_minutes = Decimal(session_coach_entry.coaching_duration_minutes) if session_coach_entry else Decimal('0')
-        
+
         if duration_minutes == 0:
             continue
 
         pay_for_session_base = (duration_minutes / Decimal('60.0')) * coach_hourly_rate
         total_base_pay_for_sessions += pay_for_session_base
-        
+
         current_session_bonus = Decimal('0.00')
-        
+
         session_start_time_obj = session_obj.session_start_time
         if isinstance(session_start_time_obj, str):
             try:
                 session_start_time_obj = datetime.datetime.strptime(session_start_time_obj, '%H:%M:%S').time()
             except ValueError:
                 session_start_time_obj = None
-        
+
         if session_start_time_obj and session_start_time_obj == bonus_qualifying_time:
             current_session_bonus = decimal_bonus_amount_value
             total_bonus_amount_for_sessions += current_session_bonus
-            bonus_session_count += 1  # <-- NEW: Increment bonus session counter
+            bonus_session_count += 1  # Increment bonus session counter
             bonus_session_details_list.append({
                 'date': session_obj.session_date,
                 'reason': "Bonus for specific session",
@@ -104,7 +107,7 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
             'date': session_obj.session_date,
             'start_time': session_obj.session_start_time.strftime('%H:%M'),
             'school_group_name': session_obj.school_group.name if session_obj.school_group else "N/A",
-            'duration_hours_str': f"{hours}h {minutes}m", 
+            'duration_hours_str': f"{hours}h {minutes}m",
             'base_pay_for_session': pay_for_session_base.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
             'bonus_for_session': current_session_bonus.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
             'total_pay_for_session_line': total_pay_for_this_session_line_item.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
@@ -113,41 +116,41 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
 
     total_hours_decimal = (total_duration_minutes / Decimal('60.0')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     grand_total_pay = (total_base_pay_for_sessions + total_bonus_amount_for_sessions).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    
+
     total_duration_hours_int = int(total_duration_minutes // 60)
     total_duration_remainder_minutes_int = int(total_duration_minutes % 60)
-    
+
     try:
         month_name = datetime.datetime(year, month, 1).strftime('%B')
-    except ValueError: 
+    except ValueError:
         month_name = f"Month({month})"
-        
-    # --- NEW: Bonus Calculation String ---
+
+    # Bonus Calculation String
     bonus_calculation_str = ""
     if bonus_session_count > 0:
         bonus_calculation_str = f"{bonus_session_count} session{'s' if bonus_session_count > 1 else ''} x R{decimal_bonus_amount_value.quantize(Decimal('0.01'))}"
 
     return {
         'coach_name': coach_display_name,
-        'coach_identifier_for_filename': coach_identifier_for_filename, 
+        'coach_identifier_for_filename': coach_identifier_for_filename,
         'hourly_rate': coach_hourly_rate.quantize(Decimal('0.01')),
         'period_month_year_display': f"{month_name} {year}",
         'sessions': session_details,
-        'total_hours_str': f"{total_duration_hours_int}h {total_duration_remainder_minutes_int}m", 
+        'total_hours_str': f"{total_duration_hours_int}h {total_duration_remainder_minutes_int}m",
         'total_hours_decimal': total_hours_decimal,
         'total_base_pay': total_base_pay_for_sessions.quantize(Decimal('0.01')),
         'total_bonus_amount': total_bonus_amount_for_sessions.quantize(Decimal('0.01')),
-        'bonus_calculation_str': bonus_calculation_str, # <-- NEW: Add to dictionary
-        'bonus_details_list': bonus_session_details_list, 
-        'total_pay': grand_total_pay, 
-        'generation_date': timezone.now().date(), 
+        'bonus_calculation_str': bonus_calculation_str,
+        'bonus_details_list': bonus_session_details_list,
+        'total_pay': grand_total_pay,
+        'generation_date': timezone.now().date(),
     }
 
 def generate_payslip_for_single_coach(coach_id: int, year: int, month: int, generating_user_id: int | None, force_regeneration: bool = False) -> dict:
     """
     Generates and saves a payslip for a single coach for a given period.
     """
-    User = get_user_model()
+    # User = get_user_model() # Already defined above
     generating_user = None
     if generating_user_id:
         try:
@@ -156,7 +159,7 @@ def generate_payslip_for_single_coach(coach_id: int, year: int, month: int, gene
             print(f"Warning: User with ID {generating_user_id} not found for marking 'generated_by'.")
 
     detailed_messages = []
-    
+
     try:
         coach = Coach.objects.get(id=coach_id)
     except Coach.DoesNotExist:
@@ -177,21 +180,21 @@ def generate_payslip_for_single_coach(coach_id: int, year: int, month: int, gene
         else:
             detailed_messages.append(f"  Payslip already exists. Skipping generation (force_regeneration is False).")
             return {'status': 'skipped', 'message': f"Payslip already exists for {str(coach)} for {month:02}/{year}. Skipped.", 'details': detailed_messages}
-            
-    payslip_data = get_payslip_data_for_coach(coach.id, year, month) 
+
+    payslip_data = get_payslip_data_for_coach(coach.id, year, month)
 
     if not payslip_data:
         detailed_messages.append(f"  No payslip data (e.g., no confirmed sessions or no hourly rate). Skipping.")
         return {'status': 'skipped', 'message': f"No payslip data for {str(coach)} for {month:02}/{year}. Skipped.", 'details': detailed_messages}
-    
-    pdf_bytes = generate_payslip_pdf_from_data(payslip_data) 
+
+    pdf_bytes = generate_payslip_pdf_from_data(payslip_data)
     if not pdf_bytes:
         detailed_messages.append(f"  Failed to generate PDF. Skipping.")
         return {'status': 'error', 'message': f"Failed to generate PDF for {str(coach)}.", 'details': detailed_messages}
 
     coach_id_filename = payslip_data.get('coach_identifier_for_filename', f"coach_{coach.id}_unknown")
     payslip_filename = f"payslip_{coach_id_filename}_{year}_{month:02d}.pdf"
-    
+
     try:
         new_payslip = Payslip(
             coach=coach,
@@ -205,7 +208,7 @@ def generate_payslip_for_single_coach(coach_id: int, year: int, month: int, gene
 
         detailed_messages.append(f"  Successfully generated and saved payslip: {payslip_filename}")
         return {
-            'status': 'success', 
+            'status': 'success',
             'message': f"Successfully generated payslip {payslip_filename} for {str(coach)}.",
             'details': detailed_messages,
             'payslip_id': new_payslip.id
@@ -213,7 +216,7 @@ def generate_payslip_for_single_coach(coach_id: int, year: int, month: int, gene
     except Exception as e:
         detailed_messages.append(f"  Error saving payslip record: {e}")
         return {
-            'status': 'error', 
+            'status': 'error',
             'message': f"Error saving payslip record for {str(coach)}: {e}",
             'details': detailed_messages
         }
@@ -221,22 +224,63 @@ def generate_payslip_for_single_coach(coach_id: int, year: int, month: int, gene
 def generate_payslip_pdf_from_data(payslip_data: dict | None) -> bytes | None:
     """
     Generates a PDF payslip from the provided payslip_data dictionary.
+    Uses absolute file path for logo in DEBUG, site URL otherwise.
     """
     if not payslip_data:
         return None
     try:
         html_string = render_to_string('finance/payslip_template.html', {'payslip': payslip_data})
-        pdf_bytes = HTML(string=html_string).write_pdf()
+
+        # --- MODIFICATION: Handle image path differently for DEBUG ---
+        base_url_for_weasyprint = None # Default for local with absolute path
+        stylesheets = []
+
+        if settings.DEBUG:
+            # 1. Get the relative static path (e.g., '/static/images/company_logo.png')
+            relative_logo_path = static('images/company_logo.png')
+
+            # 2. Construct the absolute filesystem path
+            #    Remove leading slash from relative path if it exists
+            abs_logo_path = settings.BASE_DIR / relative_logo_path.lstrip('/')
+
+            # 3. Check if the file actually exists at that path
+            if abs_logo_path.is_file():
+                # 4. Create a file URI (e.g., 'file:///path/to/project/static/images/company_logo.png')
+                logo_uri = abs_logo_path.as_uri()
+
+                # 5. Replace the relative path in the HTML string with the absolute file URI
+                #    Important: Use the exact relative path generated by {% static %} as the string to replace
+                html_string = html_string.replace(relative_logo_path, logo_uri, 1) # Replace only the first instance
+                # print(f"DEBUG: Replaced logo path with URI: {logo_uri}") # Optional: for debugging
+            else:
+                print(f"WARNING: Logo file not found at expected local path: {abs_logo_path}")
+                # Optionally fall back or log error more formally
+
+            # For local CSS, you might still need:
+            # css_path = settings.BASE_DIR / 'static' / 'css' / 'style.css'
+            # if css_path.exists():
+            #     stylesheets = [CSS(filename=css_path)]
+
+        else:
+            # Production (PythonAnywhere): Use the site URL as base_url
+            base_url_for_weasyprint = settings.APP_SITE_URL
+        # --- END MODIFICATION ---
+
+        # Pass base_url (if defined) AND stylesheets (if any)
+        pdf_bytes = HTML(string=html_string, base_url=base_url_for_weasyprint).write_pdf(stylesheets=stylesheets)
+
         return pdf_bytes
     except Exception as e:
-        print(f"Error generating PDF for coach '{payslip_data.get('coach_name', 'Unknown')}': {e}")
+        print(f"Error generating PDF for coach '{payslip_data.get('coach_name', 'Unknown')}': {type(e).__name__} - {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def create_all_payslips_for_period(year: int, month: int, generating_user_id: int | None, force_regeneration: bool = False) -> dict:
     """
     Generates and saves payslips for all eligible coaches for a given period.
     """
-    User = get_user_model()
+    # User = get_user_model() # Already defined above
     generating_user = None
     if generating_user_id:
         try:
@@ -245,7 +289,7 @@ def create_all_payslips_for_period(year: int, month: int, generating_user_id: in
             print(f"Warning: User with ID {generating_user_id} not found for marking 'generated_by'.")
 
     eligible_coaches = Coach.objects.filter(is_active=True, hourly_rate__isnull=False).exclude(hourly_rate=0)
-    
+
     if not eligible_coaches.exists():
         return {
             'generated_count': 0, 'skipped_count': 0, 'error_count': 0,
@@ -276,14 +320,14 @@ def create_all_payslips_for_period(year: int, month: int, generating_user_id: in
             error_count += 1
         else: # 'skipped'
             skipped_count += 1
-        
+
         detailed_messages.extend(result.get('details', []))
-    
+
     summary_message = (
         f"Payslip Generation for {month:02}/{year}: "
         f"Successfully Generated: {generated_count}, Skipped: {skipped_count}, Errors: {error_count}."
     )
-    detailed_messages.append(summary_message) 
+    detailed_messages.append(summary_message)
 
     return {
         'generated_count': generated_count,
