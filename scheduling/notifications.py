@@ -11,17 +11,19 @@ from django.utils import timezone
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.contrib.auth import get_user_model
 
+from collections import defaultdict
+
 import datetime
 from datetime import timedelta
 
 from .models import AttendanceTracking, SessionCoach
 from players.models import Player
 
-
+from django.db.models import Prefetch
 
 
 # It's good practice to have your models imported directly
-from .models import Session, CoachAvailability
+from .models import Session, CoachAvailability, SessionCoach
 
 # Salt can be customized for better security between apps
 confirmation_signer = TimestampSigner(salt='scheduling.confirmation')
@@ -56,98 +58,105 @@ def verify_bulk_confirmation_token(token, max_age_days=2):
         return None
 
 def send_consolidated_session_reminder_email(user, sessions_by_day, is_reminder=False):
-    """Sends a single reminder email with all sessions for the upcoming days."""
+    """
+    Sends a single reminder email with ALL assigned sessions for the upcoming days,
+    showing their current confirmation status.
+    """
     if not user.email:
         print(f"Cannot send email: User {user.username} has no email address.")
         return False
 
     site_url = getattr(settings, 'APP_SITE_URL', 'http://127.0.0.1:8000')
     subject_verb = "Reminder" if is_reminder else "Confirmation Required"
-    
+
+    # Get all days included in the initial (unresponded) list
+    relevant_dates = sorted(list(sessions_by_day.keys())) # Ensure consistent order
+
+    if not relevant_dates:
+        print(f"No relevant dates found for reminder email to {user.username}.")
+        return False # Should not happen based on trigger script, but safety check
+
+    # --- NEW: Re-query ALL assigned sessions for these specific days ---
+    all_assigned_sessions_for_days = Session.objects.filter(
+        coaches_attending__user=user,
+        session_date__in=relevant_dates,
+        is_cancelled=False
+    ).select_related('school_group', 'venue').prefetch_related(
+        # Prefetch the specific coach's availability status
+        Prefetch(
+            'coach_availabilities',
+            queryset=CoachAvailability.objects.filter(coach=user),
+            to_attr='my_availability'
+        ),
+        # Prefetch the SessionCoach entry to get duration
+        Prefetch(
+            'sessioncoach_set',
+            queryset=SessionCoach.objects.filter(coach__user=user),
+            to_attr='my_session_coach_assignment'
+        )
+    ).order_by('session_date', 'session_start_time')
+
+    # --- NEW: Group ALL fetched sessions by day ---
+    all_sessions_grouped_by_day = defaultdict(list)
+    for session in all_assigned_sessions_for_days:
+        all_sessions_grouped_by_day[session.session_date].append(session)
+
     # Generate a subject that covers all relevant days
-    day_names = sorted([day.strftime('%a, %d %b') for day in sessions_by_day.keys()])
+    day_names = [day.strftime('%a, %d %b') for day in relevant_dates]
     subject_days = " & ".join(day_names)
     subject = f"Upcoming Session {subject_verb} for {subject_days}"
 
     context = {
         'coach_name': user.first_name or user.username,
-        'sessions_by_day': {},
+        'sessions_by_day': {}, # This will be rebuilt below
         'is_reminder': is_reminder,
         'site_name': getattr(settings, 'SITE_NAME', 'SquashSync'),
     }
 
-    for day, sessions in sessions_by_day.items():
-        # --- THIS IS THE FIX ---
-        # We need to fetch the specific coaching duration for each session.
-        session_details = []
-        for session in sorted(sessions, key=lambda s: s.session_start_time):
-            try:
-                session_coach = SessionCoach.objects.get(session=session, coach__user=user)
-                duration = session_coach.coaching_duration_minutes
-            except SessionCoach.DoesNotExist:
-                duration = session.planned_duration_minutes
-            
-            session_details.append({
+    # --- NEW: Build context using ALL sessions for the days ---
+    for day in relevant_dates:
+        sessions_for_this_day = all_sessions_grouped_by_day.get(day, [])
+        if not sessions_for_this_day:
+            continue # Skip if somehow no sessions were found for this day
+
+        session_details_with_status = []
+        for session in sessions_for_this_day:
+            # Determine current status
+            availability = session.my_availability[0] if session.my_availability else None
+            status = "Pending"
+            if availability:
+                if availability.status == CoachAvailability.Status.UNAVAILABLE:
+                    status = "Declined"
+                elif availability.last_action == 'CONFIRM':
+                    status = "Confirmed"
+
+            # Get duration
+            assignment = session.my_session_coach_assignment[0] if session.my_session_coach_assignment else None
+            duration = assignment.coaching_duration_minutes if assignment else session.planned_duration_minutes
+
+            session_details_with_status.append({
                 'session_obj': session,
                 'duration': duration,
+                'status': status, # Add the current status
             })
-        # --- END OF FIX ---
-        
+
+        # Generate bulk action tokens (remain the same)
         token = create_bulk_confirmation_token(user.id, day)
         date_str = day.strftime('%Y-%m-%d')
         context['sessions_by_day'][day] = {
-            'sessions': session_details, # Use the new list with durations
+            'sessions': session_details_with_status, # Use the new list with statuses
             'confirm_url': site_url + reverse('scheduling:confirm_all_for_day', args=[date_str, token]),
             'decline_url': site_url + reverse('scheduling:decline_all_for_day_reason', args=[date_str, token]),
         }
 
     html_message = render_to_string('scheduling/emails/consolidated_session_reminder.html', context)
-    
+
     try:
         send_mail(subject, '', settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_message)
-        print(f"Sent consolidated reminder to {user.email}.")
+        print(f"Sent consolidated reminder (showing all sessions) to {user.email}.")
         return True
     except Exception as e:
         print(f"Error sending consolidated reminder to {user.email}: {e}")
-        return False
-
-def send_session_confirmation_email(user, session, is_reminder=False):
-    """Sends a confirmation email to a coach for a specific session."""
-    if not user.email:
-        print(f"Cannot send email: User {user.username} has no email address.")
-        return False
-
-    token = create_confirmation_token(user.id, session.id)
-    # Fallback to a default site_url if APP_SITE_URL is not set
-    site_url = getattr(settings, 'APP_SITE_URL', 'http://127.0.0.1:8000')
-
-    # Ensure you are using the correct namespace for your urls
-    confirm_url = site_url + reverse('scheduling:confirm_attendance', args=[session.id, token])
-    decline_url = site_url + reverse('scheduling:decline_attendance_reason', args=[session.id, token])
-    
-    subject_verb = "Reminder" if is_reminder else "Confirmation Required"
-    subject = f"Session {subject_verb}: {session.school_group.name} on {session.session_date.strftime('%a, %d %b')}"
-    
-    context = {
-        'coach_name': user.first_name or user.username,
-        'session_date': session.session_date.strftime('%A, %d %b %Y'),
-        'session_time': session.session_start_time.strftime('%H:%M'),
-        'session_group': session.school_group.name if session.school_group else "N/A",
-        'session_venue': session.venue.name if session.venue else "N/A",
-        'confirm_url': confirm_url,
-        'decline_url': decline_url,
-        'is_reminder': is_reminder,
-        'site_name': getattr(settings, 'SITE_NAME', 'SquashSync'),
-    }
-    # This is the line that was causing the error
-    html_message = render_to_string('scheduling/emails/session_confirmation_email.html', context)
-    
-    try:
-        send_mail(subject, '', settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_message)
-        print(f"Sent confirmation email to {user.email} for session {session.id}.")
-        return True
-    except Exception as e:
-        print(f"Error sending confirmation email to {user.email}: {e}")
         return False
 
 def send_coach_decline_notification_email(declining_coach, session, reason):
