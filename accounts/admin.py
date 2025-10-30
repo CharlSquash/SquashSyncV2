@@ -1,4 +1,3 @@
-
 # accounts/admin.py
 from django.contrib import admin
 from django.urls import reverse
@@ -8,6 +7,7 @@ from .models import Coach, CoachInvitation
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 from django.contrib import messages
+# We don't need timezone here anymore, the form handles it
 
 from finance.forms import PayslipGenerationForm
 from finance.payslip_services import generate_payslip_for_single_coach # Using the single coach function
@@ -20,9 +20,11 @@ class CoachAdmin(admin.ModelAdmin):
     
     @admin.action(description="Generate Payslips for selected coaches")
     def generate_payslips(self, request, queryset):
-        form = PayslipGenerationForm(request.POST or None)
-
+        
+        # This 'if' block handles the form SUBMISSION from the intermediate page
         if 'process_payslips' in request.POST:
+            form = PayslipGenerationForm(request.POST) # Bind to the submitted data
+            
             if form.is_valid():
                 year = int(form.cleaned_data['year'])
                 month = int(form.cleaned_data['month'])
@@ -54,6 +56,14 @@ class CoachAdmin(admin.ModelAdmin):
                 self.message_user(request, summary, messages.INFO)
                 
                 return HttpResponseRedirect(request.get_full_path())
+            
+            # If form is invalid, it will fall through and re-render with errors
+        
+        # This 'else' block handles the INITIAL display of the form
+        # (which is triggered by the POST from the changelist)
+        else:
+            # Create a new, unbound form. The form's __init__ will set the defaults.
+            form = PayslipGenerationForm() 
         
         # *** THE FIX IS HERE ***
         # We must add 'opts' to the context so the admin templates can build the breadcrumbs.
@@ -62,7 +72,7 @@ class CoachAdmin(admin.ModelAdmin):
             'title': "Generate Payslips",
             'opts': self.model._meta,  # This provides app_label, model_name, etc.
             'queryset': queryset,
-            'form': form,
+            'form': form, # Pass the correct form instance
             'action_checkbox_name': admin.helpers.ACTION_CHECKBOX_NAME,
         }
         return render(request, 'admin/accounts/coach/generate_payslips_form.html', context)
@@ -119,4 +129,3 @@ class CoachInvitationAdmin(admin.ModelAdmin):
     list_filter = ('is_accepted', 'created_at')
     search_fields = ('email',)
     readonly_fields = ('token', 'created_at', 'expires_at')
-
