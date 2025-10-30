@@ -3,7 +3,8 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.mail import send_mail
+# --- FIX: Import EmailMultiAlternatives ---
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -24,6 +25,9 @@ from django.db.models import Prefetch
 
 # It's good practice to have your models imported directly
 from .models import Session, CoachAvailability, SessionCoach
+# Import the Payslip model
+from finance.models import Payslip
+
 
 # Salt can be customized for better security between apps
 confirmation_signer = TimestampSigner(salt='scheduling.confirmation')
@@ -158,6 +162,64 @@ def send_consolidated_session_reminder_email(user, sessions_by_day, is_reminder=
     except Exception as e:
         print(f"Error sending consolidated reminder to {user.email}: {e}")
         return False
+
+# --- THIS IS THE UPDATED FUNCTION ---
+
+def send_payslip_email(payslip: Payslip):
+    """
+    Sends a single payslip email with the PDF attachment to the coach.
+    """
+    if not payslip.coach.user or not payslip.coach.user.email:
+        print(f"Cannot send payslip: Coach {payslip.coach.name} has no user or no email.")
+        return False
+    
+    coach_user = payslip.coach.user
+    coach_name = coach_user.first_name or coach_user.username
+    period_date = datetime.date(payslip.year, payslip.month, 1)
+    period = period_date.strftime('%B %Y')
+    
+    subject = f"Your SquashSync Payslip for {period}"
+    
+    context = {
+        'coach_name': coach_name,
+        'period': period,
+    }
+    
+    body = render_to_string('finance/emails/payslip_email.txt', context)
+    html_message = render_to_string('finance/emails/payslip_email.html', context)
+    
+    try:
+        # --- FIX: Use EmailMultiAlternatives ---
+        email = EmailMultiAlternatives(
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            [coach_user.email]
+        )
+        # --- END OF FIX ---
+
+        email.attach_alternative(html_message, "text/html")
+        
+        # Attach the PDF
+        if payslip.file:
+            payslip.file.open('rb') # Re-open the file
+            content = payslip.file.read()
+            payslip.file.close()
+            email.attach(payslip.filename, content, 'application/pdf')
+        else:
+            print(f"Could not send payslip {payslip.id}: File not found.")
+            return False
+
+        email.send()
+        print(f"Successfully sent payslip for {period} to {coach_user.email}.")
+        return True
+        
+    except Exception as e:
+        print(f"Error sending payslip email to {coach_user.email}: {e}")
+        return False
+
+# --- END OF UPDATED FUNCTION ---
+
 
 def send_coach_decline_notification_email(declining_coach, session, reason):
     """

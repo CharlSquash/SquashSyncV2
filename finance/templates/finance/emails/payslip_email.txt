@@ -1,0 +1,10 @@
+Hi {{ coach_name }},
+
+Your payslip for the period {{ period }} is attached to this email.
+
+If you have any questions, please contact the academy administration.
+
+Thank you,
+The SquashSync Team
+
+© {% now "Y" %} SquashSync. This is an automated message.
