@@ -213,7 +213,7 @@
             </tbody>
         </table>
 
-        {% if payslip.sessions %}
+        {% if payslip.sessions or payslip.adjustment_details_list %}
         <div class="summary-section">
             <p><strong>Total Hours Worked:</strong> {{ payslip.total_hours_str }} ({{ payslip.total_hours_decimal }} decimal)</p>
             <hr style="border: 0; border-top: 1px dotted #eee; margin: 5px 0;">
@@ -221,6 +221,12 @@
             {% if payslip.total_bonus_amount > 0 %}
             <p>Bonus for specific sessions: <span class="currency">{{ payslip.total_bonus_amount }}</span></p>
             {% endif %}
+            
+            {# --- NEW: Display Total Adjustments --- #}
+            {% if payslip.total_adjustments_amount != 0 %}
+            <p>Other Adjustments: <span class="currency">{{ payslip.total_adjustments_amount }}</span></p>
+            {% endif %}
+            
             <hr style="border: 0; border-top: 1px solid #ccc; margin: 8px 0;">
             <p style="font-size: 12pt;"><strong>Grand Total Pay: <span class="currency">{{ payslip.total_pay }}</span></strong></p>
         </div>
@@ -235,6 +241,21 @@
                     {{ bonus_item.date|date:"d M Y" }} - {{ bonus_item.session_group_name }} ({{ bonus_item.session_time_str }}):
                     <span class="currency">{{ bonus_item.amount }}</span>
                     </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {# --- NEW: Display Adjustment Details --- #}
+        {% if payslip.adjustment_details_list %}
+        <div class="bonus-details-section">
+            <h4>Other Adjustments:</h4>
+            <ul>
+                {% for adj_item in payslip.adjustment_details_list %}
+                <li>
+                    {{ adj_item.description }}:
+                    <strong><span class="currency">{{ adj_item.amount }}</span></strong>
+                </li>
                 {% endfor %}
             </ul>
         </div>

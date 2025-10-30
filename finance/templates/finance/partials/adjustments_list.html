@@ -1,0 +1,87 @@
+{% load crispy_forms_tags %}
+
+{% if selected_coach_id %}
+<div class="card my-4"
+     id="adjustments-card"
+     data-coach-id="{{ selected_coach_id }}"
+     data-year="{{ selected_year }}"
+     data-month="{{ selected_month }}"
+     data-add-url="{% url 'finance:add_adjustment_ajax' %}"
+     data-update-url-base="{% url 'finance:update_adjustment_ajax' 0 %}"
+     data-toggle-url-base="{% url 'finance:toggle_adjustment_ajax' 0 %}"
+     data-delete-url-base="{% url 'finance:delete_adjustment_ajax' 0 %}"
+>
+    <div class="card-header">
+        Recurring Adjustments
+    </div>
+    <div class="card-body">
+        <h6>Add New Adjustment</h6>
+        <form id="add-adjustment-form" class="row g-2">
+            {% csrf_token %}
+            {# Removed redundant hidden coach_id input #}
+            <div class="col-md-6">
+                {{ adjustments_form.description|as_crispy_field }}
+            </div>
+            <div class="col-md-3">
+                {{ adjustments_form.amount|as_crispy_field }}
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100 mb-3">
+                    <i class="bi bi-plus-circle"></i> Add
+                </button>
+            </div>
+        </form>
+        
+        <hr class="my-3">
+        
+        <h6>Current Adjustments</h6>
+        <div id="adjustments-list" class="list-group">
+            {% for adj in recurring_adjustments %}
+            <div class="list-group-item" id="adj-row-{{ adj.id }}" data-adj-id="{{ adj.id }}">
+                <div class="adjustment-display-row" {% if not adj.is_active %}style="opacity: 0.5;"{% endif %}>
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-6">
+                            <strong class="adj-desc">{{ adj.description }}</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="adj-amount">R{{ adj.amount }}</span>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <button class="btn btn-sm btn-outline-secondary btn-edit-adj">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning btn-toggle-adj ms-1">
+                                <i class="bi {% if adj.is_active %}bi-pause-fill{% else %}bi-play-fill{% endif %}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-delete-adj ms-1">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="adjustment-edit-row" style="display: none;">
+                    <form class="edit-adjustment-form row g-2">
+                        {# Added name attributes so FormData() can find them #}
+                        <div class="col-md-6">
+                            <input type="text" name="description" class="form-control form-control-sm edit-adj-desc" value="{{ adj.description }}">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" name="amount" class="form-control form-control-sm edit-adj-amount" value="{{ adj.amount|stringformat:'f' }}" step="0.01">
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <button type="button" class="btn btn-sm btn-secondary btn-cancel-edit">Cancel</button>
+                            <button type="submit" class="btn btn-sm btn-success btn-save-adj ms-1">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted">No recurring adjustments found for this coach.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+

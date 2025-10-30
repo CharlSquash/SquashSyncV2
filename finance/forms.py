@@ -2,6 +2,7 @@
 from django import forms
 from django.utils import timezone
 import calendar
+from .models import RecurringCoachAdjustment # Import new model
 
 class PayslipGenerationForm(forms.Form):
     # Remove initial= and dynamic choices from here
@@ -21,3 +22,17 @@ class PayslipGenerationForm(forms.Form):
         if not self.data: # self.data is None on GET, a dict on POST
             self.initial['month'] = now.month
             self.initial['year'] = now.year
+
+# --- NEW FORM ---
+class RecurringCoachAdjustmentForm(forms.ModelForm):
+    """
+    Form for creating or editing a RecurringCoachAdjustment.
+    """
+    class Meta:
+        model = RecurringCoachAdjustment
+        fields = ['description', 'amount']
+        widgets = {
+            'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., IT Work Bonus'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '500.00', 'step': '0.01'}),
+        }
+

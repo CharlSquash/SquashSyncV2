@@ -11,7 +11,7 @@ import datetime
 from django.templatetags.static import static
 from pathlib import Path #
 # Refactored imports for the new project structure
-from .models import Payslip, CoachSessionCompletion
+from .models import Payslip, CoachSessionCompletion, RecurringCoachAdjustment # Import new model
 from accounts.models import Coach
 from scheduling.models import Session, SessionCoach
 
@@ -20,7 +20,7 @@ User = get_user_model() # Define User using get_user_model
 def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | None:
     """
     Gathers all necessary data for a single coach's payslip for a specific period,
-    including any session bonuses.
+    including any session bonuses and recurring adjustments.
     """
     try:
         coach = Coach.objects.get(id=coach_id)
@@ -50,9 +50,6 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
         'session__sessioncoach_set' # Prefetch to get duration
     ).order_by('session__session_date', 'session__session_start_time')
 
-    if not completions:
-        return None
-
     session_details = []
     total_duration_minutes = Decimal('0')
     coach_hourly_rate = Decimal(str(coach.hourly_rate))
@@ -66,56 +63,85 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
     bonus_amount_value = getattr(settings, 'BONUS_SESSION_AMOUNT', 0.00)
     decimal_bonus_amount_value = Decimal(str(bonus_amount_value))
 
-    for completion in completions:
-        session_obj = completion.session
-        session_coach_entry = next((sc for sc in session_obj.sessioncoach_set.all() if sc.coach_id == coach.id), None)
+    # --- Only calculate session pay if there are completions ---
+    if completions:
+        for completion in completions:
+            session_obj = completion.session
+            session_coach_entry = next((sc for sc in session_obj.sessioncoach_set.all() if sc.coach_id == coach.id), None)
 
-        duration_minutes = Decimal(session_coach_entry.coaching_duration_minutes) if session_coach_entry else Decimal('0')
+            duration_minutes = Decimal(session_coach_entry.coaching_duration_minutes) if session_coach_entry else Decimal('0')
 
-        if duration_minutes == 0:
-            continue
+            if duration_minutes == 0:
+                continue
 
-        pay_for_session_base = (duration_minutes / Decimal('60.0')) * coach_hourly_rate
-        total_base_pay_for_sessions += pay_for_session_base
+            pay_for_session_base = (duration_minutes / Decimal('60.0')) * coach_hourly_rate
+            total_base_pay_for_sessions += pay_for_session_base
 
-        current_session_bonus = Decimal('0.00')
+            current_session_bonus = Decimal('0.00')
 
-        session_start_time_obj = session_obj.session_start_time
-        if isinstance(session_start_time_obj, str):
-            try:
-                session_start_time_obj = datetime.datetime.strptime(session_start_time_obj, '%H:%M:%S').time()
-            except ValueError:
-                session_start_time_obj = None
+            session_start_time_obj = session_obj.session_start_time
+            if isinstance(session_start_time_obj, str):
+                try:
+                    session_start_time_obj = datetime.datetime.strptime(session_start_time_obj, '%H:%M:%S').time()
+                except ValueError:
+                    session_start_time_obj = None
 
-        if session_start_time_obj and session_start_time_obj == bonus_qualifying_time:
-            current_session_bonus = decimal_bonus_amount_value
-            total_bonus_amount_for_sessions += current_session_bonus
-            bonus_session_count += 1  # Increment bonus session counter
-            bonus_session_details_list.append({
+            if session_start_time_obj and session_start_time_obj == bonus_qualifying_time:
+                current_session_bonus = decimal_bonus_amount_value
+                total_bonus_amount_for_sessions += current_session_bonus
+                bonus_session_count += 1  # Increment bonus session counter
+                bonus_session_details_list.append({
+                    'date': session_obj.session_date,
+                    'reason': "Bonus for specific session",
+                    'amount': current_session_bonus.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                    'session_group_name': session_obj.school_group.name if session_obj.school_group else "N/A",
+                    'session_time_str': session_obj.session_start_time.strftime('%H:%M'),
+                })
+
+            total_pay_for_this_session_line_item = pay_for_session_base + current_session_bonus
+            hours = int(duration_minutes // 60)
+            minutes = int(duration_minutes % 60)
+
+            session_details.append({
                 'date': session_obj.session_date,
-                'reason': "Bonus for specific session",
-                'amount': current_session_bonus.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-                'session_group_name': session_obj.school_group.name if session_obj.school_group else "N/A",
-                'session_time_str': session_obj.session_start_time.strftime('%H:%M'),
+                'start_time': session_obj.session_start_time.strftime('%H:%M'),
+                'school_group_name': session_obj.school_group.name if session_obj.school_group else "N/A",
+                'duration_hours_str': f"{hours}h {minutes}m",
+                'base_pay_for_session': pay_for_session_base.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                'bonus_for_session': current_session_bonus.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                'total_pay_for_session_line': total_pay_for_this_session_line_item.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
             })
+            total_duration_minutes += duration_minutes
 
-        total_pay_for_this_session_line_item = pay_for_session_base + current_session_bonus
-        hours = int(duration_minutes // 60)
-        minutes = int(duration_minutes % 60)
-
-        session_details.append({
-            'date': session_obj.session_date,
-            'start_time': session_obj.session_start_time.strftime('%H:%M'),
-            'school_group_name': session_obj.school_group.name if session_obj.school_group else "N/A",
-            'duration_hours_str': f"{hours}h {minutes}m",
-            'base_pay_for_session': pay_for_session_base.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'bonus_for_session': current_session_bonus.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-            'total_pay_for_session_line': total_pay_for_this_session_line_item.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+    # --- NEW: Fetch and calculate recurring adjustments ---
+    active_adjustments = RecurringCoachAdjustment.objects.filter(
+        coach=coach,
+        is_active=True
+    )
+    
+    total_adjustments_amount = Decimal('0.00')
+    adjustment_details_list = []
+    
+    for adj in active_adjustments:
+        total_adjustments_amount += adj.amount
+        adjustment_details_list.append({
+            'description': adj.description,
+            'amount': adj.amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         })
-        total_duration_minutes += duration_minutes
+    # --- END NEW ---
+
+    # --- Skip if no sessions AND no adjustments ---
+    if not completions and not active_adjustments.exists():
+        return None
 
     total_hours_decimal = (total_duration_minutes / Decimal('60.0')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    grand_total_pay = (total_base_pay_for_sessions + total_bonus_amount_for_sessions).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    
+    # --- MODIFIED: Include adjustments in grand total ---
+    grand_total_pay = (
+        total_base_pay_for_sessions + 
+        total_bonus_amount_for_sessions + 
+        total_adjustments_amount
+    ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     total_duration_hours_int = int(total_duration_minutes // 60)
     total_duration_remainder_minutes_int = int(total_duration_minutes % 60)
@@ -142,6 +168,8 @@ def get_payslip_data_for_coach(coach_id: int, year: int, month: int) -> dict | N
         'total_bonus_amount': total_bonus_amount_for_sessions.quantize(Decimal('0.01')),
         'bonus_calculation_str': bonus_calculation_str,
         'bonus_details_list': bonus_session_details_list,
+        'total_adjustments_amount': total_adjustments_amount.quantize(Decimal('0.01')), # NEW
+        'adjustment_details_list': adjustment_details_list, # NEW
         'total_pay': grand_total_pay,
         'generation_date': timezone.now().date(),
     }
@@ -184,7 +212,7 @@ def generate_payslip_for_single_coach(coach_id: int, year: int, month: int, gene
     payslip_data = get_payslip_data_for_coach(coach.id, year, month)
 
     if not payslip_data:
-        detailed_messages.append(f"  No payslip data (e.g., no confirmed sessions or no hourly rate). Skipping.")
+        detailed_messages.append(f"  No payslip data (e.g., no confirmed sessions or adjustments, or no hourly rate). Skipping.")
         return {'status': 'skipped', 'message': f"No payslip data for {str(coach)} for {month:02}/{year}. Skipped.", 'details': detailed_messages}
 
     pdf_bytes = generate_payslip_pdf_from_data(payslip_data)

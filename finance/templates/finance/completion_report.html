@@ -122,9 +122,22 @@
         </div>
     {% endif %}
 
+    {# --- ORDER SWAPPED: Adjustments now come before the summary --- #}
+    
+    {# --- Container for Recurring Adjustments --- #}
+    <div id="recurring-adjustments-container"
+         data-coach-id="{{ selected_coach_id|default:'' }}"
+         data-year="{{ selected_year }}"
+         data-month="{{ selected_month }}"
+    >
+        {% include 'finance/partials/adjustments_list.html' %}
+    </div>
+
+    {# --- Payment Summary now comes last --- #}
     <div id="payment-summary-container">
         {% include 'finance/partials/payment_summary.html' %}
     </div>
+
 </div>
 {% endblock %}
 
@@ -150,11 +163,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const completionTable = document.getElementById('completion-table');
     const paymentSummaryContainer = document.getElementById('payment-summary-container');
+    const adjustmentsContainer = document.getElementById('recurring-adjustments-container');
 
-    function updatePaymentSummary(html) {
-        if (paymentSummaryContainer) {
-            paymentSummaryContainer.innerHTML = html;
+    // --- Helper to update all finance partials ---
+    function updateFinancePartials(htmlData) {
+        if (htmlData.payment_summary_html && paymentSummaryContainer) {
+            paymentSummaryContainer.innerHTML = htmlData.payment_summary_html;
         }
+        if (htmlData.adjustments_list_html && adjustmentsContainer) {
+            adjustmentsContainer.innerHTML = htmlData.adjustments_list_html;
+        }
+    }
+
+    // --- Helper to get context for AJAX calls ---
+    function getFinanceContext() {
+        // Context is now read from the adjustments container, which is fine.
+        return {
+            coach_id: adjustmentsContainer.dataset.coachId,
+            year: adjustmentsContainer.dataset.year,
+            month: adjustmentsContainer.dataset.month
+        };
     }
 
     if (completionTable) {
@@ -190,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         actionsCell.innerHTML = `<button class="btn btn-confirm btn-sm confirmation-btn" data-action="confirm" data-id="${completionId}">Confirm</button>`;
                     }
                     
-                    updatePaymentSummary(data.payment_summary_html);
+                    updateFinancePartials(data); // Update both partials
                 } else {
                     alert('Error: ' + data.message);
                     button.disabled = false;
@@ -216,16 +244,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 const sessionCoachId = input.dataset.sessionCoachId;
                 const duration = input.value;
                 const url = `/finance/session-coach/${sessionCoachId}/update-duration/`;
+                
+                const financeContext = getFinanceContext();
 
                 fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                    body: JSON.stringify({ duration: duration })
+                    body: JSON.stringify({ 
+                        duration: duration,
+                        // Pass context for re-calculation
+                        coach_id: financeContext.coach_id,
+                        year: financeContext.year,
+                        month: financeContext.month
+                    })
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        updatePaymentSummary(data.payment_summary_html);
+                        updateFinancePartials(data); // Update both partials
                         input.classList.add('is-valid');
                         setTimeout(() => input.classList.remove('is-valid'), 2000);
                     } else {
@@ -238,6 +274,171 @@ document.addEventListener('DOMContentLoaded', function() {
                     input.classList.add('is-invalid');
                 });
             }, 1000); // Wait 1 second after user stops typing
+        });
+    }
+
+    // --- NEW: Event Listeners for Adjustments Container ---
+    if (adjustmentsContainer) {
+        
+        // Helper to reset all delete buttons
+        function resetDeleteButtons() {
+            document.querySelectorAll('.btn-delete-adj.btn-danger-confirm').forEach(btn => {
+                btn.classList.remove('btn-danger', 'btn-danger-confirm');
+                btn.classList.add('btn-outline-danger');
+                btn.innerHTML = '<i class="bi bi-trash"></i>';
+            });
+        }
+
+        adjustmentsContainer.addEventListener('click', function(event) {
+            
+            // --- Handle Add/Edit Form Submissions ---
+            if (event.target.closest('#add-adjustment-form button[type="submit"]') || event.target.closest('.btn-save-adj')) {
+                event.preventDefault();
+                resetDeleteButtons(); // Reset on save
+                const form = event.target.closest('form');
+                const financeContext = getFinanceContext();
+                
+                // new FormData(form) will now work for BOTH add and edit forms
+                const formData = new FormData(form); 
+                
+                // Add context to form data
+                formData.append('coach_id', financeContext.coach_id);
+                formData.append('year', financeContext.year);
+                formData.append('month', financeContext.month);
+                
+                let url;
+                const adjId = form.closest('.list-group-item')?.dataset.adjId;
+                if (adjId) {
+                    // This is an UPDATE
+                    const updateUrlBase = document.getElementById('adjustments-card').dataset.updateUrlBase;
+                    url = updateUrlBase.replace('0', adjId);
+                } else {
+                    // This is an ADD
+                    url = document.getElementById('adjustments-card').dataset.addUrl;
+                }
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateFinancePartials(data);
+                    } else {
+                        console.error('Error saving adjustment:', data.errors || data.message);
+                        // alert('Error saving adjustment. Check console for details.');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+
+            // --- Handle Toggle Button ---
+            else if (event.target.closest('.btn-toggle-adj')) {
+                event.preventDefault();
+                resetDeleteButtons(); // Reset on toggle
+                const button = event.target.closest('.btn-toggle-adj');
+                const adjId = button.closest('.list-group-item').dataset.adjId;
+                const financeContext = getFinanceContext();
+                const toggleUrlBase = document.getElementById('adjustments-card').dataset.toggleUrlBase;
+                const url = toggleUrlBase.replace('0', adjId);
+
+                const formData = new FormData();
+                formData.append('year', financeContext.year);
+                formData.append('month', financeContext.month);
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateFinancePartials(data);
+                    } else {
+                        // alert('Error toggling adjustment.');
+                        console.error('Error toggling adjustment.');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+
+            // --- Handle Delete Button ---
+            else if (event.target.closest('.btn-delete-adj')) {
+                event.preventDefault();
+                const deleteButton = event.target.closest('.btn-delete-adj');
+                
+                // Check if this is the second click (confirmation)
+                if (deleteButton.classList.contains('btn-danger-confirm')) {
+                    const adjId = deleteButton.closest('.list-group-item').dataset.adjId;
+                    const financeContext = getFinanceContext();
+                    const deleteUrlBase = document.getElementById('adjustments-card').dataset.deleteUrlBase;
+                    const url = deleteUrlBase.replace('0', adjId);
+
+                    fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({ // Send year/month in the body
+                            year: financeContext.year,
+                            month: financeContext.month
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            updateFinancePartials(data);
+                        } else {
+                            console.error('Error deleting adjustment.');
+                            resetDeleteButtons(); // Revert button on error
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                
+                } else {
+                    // This is the first click
+                    resetDeleteButtons(); // Reset any other "confirm-delete" buttons
+                    
+                    // Activate this button for confirmation
+                    deleteButton.classList.remove('btn-outline-danger');
+                    deleteButton.classList.add('btn-danger', 'btn-danger-confirm');
+                    deleteButton.innerHTML = 'Confirm?';
+                }
+            }
+
+            // --- Handle Edit Button (Toggles UI) ---
+            else if (event.target.closest('.btn-edit-adj')) {
+                event.preventDefault();
+                resetDeleteButtons(); // Reset on edit
+                const row = event.target.closest('.list-group-item');
+                row.querySelector('.adjustment-display-row').style.display = 'none';
+                row.querySelector('.adjustment-edit-row').style.display = 'block';
+            }
+
+            // --- Handle Cancel Edit Button (Toggles UI) ---
+            else if (event.target.closest('.btn-cancel-edit')) {
+                event.preventDefault();
+                resetDeleteButtons(); // Reset on cancel
+                const row = event.target.closest('.list-group-item');
+                row.querySelector('.adjustment-display-row').style.display = '';
+                row.querySelector('.adjustment-edit-row').style.display = 'none';
+            }
+            
+            // --- Reset delete button if clicking elsewhere *within* the container ---
+            else {
+                resetDeleteButtons();
+            }
+        });
+        
+        // This listener will catch clicks *outside* the adjustments container
+        document.addEventListener('click', function(event) {
+            if (!adjustmentsContainer.contains(event.target)) {
+                 resetDeleteButtons();
+            }
         });
     }
 });

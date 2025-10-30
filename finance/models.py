@@ -3,6 +3,7 @@ import os
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator
+from django.utils import timezone # Import timezone
 
 # --- MODEL: CoachSessionCompletion ---
 class CoachSessionCompletion(models.Model):
@@ -50,3 +51,24 @@ class Payslip(models.Model):
         if self.file:
             return os.path.basename(self.file.name)
         return None
+
+class RecurringCoachAdjustment(models.Model):
+    """
+    Stores recurring payments or deductions for a coach that are not
+    tied to a specific session, e.g., IT work, admin bonus.
+    """
+    coach = models.ForeignKey('accounts.Coach', on_delete=models.CASCADE, related_name='recurring_adjustments')
+    description = models.CharField(max_length=255, help_text="Reason for the adjustment (e.g., IT Work, Newsletter Bonus).")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text="The amount to be added (positive) or deducted (negative).")
+    is_active = models.BooleanField(default=True, help_text="Only active adjustments will be applied to payslips.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_active', '-updated_at', 'description']
+        verbose_name = "Recurring Coach Adjustment"
+        verbose_name_plural = "Recurring Coach Adjustments"
+
+    def __str__(self):
+        status = "Active" if self.is_active else "Inactive"
+        return f"{self.coach.name} - {self.description} ({self.amount}) [{status}]"

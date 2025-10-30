@@ -9,18 +9,51 @@ from datetime import date
 import calendar
 from django.http import JsonResponse
 from django.template.loader import render_to_string
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 import json
 
 # Import models from their correct new app locations
-from .models import CoachSessionCompletion
+from .models import CoachSessionCompletion, RecurringCoachAdjustment # Import new model
 from scheduling.models import Session, SessionCoach
 from accounts.models import Coach
 from .payslip_services import get_payslip_data_for_coach
+from .forms import RecurringCoachAdjustmentForm # Import new form
+
 
 
 def is_superuser(user):
     return user.is_superuser
+
+# --- NEW HELPER FUNCTION ---
+def _get_updated_finance_context(coach_id, year, month):
+    """
+    Helper to get updated payslip data and render the partials.
+    """
+    payslip_data = get_payslip_data_for_coach(coach_id, year, month)
+    recurring_adjustments = RecurringCoachAdjustment.objects.filter(coach_id=coach_id).order_by('-is_active', 'description')
+    adjustments_form = RecurringCoachAdjustmentForm() # A fresh form
+
+    payment_summary_html = render_to_string(
+        'finance/partials/payment_summary.html',
+        {
+            'payslip_data': payslip_data,
+            'selected_coach_id': coach_id
+        }
+    )
+    
+    adjustments_list_html = render_to_string(
+        'finance/partials/adjustments_list.html',
+        {
+            'recurring_adjustments': recurring_adjustments,
+            'adjustments_form': adjustments_form,
+            'selected_coach_id': coach_id
+        }
+    )
+    
+    return {
+        'payment_summary_html': payment_summary_html,
+        'adjustments_list_html': adjustments_list_html,
+    }
 
 @login_required
 @require_POST
@@ -28,32 +61,25 @@ def is_superuser(user):
 def toggle_confirmation_ajax(request, completion_id):
     """
     Handles the AJAX request to confirm or un-confirm a payment.
-    Now also returns updated payslip data.
+    Now also returns updated payslip and adjustments data.
     """
     try:
         completion = get_object_or_404(CoachSessionCompletion.objects.select_related('coach', 'session'), pk=completion_id)
         completion.confirmed_for_payment = not completion.confirmed_for_payment
         completion.save(update_fields=['confirmed_for_payment'])
         
-        payslip_data = get_payslip_data_for_coach(
-            coach_id=completion.coach.id,
-            year=completion.session.session_date.year,
-            month=completion.session.session_date.month
-        )
-        
-        payment_summary_html = render_to_string(
-            'finance/partials/payment_summary.html',
-            {
-                'payslip_data': payslip_data,
-                'selected_coach_id': completion.coach.id # Needed for the partial template's logic
-            }
+        context_html = _get_updated_finance_context(
+            completion.coach.id,
+            completion.session.session_date.year,
+            completion.session.session_date.month
         )
 
         return JsonResponse({
             'status': 'success',
             'message': 'Status updated.',
             'new_state': completion.confirmed_for_payment,
-            'payment_summary_html': payment_summary_html
+            'payment_summary_html': context_html['payment_summary_html'],
+            'adjustments_list_html': context_html['adjustments_list_html']
         })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -64,6 +90,7 @@ def toggle_confirmation_ajax(request, completion_id):
 def update_duration_ajax(request, session_coach_id):
     """
     Handles the AJAX request to update a coach's session duration.
+    Now also returns updated payslip and adjustments data.
     """
     try:
         data = json.loads(request.body)
@@ -73,27 +100,114 @@ def update_duration_ajax(request, session_coach_id):
         session_coach.coaching_duration_minutes = duration
         session_coach.save(update_fields=['coaching_duration_minutes'])
         
-        payslip_data = get_payslip_data_for_coach(
-            coach_id=session_coach.coach.id,
-            year=session_coach.session.session_date.year,
-            month=session_coach.session.session_date.month
-        )
-        
-        payment_summary_html = render_to_string(
-            'finance/partials/payment_summary.html',
-            {
-                'payslip_data': payslip_data,
-                'selected_coach_id': session_coach.coach.id
-            }
+        context_html = _get_updated_finance_context(
+            session_coach.coach.id,
+            session_coach.session.session_date.year,
+            session_coach.session.session_date.month
         )
 
         return JsonResponse({
             'status': 'success',
             'message': f'Duration updated for {session_coach.coach.name}.',
-            'payment_summary_html': payment_summary_html
+            'payment_summary_html': context_html['payment_summary_html'],
+            'adjustments_list_html': context_html['adjustments_list_html']
         })
     except (ValueError, json.JSONDecodeError):
         return JsonResponse({'status': 'error', 'message': 'Invalid data provided.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# --- NEW AJAX VIEW ---
+@login_required
+@require_POST
+@user_passes_test(is_superuser)
+def manage_adjustment_ajax(request, adj_id=None):
+    """
+    Handles creating or updating a RecurringCoachAdjustment via AJAX.
+    """
+    coach_id = request.POST.get('coach_id')
+    year = int(request.POST.get('year'))
+    month = int(request.POST.get('month'))
+    
+    if not coach_id:
+        return JsonResponse({'status': 'error', 'message': 'Coach ID is missing.'}, status=400)
+
+    instance = None
+    if adj_id:
+        instance = get_object_or_404(RecurringCoachAdjustment, pk=adj_id, coach_id=coach_id)
+    
+    form = RecurringCoachAdjustmentForm(request.POST, instance=instance)
+    
+    if form.is_valid():
+        adj = form.save(commit=False)
+        if not instance: # If it's a new one, assign the coach
+            adj.coach_id = coach_id
+        adj.save()
+        
+        context_html = _get_updated_finance_context(coach_id, year, month)
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Adjustment saved.',
+            'payment_summary_html': context_html['payment_summary_html'],
+            'adjustments_list_html': context_html['adjustments_list_html']
+        })
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid form data.', 'errors': form.errors}, status=400)
+
+# --- NEW AJAX VIEW ---
+@login_required
+@require_http_methods(["DELETE"]) # Use DELETE method for deletion
+@user_passes_test(is_superuser)
+def delete_adjustment_ajax(request, adj_id):
+    """
+    Handles deleting a RecurringCoachAdjustment via AJAX.
+    """
+    try:
+        adj = get_object_or_404(RecurringCoachAdjustment, pk=adj_id)
+        coach_id = adj.coach_id
+        
+        # Get year/month from the request body to ensure context is correct
+        data = json.loads(request.body)
+        year = int(data.get('year'))
+        month = int(data.get('month'))
+        
+        adj.delete()
+        
+        context_html = _get_updated_finance_context(coach_id, year, month)
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Adjustment deleted.',
+            'payment_summary_html': context_html['payment_summary_html'],
+            'adjustments_list_html': context_html['adjustments_list_html']
+        })
+    except json.JSONDecodeError:
+         return JsonResponse({'status': 'error', 'message': 'Invalid request data.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@user_passes_test(is_superuser)
+def toggle_adjustment_ajax(request, adj_id):
+    """
+    Handles activating or deactivating a RecurringCoachAdjustment via AJAX.
+    """
+    try:
+        adj = get_object_or_404(RecurringCoachAdjustment, pk=adj_id)
+        adj.is_active = not adj.is_active
+        adj.save(update_fields=['is_active'])
+        
+        year = int(request.POST.get('year'))
+        month = int(request.POST.get('month'))
+        
+        context_html = _get_updated_finance_context(adj.coach_id, year, month)
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Adjustment status toggled.',
+            'payment_summary_html': context_html['payment_summary_html'],
+            'adjustments_list_html': context_html['adjustments_list_html']
+        })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -155,9 +269,15 @@ def completion_report(request):
     )
 
     payslip_data = None
+    recurring_adjustments = None
+    adjustments_form = None
+    
     if target_coach_id:
         completion_records = completion_records.filter(coach__id=target_coach_id)
         payslip_data = get_payslip_data_for_coach(int(target_coach_id), target_year, target_month)
+        recurring_adjustments = RecurringCoachAdjustment.objects.filter(coach_id=target_coach_id).order_by('-is_active', 'description')
+        adjustments_form = RecurringCoachAdjustmentForm()
+
 
     for record in completion_records:
         record.session_coach = next((sc for sc in record.session.sessioncoach_set.all() if sc.coach_id == record.coach_id), None)
@@ -176,6 +296,7 @@ def completion_report(request):
         'end_date': end_date,
         'page_title': f"Coach Completion Report ({start_date.strftime('%B %Y')})",
         'payslip_data': payslip_data,
+        'recurring_adjustments': recurring_adjustments, # NEW
+        'adjustments_form': adjustments_form, # NEW
     }
     return render(request, 'finance/completion_report.html', context)
-
