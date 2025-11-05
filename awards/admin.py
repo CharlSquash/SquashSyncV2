@@ -1,6 +1,26 @@
 # awards/admin.py
-from django.contrib import admin
+from django.contrib import admin, messages
 from .models import Prize, PrizeCategory, Vote, PrizeWinner
+
+# --- NEW ADMIN ACTIONS ---
+
+@admin.action(description="Mark selected prizes as Pending")
+def mark_as_pending(modeladmin, request, queryset):
+    updated_count = queryset.update(status=Prize.PrizeStatus.PENDING)
+    modeladmin.message_user(request, f"{updated_count} prizes have been marked as Pending.", messages.SUCCESS)
+
+@admin.action(description="Mark selected prizes as Voting Open")
+def mark_as_voting(modeladmin, request, queryset):
+    updated_count = queryset.update(status=Prize.PrizeStatus.VOTING)
+    modeladmin.message_user(request, f"{updated_count} prizes have been marked as Voting Open.", messages.SUCCESS)
+
+@admin.action(description="Mark selected prizes as Archived")
+def mark_as_archived(modeladmin, request, queryset):
+    updated_count = queryset.update(status=Prize.PrizeStatus.ARCHIVED)
+    modeladmin.message_user(request, f"{updated_count} prizes have been marked as Archived.", messages.SUCCESS)
+
+# --- END NEW ADMIN ACTIONS ---
+
 
 @admin.register(PrizeCategory)
 class PrizeCategoryAdmin(admin.ModelAdmin):
@@ -47,6 +67,10 @@ class PrizeAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    # --- ADD THIS LINE ---
+    actions = [mark_as_pending, mark_as_voting, mark_as_archived]
+    # --- END ADDITION ---
 
     @admin.display(description='Winner', ordering='winner__player__last_name')
     def winner_player_name(self, obj):
