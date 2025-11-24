@@ -9,6 +9,7 @@ from django.db import models
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils import timezone
+from core.utils import process_profile_image
 
 class Coach(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='coach_profile', null=True, blank=True )
@@ -103,28 +104,7 @@ class Coach(models.Model):
 
         if process_image and self.profile_photo and hasattr(self.profile_photo, 'path') and self.profile_photo.path:
             try:
-                filename_to_save = os.path.basename(original_filename if original_filename else self.profile_photo.name)
-                img = Image.open(self.profile_photo.path)
-                img = ImageOps.exif_transpose(img)
-
-                max_size = (300, 300)
-                img.thumbnail(max_size, Image.Resampling.LANCZOS)
-
-                img_format = img.format if img.format else 'JPEG'
-                buffer = io.BytesIO()
-                save_kwargs = {'format': img_format, 'optimize': True}
-
-                if img.mode in ("RGBA", "P") and img_format.upper() != 'PNG':
-                    img = img.convert("RGB")
-                    img_format = 'JPEG'
-                    filename_to_save = os.path.splitext(filename_to_save)[0] + '.jpg'
-                    save_kwargs['format'] = 'JPEG'
-
-                if img_format.upper() == 'JPEG':
-                    save_kwargs['quality'] = 85
-
-                img.save(buffer, **save_kwargs)
-                resized_image = ContentFile(buffer.getvalue())
+                filename_to_save, resized_image = process_profile_image(self.profile_photo, original_filename)
 
                 current_photo_name = self.profile_photo.name
                 self.profile_photo.save(filename_to_save, resized_image, save=False)

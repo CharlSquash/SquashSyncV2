@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.files.base import ContentFile
 from django.conf import settings
+from core.utils import process_profile_image
 
 # --- MODEL: SchoolGroup ---
 class SchoolGroup(models.Model):
@@ -145,29 +146,7 @@ class Player(models.Model):
 
         if process_image and self.photo and hasattr(self.photo, 'path') and self.photo.path:
             try:
-                filename_to_save = os.path.basename(original_filename if original_filename else self.photo.name)
-
-                img = Image.open(self.photo.path)
-                img = ImageOps.exif_transpose(img)
-
-                max_size = (300, 300)
-                img.thumbnail(max_size, Image.Resampling.LANCZOS)
-
-                img_format = img.format if img.format else 'JPEG'
-                buffer = io.BytesIO()
-                save_kwargs = {'format': img_format, 'optimize': True}
-
-                if img.mode in ("RGBA", "P") and img_format.upper() != 'PNG':
-                    img = img.convert("RGB")
-                    img_format = 'JPEG'
-                    filename_to_save = os.path.splitext(filename_to_save)[0] + '.jpg'
-                    save_kwargs['format'] = 'JPEG'
-
-                if img_format.upper() == 'JPEG':
-                    save_kwargs['quality'] = 85
-
-                img.save(buffer, **save_kwargs)
-                resized_image = ContentFile(buffer.getvalue())
+                filename_to_save, resized_image = process_profile_image(self.photo, original_filename)
 
                 current_photo_name = self.photo.name
 
