@@ -277,7 +277,7 @@
                                     </div>
                                     <hr>
                                     <h5>Add New Sprint Record</h5>
-                                    <form method="post">
+                                    <form method="post" action="{% url 'players:add_metric' player.id %}">
                                         {% csrf_token %}
                                         {{ sprint_form|crispy }}
                                         <button type="submit" name="add_sprint_record" class="btn btn-primary mt-2">Save Record</button>
@@ -297,7 +297,7 @@
                                     </div>
                                     <hr>
                                     <h5>Add New Volley Record</h5>
-                                    <form method="post">
+                                    <form method="post" action="{% url 'players:add_metric' player.id %}">
                                         {% csrf_token %}
                                         {{ volley_form|crispy }}
                                         <button type="submit" name="add_volley_record" class="btn btn-primary mt-2">Save Record</button>
@@ -317,7 +317,7 @@
                                     </div>
                                     <hr>
                                     <h5>Add New Drive Record</h5>
-                                    <form method="post">
+                                    <form method="post" action="{% url 'players:add_metric' player.id %}">
                                         {% csrf_token %}
                                         {{ drive_form|crispy }}
                                         <button type="submit" name="add_drive_record" class="btn btn-primary mt-2">Save Record</button>
@@ -372,7 +372,7 @@
                             </h2>
                             <div id="collapseAddMatch" class="accordion-collapse collapse" data-bs-parent="#matchesAccordion">
                                 <div class="accordion-body">
-                                    <form method="post">
+                                    <form method="post" action="{% url 'players:add_metric' player.id %}">
                                         {% csrf_token %}
                                         {{ match_form|crispy }}
                                         <button type="submit" name="add_match_result" class="btn btn-primary mt-2">Save Match</button>

@@ -10,6 +10,7 @@ urlpatterns = [
     # We will add our app-specific URLs here later.
     path('groups/', views.school_group_list, name='school_group_list'),
     path('<int:player_id>/', views.player_profile, name='player_profile'),
+    path('player/<int:player_id>/add-metric/', views.add_metric, name='add_metric'),
 
     path('groups/<int:group_id>/', views.school_group_profile, name='school_group_profile'),
     path('reports/discrepancy/', views.discrepancy_report, name='discrepancy_report'),
