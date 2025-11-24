@@ -250,12 +250,35 @@ def completion_report(request):
         if s.session_date < today or (s.session_date == today and s.session_start_time < now_aware.time())
     ]
 
+    # Optimization: Bulk create CoachSessionCompletion records
+    # 1. Get all session IDs
+    finished_session_ids = [s.id for s in finished_sessions_in_period]
+
+    # 2. Fetch existing completions for these sessions to avoid duplicates
+    existing_pairs = set(
+        CoachSessionCompletion.objects.filter(
+            session_id__in=finished_session_ids
+        ).values_list('coach_id', 'session_id')
+    )
+
+    # 3. Prepare new objects
+    new_completions = []
     for session in finished_sessions_in_period:
+        # session.sessioncoach_set.all() is already prefetched with 'sessioncoach_set__coach'
         for session_coach in session.sessioncoach_set.all():
-            CoachSessionCompletion.objects.get_or_create(
-                coach=session_coach.coach,
-                session=session
-            )
+            if (session_coach.coach_id, session.id) not in existing_pairs:
+                new_completions.append(
+                    CoachSessionCompletion(
+                        coach=session_coach.coach,
+                        session=session
+                    )
+                )
+                # Add to set to prevent duplicates if multiple identical session_coaches exist
+                existing_pairs.add((session_coach.coach_id, session.id))
+
+    # 4. Bulk create
+    if new_completions:
+        CoachSessionCompletion.objects.bulk_create(new_completions)
 
     completion_records = CoachSessionCompletion.objects.filter(
         session__session_date__gte=start_date,
