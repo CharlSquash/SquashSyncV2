@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test, per
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
-from .services import PlayerService
+from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
+from scheduling.stats import calculate_player_attendance_stats, calculate_group_attendance_stats
 from solosync2.models import SoloSessionLog
 from django.utils import timezone
 from datetime import timedelta, date
@@ -178,35 +179,20 @@ def player_profile(request, player_id):
     group_filter_id = request.GET.get('school_group')
 
     # Use the service to get stats
-    attendance_stats = PlayerService.get_attendance_stats(player, start_date_filter, end_date_filter)
+    attendance_stats = calculate_player_attendance_stats(player, start_date_filter, end_date_filter, group_filter_id)
     
     # Unpack stats for context
     total_sessions = attendance_stats['total_sessions']
     attended_sessions = attendance_stats['attended_sessions']
-    attendance_percentage = attendance_stats['attendance_percentage']
+    attendance_percentage = attendance_stats['percentage']
     
     # Update filter dates from service (in case defaults were used)
     start_date_filter = attendance_stats['start_date']
     end_date_filter = attendance_stats['end_date']
 
-    # Apply group filter title logic (keep this view-specific logic here for now or move if needed, but simple enough)
+    # Apply group filter title logic
     filter_title = "Overall Attendance"
     if group_filter_id:
-        # Note: The service currently doesn't filter by group ID passed to it, 
-        # but the original code did. 
-        # WAIT. The original code filtered `sessions_in_range_qs` by `group_filter_id`.
-        # My service implementation missed the `group_filter_id` parameter!
-        # I need to fix the service or handle it here. 
-        # The service I wrote uses `player.school_groups.all()`.
-        # I should probably update the service to accept `school_group_id` as an optional argument.
-        # For now, let's stick to the plan, but I realized a gap.
-        # The original code:
-        # if group_filter_id:
-        #    sessions_in_range_qs = sessions_in_range_qs.filter(school_group__id=group_filter_id)
-        
-        # I should update the service first or now. 
-        # Let's update the service in the next step.
-        # For now, I will proceed with this replacement, but I will need to fix the service to support group filtering.
         try:
             filter_title = f"Attendance for {SchoolGroup.objects.get(id=group_filter_id).name}"
         except SchoolGroup.DoesNotExist:
@@ -331,31 +317,11 @@ def school_group_profile(request, group_id):
         end_date_filter = filter_form.cleaned_data.get('end_date', default_end_date)
 
     # --- NEW ATTENDANCE CALCULATION LOGIC ---
-    sessions_in_range = Session.objects.filter(
-        school_group=school_group,
-        session_date__range=[start_date_filter, end_date_filter],
-        is_cancelled=False
-    )
+    group_stats = calculate_group_attendance_stats(school_group, start_date_filter, end_date_filter)
     
-    # Find sessions where attendance was actually recorded for at least one player.
-    sessions_with_attendance_taken = sessions_in_range.filter(
-        player_attendances__attended__in=[
-            AttendanceTracking.CoachAttended.YES,
-            AttendanceTracking.CoachAttended.NO
-        ]
-    ).distinct()
-    
-    # Total possible attendances is the number of players multiplied by the number of *tracked* sessions.
-    total_possible_attendances = sessions_with_attendance_taken.count() * players_in_group.count()
-    
-    # Actual attendances are counted only from within those tracked sessions.
-    actual_attendances = AttendanceTracking.objects.filter(
-        session__in=sessions_with_attendance_taken,
-        player__in=players_in_group,
-        attended=AttendanceTracking.CoachAttended.YES
-    ).count()
-    
-    attendance_percentage = (actual_attendances / total_possible_attendances * 100) if total_possible_attendances > 0 else 0
+    attendance_percentage = group_stats['percentage']
+    total_possible_attendances = group_stats['total_possible']
+    actual_attendances = group_stats['actual_attendances']
 
     context = {
         'school_group': school_group,
