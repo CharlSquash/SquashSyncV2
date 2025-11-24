@@ -46,166 +46,59 @@ def is_staff(user):
 
 
 # scheduling/views.py
-@login_required
-def homepage(request):
+def _admin_dashboard(request):
     today = timezone.now().date()
     now = timezone.now()
-    current_year = today.year # <<< ADDED
+    current_year = today.year
 
-    # Common context variables
+    # Initialize variables specific to admin
     upcoming_sessions_for_admin = None
     discrepancy_report = None
-    recent_sessions_for_feedback = None
     all_coach_assessments = None
     recent_group_assessments = None
-    sessions_for_coach_card = []
-    unstaffed_session_count = 0  # Initialize for superuser
-    unconfirmed_staffing_alerts = False # Initialize for superuser
+    unstaffed_session_count = 0
+    unconfirmed_staffing_alerts = False
 
-    # --- Variables for the availability card ---
-    show_bulk_availability_reminder = False
-    availability_all_set = False
-    prompt_month_name = ""
-    bulk_availability_url = ""
+    two_weeks_from_now = today + timedelta(days=14)
+    upcoming_sessions = Session.objects.filter(
+        session_date__gte=today,
+        session_date__lte=two_weeks_from_now,
+        is_cancelled=False
+    ).prefetch_related('coaches_attending', 'coach_availabilities')
 
-    # --- NEW: Variable for awards voting card ---
-    show_awards_voting_card = False
+    unstaffed_session_count = sum(1 for s in upcoming_sessions if not s.coaches_attending.exists())
 
-    if request.user.is_superuser:
-        two_weeks_from_now = today + timedelta(days=14)
-        upcoming_sessions = Session.objects.filter(
-            session_date__gte=today,
-            session_date__lte=two_weeks_from_now,
-            is_cancelled=False
-        ).prefetch_related('coaches_attending', 'coach_availabilities')
+    for session in upcoming_sessions:
+        if any(avail.status == 'UNAVAILABLE' or avail.status == 'PENDING' for avail in session.coach_availabilities.all()):
+            unconfirmed_staffing_alerts = True
+            break
 
-        unstaffed_session_count = sum(1 for s in upcoming_sessions if not s.coaches_attending.exists())
+    upcoming_sessions_for_admin = Session.objects.filter(
+        session_date__in=[today, today + timedelta(days=1)]
+    ).order_by('session_date', 'session_start_time')
 
-        for session in upcoming_sessions:
-            if any(avail.status == 'UNAVAILABLE' or avail.status == 'PENDING' for avail in session.coach_availabilities.all()):
-                unconfirmed_staffing_alerts = True
-                break
+    recent_sessions = Session.objects.filter(
+        session_date__gte=today - timedelta(days=1)
+    ).select_related('school_group')
 
-        upcoming_sessions_for_admin = Session.objects.filter(
-            session_date__in=[today, today + timedelta(days=1)]
-        ).order_by('session_date', 'session_start_time')
+    finished_session_ids = [
+        s.id for s in recent_sessions
+        if s.end_datetime and s.end_datetime < now
+    ]
 
-        recent_sessions = Session.objects.filter(
-            session_date__gte=today - timedelta(days=1)
-        ).select_related('school_group')
+    discrepancy_report = AttendanceDiscrepancy.objects.filter(
+        session_id__in=finished_session_ids,
+        admin_acknowledged=False,
+        discrepancy_type__in=['NO_SHOW', 'UNEXPECTED']
+    ).select_related('player', 'session__school_group')
 
-        finished_session_ids = [
-            s.id for s in recent_sessions
-            if s.end_datetime and s.end_datetime < now
-        ]
+    all_coach_assessments = SessionAssessment.objects.filter(
+        superuser_reviewed=False
+    ).select_related('player', 'session', 'submitted_by').order_by('-date_recorded')
 
-        discrepancy_report = AttendanceDiscrepancy.objects.filter(
-            session_id__in=finished_session_ids,
-            admin_acknowledged=False,
-            discrepancy_type__in=['NO_SHOW', 'UNEXPECTED']
-        ).select_related('player', 'session__school_group')
-
-        all_coach_assessments = SessionAssessment.objects.filter(
-            superuser_reviewed=False
-        ).select_related('player', 'session', 'submitted_by').order_by('-date_recorded')
-
-        recent_group_assessments = GroupAssessment.objects.filter(
-            superuser_reviewed=False
-        ).select_related('session__school_group', 'assessing_coach__coach_profile').order_by('-assessment_datetime')
-
-    elif request.user.is_staff:
-        try:
-            coach = request.user.coach_profile
-            four_weeks_ago = today - timedelta(weeks=4)
-            tomorrow = today + timedelta(days=1)
-
-            # --- REVISED LOGIC FOR "My Availability" CARD ---
-            this_month_start = today.replace(day=1)
-            next_month_start = (this_month_start + timedelta(days=32)).replace(day=1)
-
-            # Check if availability is set for the current month
-            has_set_current_month = CoachAvailability.objects.filter(
-                coach=request.user,
-                session__session_date__year=this_month_start.year,
-                session__session_date__month=this_month_start.month,
-                status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
-            ).exists()
-
-            # Check if availability is set for the next month
-            has_set_next_month = CoachAvailability.objects.filter(
-                coach=request.user,
-                session__session_date__year=next_month_start.year,
-                session__session_date__month=next_month_start.month,
-                status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
-            ).exists()
-
-            if not has_set_current_month:
-                show_bulk_availability_reminder = True
-                prompt_month_name = this_month_start.strftime('%B')
-                bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={this_month_start.strftime('%Y-%m')}"
-            elif not has_set_next_month:
-                show_bulk_availability_reminder = True
-                prompt_month_name = next_month_start.strftime('%B')
-                bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_start.strftime('%Y-%m')}"
-            else:
-                availability_all_set = True
-
-            # --- Logic for Upcoming Sessions Card (Today & Tomorrow) ---
-            upcoming_coach_sessions = Session.objects.filter(
-                Q(session_date=today, session_start_time__gte=now.time()) | Q(session_date=tomorrow),
-                coaches_attending=coach,
-                is_cancelled=False
-            ).prefetch_related(
-                Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability'),
-                Prefetch('sessioncoach_set', queryset=SessionCoach.objects.filter(coach=coach), to_attr='my_session_coach_assignment')
-            ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')
-
-
-            for session in upcoming_coach_sessions:
-                availability = session.my_availability[0] if session.my_availability else None
-                assignment = session.my_session_coach_assignment[0] if session.my_session_coach_assignment else None
-
-                status = "PENDING"
-                if availability and availability.last_action:
-                    status = availability.last_action
-
-                show_actions = session.session_date <= (today + timedelta(days=1))
-
-                sessions_for_coach_card.append({
-                    'session': session,
-                    'status': status,
-                    'show_actions': show_actions,
-                    'duration': assignment.coaching_duration_minutes if assignment else session.planned_duration_minutes,
-                })
-
-            # --- Pending assessment logic (remains the same) ---
-            sessions_needing_feedback_qs = Session.objects.filter(
-                coaches_attending=coach,
-                session_date__gte=four_weeks_ago,
-                session_date__lte=today,
-                is_cancelled=False
-            ).exclude(
-                coach_completions__coach=coach,
-                coach_completions__assessments_submitted=True
-            ).order_by('-session_date', '-session_start_time')
-
-            recent_sessions_for_feedback = [
-                s for s in sessions_needing_feedback_qs
-                if s.end_datetime and s.end_datetime < now
-            ]
-
-            # --- CORRECTED: Check if awards voting is open ---
-            now_dt = timezone.now()
-            show_awards_voting_card = Prize.objects.filter(
-                Q(voting_opens__isnull=True) | Q(voting_opens__lte=now_dt),  # Positional Arg
-                Q(voting_closes__isnull=True) | Q(voting_closes__gte=now_dt), # Positional Arg
-                year=current_year,                                            # Keyword Arg
-                status=Prize.PrizeStatus.VOTING                               # Keyword Arg
-            ).exists()
-            # --- END CORRECTION ---
-
-        except Coach.DoesNotExist:
-            pass
+    recent_group_assessments = GroupAssessment.objects.filter(
+        superuser_reviewed=False
+    ).select_related('session__school_group', 'assessing_coach__coach_profile').order_by('-assessment_datetime')
 
     context = {
         'page_title': 'Dashboard',
@@ -213,9 +106,122 @@ def homepage(request):
         'unstaffed_session_count': unstaffed_session_count,
         'unconfirmed_staffing_alerts': unconfirmed_staffing_alerts,
         'discrepancy_report': discrepancy_report,
-        'recent_sessions_for_feedback': recent_sessions_for_feedback,
         'all_coach_assessments': all_coach_assessments,
         'recent_group_assessments': recent_group_assessments,
+    }
+    return render(request, 'scheduling/homepage.html', context)
+
+
+def _coach_dashboard(request):
+    today = timezone.now().date()
+    now = timezone.now()
+    current_year = today.year
+
+    # Initialize variables specific to coach
+    recent_sessions_for_feedback = None
+    sessions_for_coach_card = []
+    show_bulk_availability_reminder = False
+    availability_all_set = False
+    prompt_month_name = ""
+    bulk_availability_url = ""
+    show_awards_voting_card = False
+
+    try:
+        coach = request.user.coach_profile
+        four_weeks_ago = today - timedelta(weeks=4)
+        tomorrow = today + timedelta(days=1)
+
+        # --- REVISED LOGIC FOR "My Availability" CARD ---
+        this_month_start = today.replace(day=1)
+        next_month_start = (this_month_start + timedelta(days=32)).replace(day=1)
+
+        # Check if availability is set for the current month
+        has_set_current_month = CoachAvailability.objects.filter(
+            coach=request.user,
+            session__session_date__year=this_month_start.year,
+            session__session_date__month=this_month_start.month,
+            status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
+        ).exists()
+
+        # Check if availability is set for the next month
+        has_set_next_month = CoachAvailability.objects.filter(
+            coach=request.user,
+            session__session_date__year=next_month_start.year,
+            session__session_date__month=next_month_start.month,
+            status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
+        ).exists()
+
+        if not has_set_current_month:
+            show_bulk_availability_reminder = True
+            prompt_month_name = this_month_start.strftime('%B')
+            bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={this_month_start.strftime('%Y-%m')}"
+        elif not has_set_next_month:
+            show_bulk_availability_reminder = True
+            prompt_month_name = next_month_start.strftime('%B')
+            bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_start.strftime('%Y-%m')}"
+        else:
+            availability_all_set = True
+
+        # --- Logic for Upcoming Sessions Card (Today & Tomorrow) ---
+        upcoming_coach_sessions = Session.objects.filter(
+            Q(session_date=today, session_start_time__gte=now.time()) | Q(session_date=tomorrow),
+            coaches_attending=coach,
+            is_cancelled=False
+        ).prefetch_related(
+            Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability'),
+            Prefetch('sessioncoach_set', queryset=SessionCoach.objects.filter(coach=coach), to_attr='my_session_coach_assignment')
+        ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')
+
+
+        for session in upcoming_coach_sessions:
+            availability = session.my_availability[0] if session.my_availability else None
+            assignment = session.my_session_coach_assignment[0] if session.my_session_coach_assignment else None
+
+            status = "PENDING"
+            if availability and availability.last_action:
+                status = availability.last_action
+
+            show_actions = session.session_date <= (today + timedelta(days=1))
+
+            sessions_for_coach_card.append({
+                'session': session,
+                'status': status,
+                'show_actions': show_actions,
+                'duration': assignment.coaching_duration_minutes if assignment else session.planned_duration_minutes,
+            })
+
+        # --- Pending assessment logic (remains the same) ---
+        sessions_needing_feedback_qs = Session.objects.filter(
+            coaches_attending=coach,
+            session_date__gte=four_weeks_ago,
+            session_date__lte=today,
+            is_cancelled=False
+        ).exclude(
+            coach_completions__coach=coach,
+            coach_completions__assessments_submitted=True
+        ).order_by('-session_date', '-session_start_time')
+
+        recent_sessions_for_feedback = [
+            s for s in sessions_needing_feedback_qs
+            if s.end_datetime and s.end_datetime < now
+        ]
+
+        # --- CORRECTED: Check if awards voting is open ---
+        now_dt = timezone.now()
+        show_awards_voting_card = Prize.objects.filter(
+            Q(voting_opens__isnull=True) | Q(voting_opens__lte=now_dt),  # Positional Arg
+            Q(voting_closes__isnull=True) | Q(voting_closes__gte=now_dt), # Positional Arg
+            year=current_year,                                            # Keyword Arg
+            status=Prize.PrizeStatus.VOTING                               # Keyword Arg
+        ).exists()
+        # --- END CORRECTION ---
+
+    except Coach.DoesNotExist:
+        pass
+
+    context = {
+        'page_title': 'Dashboard',
+        'recent_sessions_for_feedback': recent_sessions_for_feedback,
         'sessions_for_coach_card': sessions_for_coach_card,
         'show_bulk_availability_reminder': show_bulk_availability_reminder,
         'availability_all_set': availability_all_set,
@@ -223,8 +229,18 @@ def homepage(request):
         'bulk_availability_url': bulk_availability_url,
         'show_awards_voting_card': show_awards_voting_card,
     }
-
     return render(request, 'scheduling/homepage.html', context)
+
+
+@login_required
+def homepage(request):
+    if request.user.is_superuser:
+        return _admin_dashboard(request)
+    elif request.user.is_staff:
+        return _coach_dashboard(request)
+    else:
+        # Fallback for non-staff users (render basic view with empty context)
+        return render(request, 'scheduling/homepage.html', {'page_title': 'Dashboard'})
 
 def _get_default_plan(session):
     # This function remains the same as the last version
