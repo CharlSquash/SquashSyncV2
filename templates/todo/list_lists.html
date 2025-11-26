@@ -1,0 +1,36 @@
+{% extends "todo/base.html" %}
+
+{% block title %}Todo Lists{% endblock %}
+
+{% block content %}
+<h1>Todo Lists</h1>
+<p>{{ task_count }} tasks in {{ lists.count }} lists</p>
+
+{% for list in lists %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <a href="{% url 'todo:list_detail' list.id list.slug %}">{{ list.name }}</a>
+        </h5>
+    </div>
+    <div class="card-body">
+        <p><strong>Group:</strong> {{ list.group.name }}</p>
+        <p><strong>Members:</strong>
+            {% for user in list.group.user_set.all %}
+            {{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+            No members
+            {% endfor %}
+        </p>
+        <a href="{% url 'manage_list_members' list.id %}" class="btn btn-sm btn-secondary">Manage Members</a>
+    </div>
+</div>
+{% empty %}
+<p>No lists found.</p>
+{% endfor %}
+
+<p>
+    <a href="{% url 'add_list_custom' %}" class="btn btn-primary">Create new todo list</a>
+</p>
+
+{% endblock %}

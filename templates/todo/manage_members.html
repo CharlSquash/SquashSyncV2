@@ -1,0 +1,18 @@
+{% extends "todo/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Manage Members: {{ task_list.name }}{% endblock %}
+
+{% block content %}
+<h1>Manage Members for "{{ task_list.name }}"</h1>
+<p>Group: {{ task_list.group.name }}</p>
+
+<form action="" method="post">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <p>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'todo:list_detail' task_list.id task_list.slug %}" class="btn btn-secondary">Cancel</a>
+    </p>
+</form>
+{% endblock %}

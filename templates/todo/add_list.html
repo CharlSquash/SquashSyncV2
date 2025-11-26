@@ -1,0 +1,15 @@
+{% extends "todo/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Add Task List{% endblock %}
+
+{% block content %}
+<h1>Add a new Task List</h1>
+<form action="" method="post">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <p>
+        <button type="submit" class="btn btn-primary">Create List</button>
+    </p>
+</form>
+{% endblock %}

@@ -53,6 +53,7 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'scheduling:session_calendar' %}">Calendar</a>
                     </li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'players:players_list' %}">Players</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'todo:mine' %}">My Tasks</a></li>
 
                     {% if user.is_staff and not user.is_superuser %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'accounts:my_profile' %}">My Profile</a></li>
