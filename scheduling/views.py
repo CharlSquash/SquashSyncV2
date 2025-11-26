@@ -34,6 +34,7 @@ from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
 from awards.models import Prize
 from .services import SessionService
+from todo.models import Task
 # --- End: Replacement block ---
 User = get_user_model()
 
@@ -126,6 +127,7 @@ def _coach_dashboard(request):
     prompt_month_name = ""
     bulk_availability_url = ""
     show_awards_voting_card = False
+    pending_tasks_count = 0
 
     try:
         coach = request.user.coach_profile
@@ -217,6 +219,9 @@ def _coach_dashboard(request):
         ).exists()
         # --- END CORRECTION ---
 
+        # --- TODO APP INTEGRATION ---
+        pending_tasks_count = Task.objects.filter(assigned_to=request.user, completed=False).count()
+
     except Coach.DoesNotExist:
         pass
 
@@ -229,6 +234,7 @@ def _coach_dashboard(request):
         'next_month_name': prompt_month_name,
         'bulk_availability_url': bulk_availability_url,
         'show_awards_voting_card': show_awards_voting_card,
+        'pending_tasks_count': pending_tasks_count,
     }
     return render(request, 'scheduling/homepage.html', context)
 

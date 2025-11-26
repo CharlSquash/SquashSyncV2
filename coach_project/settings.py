@@ -53,6 +53,10 @@ INSTALLED_APPS = [
     'crispy_forms',
     "crispy_bootstrap5",
     'awards',
+    'dal',
+    'dal_select2',
+    'django.contrib.sites',
+    'todo',
 ]
 
 MIDDLEWARE = [
@@ -206,4 +210,10 @@ CORS_ALLOWED_ORIGINS = [
     # 'https://solosync-pwa.vercel.app',
     # 'https://app.squashsync.com',
 ]
+
+
+# --- TODO APP SETTINGS ---
+SITE_ID = 1
+TODO_STAFF_ONLY = True
+
 

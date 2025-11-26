@@ -11,26 +11,45 @@
     </div>
 
     {% if user.is_superuser %}
-        {% if unstaffed_session_count > 0 %}
-            <div class="dashboard-alert alert-warning">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <strong>Staffing Alert:</strong> There {% if unstaffed_session_count == 1 %}is 1 unstaffed session{% else %}are {{ unstaffed_session_count }} unstaffed sessions{% endif %} in the next two weeks.
-                <a href="{% url 'scheduling:session_staffing' %}" class="alert-link">Go to Staffing Page <i class="bi bi-arrow-right"></i></a>
-            </div>
-        {% endif %}
-        {% if unconfirmed_staffing_alerts %}
-            <div class="dashboard-alert alert-danger">
-                <i class="bi bi-person-fill-exclamation"></i>
-                <strong>Confirmation Alert:</strong> Upcoming sessions have unconfirmed or declined coaches.
-                <a href="{% url 'scheduling:session_staffing' %}" class="alert-link">Review on Staffing Page <i class="bi bi-arrow-right"></i></a>
-            </div>
-        {% endif %}
+    {% if unstaffed_session_count > 0 %}
+    <div class="dashboard-alert alert-warning">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <strong>Staffing Alert:</strong> There {% if unstaffed_session_count == 1 %}is 1 unstaffed session{% else %}are
+        {{ unstaffed_session_count }} unstaffed sessions{% endif %} in the next two weeks.
+        <a href="{% url 'scheduling:session_staffing' %}" class="alert-link">Go to Staffing Page <i
+                class="bi bi-arrow-right"></i></a>
+    </div>
+    {% endif %}
+    {% if unconfirmed_staffing_alerts %}
+    <div class="dashboard-alert alert-danger">
+        <i class="bi bi-person-fill-exclamation"></i>
+        <strong>Confirmation Alert:</strong> Upcoming sessions have unconfirmed or declined coaches.
+        <a href="{% url 'scheduling:session_staffing' %}" class="alert-link">Review on Staffing Page <i
+                class="bi bi-arrow-right"></i></a>
+    </div>
+    {% endif %}
     {% endif %}
 
     <div class="dashboard-grid">
 
-      {% comment %} --- SECTION FOR COACHES/STAFF (NON-SUPERUSER) --- {% endcomment %}
-      {% if user.is_staff and not user.is_superuser %}
+        {% comment %} --- SECTION FOR COACHES/STAFF (NON-SUPERUSER) --- {% endcomment %}
+        {% if user.is_staff and not user.is_superuser %}
+        {# --- My Tasks Card --- #}
+        {% if pending_tasks_count > 0 %}
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-list-check"></i> My Tasks</h3>
+            </div>
+            <div class="card-body">
+                <p>You have <strong>{{ pending_tasks_count }}</strong> pending task(s).</p>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'todo:mine' %}" class="card-action-link">View My Tasks <i
+                        class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+        {% endif %}
+
         {# --- Upcoming Sessions Card --- #}
         <div class="dashboard-card" id="coach-upcoming-sessions-card">
             <div class="card-header">
@@ -38,48 +57,56 @@
             </div>
             <div class="card-body">
                 {% if sessions_for_coach_card %}
-                    <p class="text-muted small fst-italic">Click 'View Plan' to prepare for your session and take attendance.</p>
-                    <div class="upcoming-sessions-container">
-                        {% for item in sessions_for_coach_card %}
-                            <div class="upcoming-session-card">
-                                <div class="upcoming-session-header">
-                                    <h4 class="upcoming-session-title">{{ item.session.school_group.name|default:"General Session" }}</h4>
-                                    <div class="upcoming-session-status">
-                                        {% if item.status == 'CONFIRM' %}
-                                            <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Confirmed</span>
-                                        {% elif item.status == 'DECLINE' %}
-                                            <span class="badge bg-danger"><i class="bi bi-x-circle-fill"></i> Declined</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <ul class="upcoming-session-details">
-                                    <li><i class="bi bi-calendar-event"></i> {{ item.session.session_date|date:"l, d M Y" }}</li>
-                                    <li><i class="bi bi-clock"></i> {{ item.session.session_start_time|time:"H:i" }} ({{ item.duration }} min)</li>
-                                    <li><i class="bi bi-geo-alt"></i> {{ item.session.venue.name|default:"No venue" }}</li>
-                                </ul>
-                                <div class="upcoming-session-actions">
-                                    {% if item.show_actions and item.status == 'PENDING' %}
-                                        <form action="{% url 'scheduling:dashboard_confirm' item.session.id %}" method="post" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
-                                        </form>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#declineReasonModal-{{ item.session.id }}">
-                                            Decline
-                                        </button>
-                                    {% endif %}
-                                    <a href="{% url 'scheduling:session_detail' item.session.id %}" class="btn btn-primary btn-sm">
-                                        View Plan <i class="bi bi-arrow-right"></i>
-                                    </a>
-                                </div>
+                <p class="text-muted small fst-italic">Click 'View Plan' to prepare for your session and take
+                    attendance.</p>
+                <div class="upcoming-sessions-container">
+                    {% for item in sessions_for_coach_card %}
+                    <div class="upcoming-session-card">
+                        <div class="upcoming-session-header">
+                            <h4 class="upcoming-session-title">{{ item.session.school_group.name|default:"General
+                                Session" }}</h4>
+                            <div class="upcoming-session-status">
+                                {% if item.status == 'CONFIRM' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Confirmed</span>
+                                {% elif item.status == 'DECLINE' %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle-fill"></i> Declined</span>
+                                {% endif %}
                             </div>
-                        {% endfor %}
+                        </div>
+                        <ul class="upcoming-session-details">
+                            <li><i class="bi bi-calendar-event"></i> {{ item.session.session_date|date:"l, d M Y" }}
+                            </li>
+                            <li><i class="bi bi-clock"></i> {{ item.session.session_start_time|time:"H:i" }} ({{
+                                item.duration }} min)</li>
+                            <li><i class="bi bi-geo-alt"></i> {{ item.session.venue.name|default:"No venue" }}</li>
+                        </ul>
+                        <div class="upcoming-session-actions">
+                            {% if item.show_actions and item.status == 'PENDING' %}
+                            <form action="{% url 'scheduling:dashboard_confirm' item.session.id %}" method="post"
+                                class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
+                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                data-bs-target="#declineReasonModal-{{ item.session.id }}">
+                                Decline
+                            </button>
+                            {% endif %}
+                            <a href="{% url 'scheduling:session_detail' item.session.id %}"
+                                class="btn btn-primary btn-sm">
+                                View Plan <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </div>
                     </div>
+                    {% endfor %}
+                </div>
                 {% else %}
-                    <p class="no-data-message">You have no upcoming sessions assigned.</p>
+                <p class="no-data-message">You have no upcoming sessions assigned.</p>
                 {% endif %}
             </div>
             <div class="card-footer">
-                <a href="{% url 'scheduling:session_calendar' %}" class="card-action-link">View Full Calendar <i class="bi bi-arrow-right"></i></a>
+                <a href="{% url 'scheduling:session_calendar' %}" class="card-action-link">View Full Calendar <i
+                        class="bi bi-arrow-right"></i></a>
             </div>
         </div>
 
@@ -91,10 +118,12 @@
             </div>
             <div class="card-body">
                 <p>Voting for the end-of-year awards is now open!</p>
-                <p class="text-muted small">Cast your votes for the most deserving players across various categories.</p>
+                <p class="text-muted small">Cast your votes for the most deserving players across various categories.
+                </p>
             </div>
             <div class="card-footer">
-                <a href="{% url 'awards:prize_list' %}" class="card-action-link">Go to Awards Voting <i class="bi bi-arrow-right"></i></a>
+                <a href="{% url 'awards:prize_list' %}" class="card-action-link">Go to Awards Voting <i
+                        class="bi bi-arrow-right"></i></a>
             </div>
         </div>
         {% endif %}
@@ -107,23 +136,25 @@
             </div>
             <div class="card-body">
                 {% if recent_sessions_for_feedback %}
-                    <p>You have assessments pending for {{ recent_sessions_for_feedback|length }} past session(s).</p>
-                    <ul class="dashboard-list dashboard-list-condensed">
-                        {% for session in recent_sessions_for_feedback %}
-                            <li>
-                                <a href="{% url 'assessments:pending_assessments' %}">
-                                    <strong>{{ session.session_date|date:"D, d M" }}</strong>
-                                    <span>{{ session.school_group.name }}</span>
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ul>
+                <p>You have assessments pending for {{ recent_sessions_for_feedback|length }} past session(s).</p>
+                <ul class="dashboard-list dashboard-list-condensed">
+                    {% for session in recent_sessions_for_feedback %}
+                    <li>
+                        <a href="{% url 'assessments:pending_assessments' %}">
+                            <strong>{{ session.session_date|date:"D, d M" }}</strong>
+                            <span>{{ session.school_group.name }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
                 {% else %}
-                    <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All assessments are up to date!</p>
+                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All assessments are up to date!
+                </p>
                 {% endif %}
             </div>
             <div class="card-footer">
-                <a href="{% url 'assessments:pending_assessments' %}" class="card-action-link">Go to My Assessments <i class="bi bi-arrow-right"></i></a>
+                <a href="{% url 'assessments:pending_assessments' %}" class="card-action-link">Go to My Assessments <i
+                        class="bi bi-arrow-right"></i></a>
             </div>
         </div>
 
@@ -134,221 +165,243 @@
             </div>
             <div class="card-body">
                 {% if show_bulk_availability_reminder %}
-                    <p>It's time to set your general availability for the upcoming month.</p>
-                    <a href="{{ bulk_availability_url }}" class="btn btn-success w-100 mt-2">
-                        Set Availability for {{ next_month_name }}
-                    </a>
+                <p>It's time to set your general availability for the upcoming month.</p>
+                <a href="{{ bulk_availability_url }}" class="btn btn-success w-100 mt-2">
+                    Set Availability for {{ next_month_name }}
+                </a>
                 {% elif availability_all_set %}
-                    <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Your bulk availability for the current and next month is set.</p>
-                    <p class="text-muted small mt-3">You can still make specific changes to your weekly schedule.</p>
+                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Your bulk availability for the
+                    current and next month is set.</p>
+                <p class="text-muted small mt-3">You can still make specific changes to your weekly schedule.</p>
                 {% else %}
-                    <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Your bulk availability for next month is set.</p>
-                    <p class="text-muted small mt-3">You can still make specific changes to your weekly schedule.</p>
+                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Your bulk availability for next
+                    month is set.</p>
+                <p class="text-muted small mt-3">You can still make specific changes to your weekly schedule.</p>
                 {% endif %}
             </div>
             <div class="card-footer">
-                <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Go to My Weekly Availability <i class="bi bi-arrow-right"></i></a>
+                <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Go to My Weekly Availability
+                    <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
 
         {# --- Awards Voting Card (Original Position - Removed from here) --- #}
 
-      {% endif %}
+        {% endif %}
 
 
-      {% comment %} --- SECTION FOR SUPERUSERS --- {% endcomment %}
-      {% if user.is_superuser %}
-      <div class="dashboard-card">
-          <div class="card-header">
-              <h3><i class="bi bi-calendar-event"></i> Upcoming Sessions (Today & Tomorrow)</h3>
-          </div>
-          <div class="card-body">
-              {% if upcoming_sessions_for_admin %}
-                  <ul class="dashboard-list">
-                      {% for session in upcoming_sessions_for_admin %}
-                      <li>
-                          <a href="{% url 'scheduling:session_detail' session.id %}">
-                              <strong>{{ session.session_date|date:"D, d M" }} @ {{ session.session_start_time|time:"H:i" }}</strong>
-                              {% if session.school_group %}<span>{{ session.school_group.name }}</span>{% endif %}
-                              {% if session.is_cancelled %}<span class="badge-cancelled">CANCELLED</span>{% endif %}
-                          </a>
-                      </li>
-                      {% endfor %}
-                  </ul>
-              {% else %}
-                  <p class="no-data-message">No upcoming sessions scheduled.</p>
-              {% endif %}
-          </div>
-          <div class="card-footer">
-              <a href="{% url 'scheduling:session_calendar' %}" class="card-action-link">View Full Calendar <i class="bi bi-box-arrow-up-right"></i></a>
-          </div>
-      </div>
+        {% comment %} --- SECTION FOR SUPERUSERS --- {% endcomment %}
+        {% if user.is_superuser %}
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-calendar-event"></i> Upcoming Sessions (Today & Tomorrow)</h3>
+            </div>
+            <div class="card-body">
+                {% if upcoming_sessions_for_admin %}
+                <ul class="dashboard-list">
+                    {% for session in upcoming_sessions_for_admin %}
+                    <li>
+                        <a href="{% url 'scheduling:session_detail' session.id %}">
+                            <strong>{{ session.session_date|date:"D, d M" }} @ {{ session.session_start_time|time:"H:i"
+                                }}</strong>
+                            {% if session.school_group %}<span>{{ session.school_group.name }}</span>{% endif %}
+                            {% if session.is_cancelled %}<span class="badge-cancelled">CANCELLED</span>{% endif %}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="no-data-message">No upcoming sessions scheduled.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'scheduling:session_calendar' %}" class="card-action-link">View Full Calendar <i
+                        class="bi bi-box-arrow-up-right"></i></a>
+            </div>
+        </div>
 
-      <div class="dashboard-card">
-          <div class="card-header">
-              <h3><i class="bi bi-person-exclamation"></i> Attendance Actions</h3>
-          </div>
-          <div class="card-body">
-              {% if discrepancy_report %}
-                  <p>The following discrepancies require your attention:</p>
-                  <ul class="dashboard-list" id="discrepancy-list">
-                      {% for item in discrepancy_report %}
-                      <li data-id="{{ item.id }}" class="d-flex justify-content-between align-items-center">
-                          <a href="{% url 'players:player_profile' item.player.id %}" class="flex-grow-1">
-                              <strong>{{ item.player.full_name }}</strong>
-                              <span>{{ item.session.school_group.name|default:"General Session" }}</span>
-                              <span class="badge
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-person-exclamation"></i> Attendance Actions</h3>
+            </div>
+            <div class="card-body">
+                {% if discrepancy_report %}
+                <p>The following discrepancies require your attention:</p>
+                <ul class="dashboard-list" id="discrepancy-list">
+                    {% for item in discrepancy_report %}
+                    <li data-id="{{ item.id }}" class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'players:player_profile' item.player.id %}" class="flex-grow-1">
+                            <strong>{{ item.player.full_name }}</strong>
+                            <span>{{ item.session.school_group.name|default:"General Session" }}</span>
+                            <span class="badge
                                   {% if item.discrepancy_type == 'NO_SHOW' %}bg-danger
                                   {% else %}bg-warning text-dark{% endif %}">
-                                  {{ item.get_discrepancy_type_display }}
-                              </span>
-                          </a>
-                          <button class="btn btn-sm btn-outline-success ms-2 acknowledge-btn"
-                                  data-id="{{ item.id }}"
-                                  title="Acknowledge and remove from this list">
-                              <i class="bi bi-check-lg"></i>
-                          </button>
-                      </li>
-                      {% endfor %}
-                  </ul>
-                  <p class="no-data-message" id="no-discrepancy-message" style="display: none;"><i class="bi bi-check2-all text-success"></i> All discrepancies reviewed.</p>
-              {% else %}
-                  <p class="no-data-message" id="no-discrepancy-message"><i class="bi bi-check2-all text-success"></i> No new discrepancies to review.</p>
-              {% endif %}
-          </div>
-          <div class="card-footer">
-              <a href="{% url 'players:discrepancy_report' %}" class="card-action-link">View Full Report <i class="bi bi-box-arrow-up-right"></i></a>
-          </div>
-      </div>
+                                {{ item.get_discrepancy_type_display }}
+                            </span>
+                        </a>
+                        <button class="btn btn-sm btn-outline-success ms-2 acknowledge-btn" data-id="{{ item.id }}"
+                            title="Acknowledge and remove from this list">
+                            <i class="bi bi-check-lg"></i>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="no-data-message" id="no-discrepancy-message" style="display: none;"><i
+                        class="bi bi-check2-all text-success"></i> All discrepancies reviewed.</p>
+                {% else %}
+                <p class="no-data-message" id="no-discrepancy-message"><i class="bi bi-check2-all text-success"></i> No
+                    new discrepancies to review.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'players:discrepancy_report' %}" class="card-action-link">View Full Report <i
+                        class="bi bi-box-arrow-up-right"></i></a>
+            </div>
+        </div>
 
-          <div class="dashboard-card">
-              <div class="card-header">
-                  <h3><i class="bi bi-card-checklist"></i> Review Player Assessments</h3>
-              </div>
-              <div class="card-body">
-                  {% if all_coach_assessments %}
-                      <p>There are <strong>{{ all_coach_assessments.count }}</strong> new player assessment(s) waiting for your review.</p>
-                      <div class="dashboard-list-scrollable">
-                          <ul class="dashboard-list dashboard-list-condensed" id="assessment-list">
-                              {% for assessment in all_coach_assessments %}
-                                  <li data-id="{{ assessment.id }}">
-                                      <div class="assessment-review-item">
-                                          <div class="assessment-review-content">
-                                              <div class="assessment-review-group">
-                                                  <a href="{% url 'players:player_profile' assessment.player.id %}">{{ assessment.player.full_name }}</a>
-                                              </div>
-                                              {% if assessment.coach_notes %}
-                                                  <p class="assessment-review-notes">{{ assessment.coach_notes|linebreaksbr }}</p>
-                                              {% endif %}
-                                              <div class="assessment-review-meta">
-                                                  by {{ assessment.submitted_by.get_full_name|default:assessment.submitted_by.username }} on {{ assessment.date_recorded|date:"d M Y" }}
-                                              </div>
-                                          </div>
-                                          <button class="btn btn-sm btn-outline-success ms-2 acknowledge-assessment-btn"
-                                                  data-id="{{ assessment.id }}"
-                                                  title="Acknowledge and remove from this list">
-                                              <i class="bi bi-check-lg"></i>
-                                          </button>
-                                      </div>
-                                  </li>
-                              {% endfor %}
-                          </ul>
-                      </div>
-                       <p class="no-data-message" id="no-assessment-message" style="display: none;"><i class="bi bi-check2-all text-success"></i> All player assessments reviewed.</p>
-                  {% else %}
-                      <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All player assessments are reviewed.</p>
-                  {% endif %}
-              </div>
-              <div class="card-footer">
-                   <a href="{% url 'admin:assessments_sessionassessment_changelist' %}" class="card-action-link">Manage All <i class="bi bi-box-arrow-up-right"></i></a>
-              </div>
-          </div>
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-card-checklist"></i> Review Player Assessments</h3>
+            </div>
+            <div class="card-body">
+                {% if all_coach_assessments %}
+                <p>There are <strong>{{ all_coach_assessments.count }}</strong> new player assessment(s) waiting for
+                    your review.</p>
+                <div class="dashboard-list-scrollable">
+                    <ul class="dashboard-list dashboard-list-condensed" id="assessment-list">
+                        {% for assessment in all_coach_assessments %}
+                        <li data-id="{{ assessment.id }}">
+                            <div class="assessment-review-item">
+                                <div class="assessment-review-content">
+                                    <div class="assessment-review-group">
+                                        <a href="{% url 'players:player_profile' assessment.player.id %}">{{
+                                            assessment.player.full_name }}</a>
+                                    </div>
+                                    {% if assessment.coach_notes %}
+                                    <p class="assessment-review-notes">{{ assessment.coach_notes|linebreaksbr }}</p>
+                                    {% endif %}
+                                    <div class="assessment-review-meta">
+                                        by {{
+                                        assessment.submitted_by.get_full_name|default:assessment.submitted_by.username
+                                        }} on {{ assessment.date_recorded|date:"d M Y" }}
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-success ms-2 acknowledge-assessment-btn"
+                                    data-id="{{ assessment.id }}" title="Acknowledge and remove from this list">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <p class="no-data-message" id="no-assessment-message" style="display: none;"><i
+                        class="bi bi-check2-all text-success"></i> All player assessments reviewed.</p>
+                {% else %}
+                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All player assessments are
+                    reviewed.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'admin:assessments_sessionassessment_changelist' %}" class="card-action-link">Manage All
+                    <i class="bi bi-box-arrow-up-right"></i></a>
+            </div>
+        </div>
 
-          <div class="dashboard-card">
-              <div class="card-header">
-                  <h3><i class="bi bi-journals"></i> Review Group Assessments</h3>
-              </div>
-               <div class="card-body">
-                  {% if recent_group_assessments %}
-                      <p>There are <strong>{{ recent_group_assessments.count }}</strong> new group assessment(s) waiting for your review.</p>
-                      <div class="dashboard-list-scrollable">
-                          <ul class="dashboard-list dashboard-list-condensed" id="group-assessment-list">
-                              {% for assessment in recent_group_assessments %}
-                                  <li data-id="{{ assessment.id }}">
-                                      <div class="assessment-review-item">
-                                          <div class="assessment-review-content">
-                                              <div class="assessment-review-group">
-                                                  <a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{ assessment.session.school_group.name|default:"N/A" }}</a>
-                                              </div>
-                                              {% if assessment.general_notes %}
-                                                  <p class="assessment-review-notes">{{ assessment.general_notes|linebreaksbr }}</p>
-                                              {% endif %}
-                                              <div class="assessment-review-meta">
-                                                  by {{ assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username }} on {{ assessment.assessment_datetime|date:"d M Y" }}
-                                              </div>
-                                          </div>
-                                          <button class="btn btn-sm btn-outline-success ms-2 acknowledge-group-assessment-btn"
-                                                  data-id="{{ assessment.id }}"
-                                                  title="Acknowledge and remove from this list">
-                                              <i class="bi bi-check-lg"></i>
-                                          </button>
-                                      </div>
-                                  </li>
-                              {% endfor %}
-                           </ul>
-                      </div>
-                       <p class="no-data-message" id="no-group-assessment-message" style="display: none;"><i class="bi bi-check2-all text-success"></i> All group assessments reviewed.</p>
-                  {% else %}
-                      <p class="no-data-message" id="no-group-assessment-message"><i class="bi bi-check2-all text-success"></i> All group assessments are reviewed.</p>
-                  {% endif %}
-              </div>
-              <div class="card-footer">
-                   <a href="{% url 'admin:assessments_groupassessment_changelist' %}" class="card-action-link">Manage All <i class="bi bi-box-arrow-up-right"></i></a>
-              </div>
-          </div>
-          <div class="dashboard-card">
-              <div class="card-header">
-                  <h3><i class="bi bi-gear-fill"></i> Quick Links</h3>
-              </div>
-              <div class="card-body">
-                   <ul class="dashboard-list dashboard-list-links">
-                       <li><a href="{% url 'scheduling:session_staffing' %}">Session Staffing</a></li>
-                       <li><a href="{% url 'players:players_list' %}">Manage Players</a></li>
-                       <li><a href="{% url 'accounts:coach_list' %}">Manage Coaches</a></li>
-                       <li><a href="{% url 'players:school_group_list' %}">Manage School Groups</a></li>
-                       <li><a href="{% url 'admin:finance_payslip_changelist' %}">Manage Payslips</a></li>
-                       <li><a href="{% url 'awards:prize_list' %}">Awards</a></li>
-                       <li><a href="{% url 'admin:index' %}">Full Admin Site</a></li>
-                   </ul>
-              </div>
-          </div>
-      {% endif %}
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-journals"></i> Review Group Assessments</h3>
+            </div>
+            <div class="card-body">
+                {% if recent_group_assessments %}
+                <p>There are <strong>{{ recent_group_assessments.count }}</strong> new group assessment(s) waiting for
+                    your review.</p>
+                <div class="dashboard-list-scrollable">
+                    <ul class="dashboard-list dashboard-list-condensed" id="group-assessment-list">
+                        {% for assessment in recent_group_assessments %}
+                        <li data-id="{{ assessment.id }}">
+                            <div class="assessment-review-item">
+                                <div class="assessment-review-content">
+                                    <div class="assessment-review-group">
+                                        <a
+                                            href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{
+                                            assessment.session.school_group.name|default:"N/A" }}</a>
+                                    </div>
+                                    {% if assessment.general_notes %}
+                                    <p class="assessment-review-notes">{{ assessment.general_notes|linebreaksbr }}</p>
+                                    {% endif %}
+                                    <div class="assessment-review-meta">
+                                        by {{
+                                        assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username
+                                        }} on {{ assessment.assessment_datetime|date:"d M Y" }}
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-success ms-2 acknowledge-group-assessment-btn"
+                                    data-id="{{ assessment.id }}" title="Acknowledge and remove from this list">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <p class="no-data-message" id="no-group-assessment-message" style="display: none;"><i
+                        class="bi bi-check2-all text-success"></i> All group assessments reviewed.</p>
+                {% else %}
+                <p class="no-data-message" id="no-group-assessment-message"><i
+                        class="bi bi-check2-all text-success"></i> All group assessments are reviewed.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'admin:assessments_groupassessment_changelist' %}" class="card-action-link">Manage All
+                    <i class="bi bi-box-arrow-up-right"></i></a>
+            </div>
+        </div>
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-gear-fill"></i> Quick Links</h3>
+            </div>
+            <div class="card-body">
+                <ul class="dashboard-list dashboard-list-links">
+                    <li><a href="{% url 'scheduling:session_staffing' %}">Session Staffing</a></li>
+                    <li><a href="{% url 'players:players_list' %}">Manage Players</a></li>
+                    <li><a href="{% url 'accounts:coach_list' %}">Manage Coaches</a></li>
+                    <li><a href="{% url 'players:school_group_list' %}">Manage School Groups</a></li>
+                    <li><a href="{% url 'admin:finance_payslip_changelist' %}">Manage Payslips</a></li>
+                    <li><a href="{% url 'awards:prize_list' %}">Awards</a></li>
+                    <li><a href="{% url 'admin:index' %}">Full Admin Site</a></li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 {# --- Modals for Coach Decline Reason --- #}
 {% for item in sessions_for_coach_card %}
 {% if item.show_actions and item.status == 'PENDING' %}
-<div class="modal fade" id="declineReasonModal-{{ item.session.id }}" tabindex="-1" aria-labelledby="declineReasonModalLabel-{{ item.session.id }}" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form action="{% url 'scheduling:dashboard_decline' item.session.id %}" method="post">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title" id="declineReasonModalLabel-{{ item.session.id }}">Reason for Declining</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div class="modal fade" id="declineReasonModal-{{ item.session.id }}" tabindex="-1"
+    aria-labelledby="declineReasonModalLabel-{{ item.session.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{% url 'scheduling:dashboard_decline' item.session.id %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="declineReasonModalLabel-{{ item.session.id }}">Reason for Declining</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Please provide a brief reason for declining the session on <strong>{{
+                            item.session.session_date|date:"d M" }}</strong>.</p>
+                    <textarea name="reason" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Submit Decline</button>
+                </div>
+            </form>
         </div>
-        <div class="modal-body">
-          <p>Please provide a brief reason for declining the session on <strong>{{ item.session.session_date|date:"d M" }}</strong>.</p>
-          <textarea name="reason" class="form-control" rows="3" required></textarea>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-danger">Submit Decline</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 {% endif %}
 {% endfor %}
@@ -358,86 +411,86 @@
 {% block extra_js %}
 {{ block.super }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
 
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
                 }
             }
+            return cookieValue;
         }
-        return cookieValue;
-    }
-    const csrfToken = getCookie('csrftoken');
+        const csrfToken = getCookie('csrftoken');
 
-    function handleAcknowledgeClick(listId, buttonClass, urlPrefix, noItemsMessageId) {
-        const list = document.getElementById(listId);
-        if (!list) return;
+        function handleAcknowledgeClick(listId, buttonClass, urlPrefix, noItemsMessageId) {
+            const list = document.getElementById(listId);
+            if (!list) return;
 
-        list.addEventListener('click', function(e) {
-            const button = e.target.closest(buttonClass);
-            if (!button) return;
+            list.addEventListener('click', function (e) {
+                const button = e.target.closest(buttonClass);
+                if (!button) return;
 
-            const itemId = button.dataset.id;
-            const listItem = button.closest('li');
-            if (!itemId || !listItem) {
-                console.error("Could not find item ID or list item for button:", button);
-                return;
-            }
-
-            const url = `${urlPrefix}${itemId}/acknowledge/`;
-
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/json'
+                const itemId = button.dataset.id;
+                const listItem = button.closest('li');
+                if (!itemId || !listItem) {
+                    console.error("Could not find item ID or list item for button:", button);
+                    return;
                 }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Network response was not ok: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    listItem.style.transition = 'opacity 0.5s, transform 0.5s';
-                    listItem.style.opacity = '0';
-                    listItem.style.transform = 'translateX(-20px)';
-                    setTimeout(() => {
-                        listItem.remove();
-                        if (list.children.length === 0) {
-                            const listContainer = list.closest('.card-body');
-                            const noItemsMessage = document.getElementById(noItemsMessageId);
-                            if (listContainer) {
-                                const countMessage = listContainer.querySelector('p:first-child');
-                                if (countMessage) countMessage.style.display = 'none';
-                            }
-                            if (noItemsMessage) noItemsMessage.style.display = 'block';
-                            list.style.display = 'none';
+
+                const url = `${urlPrefix}${itemId}/acknowledge/`;
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Network response was not ok: ${response.statusText}`);
                         }
-                    }, 500);
-                } else {
-                    alert(`Could not acknowledge the item. Error: ${data.message || 'Unknown error'}`);
-                }
-            })
-            .catch(error => {
-                console.error('Error during fetch:', error);
-                alert('An error occurred while trying to acknowledge the item. Please check the browser console for details.');
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            listItem.style.transition = 'opacity 0.5s, transform 0.5s';
+                            listItem.style.opacity = '0';
+                            listItem.style.transform = 'translateX(-20px)';
+                            setTimeout(() => {
+                                listItem.remove();
+                                if (list.children.length === 0) {
+                                    const listContainer = list.closest('.card-body');
+                                    const noItemsMessage = document.getElementById(noItemsMessageId);
+                                    if (listContainer) {
+                                        const countMessage = listContainer.querySelector('p:first-child');
+                                        if (countMessage) countMessage.style.display = 'none';
+                                    }
+                                    if (noItemsMessage) noItemsMessage.style.display = 'block';
+                                    list.style.display = 'none';
+                                }
+                            }, 500);
+                        } else {
+                            alert(`Could not acknowledge the item. Error: ${data.message || 'Unknown error'}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error during fetch:', error);
+                        alert('An error occurred while trying to acknowledge the item. Please check the browser console for details.');
+                    });
             });
-        });
-    }
+        }
 
-    handleAcknowledgeClick('discrepancy-list', '.acknowledge-btn', '/players/discrepancy/', 'no-discrepancy-message');
-    handleAcknowledgeClick('assessment-list', '.acknowledge-assessment-btn', '/assessments/assessment/', 'no-assessment-message');
-    handleAcknowledgeClick('group-assessment-list', '.acknowledge-group-assessment-btn', '/assessments/group-assessment/', 'no-group-assessment-message');
-});
+        handleAcknowledgeClick('discrepancy-list', '.acknowledge-btn', '/players/discrepancy/', 'no-discrepancy-message');
+        handleAcknowledgeClick('assessment-list', '.acknowledge-assessment-btn', '/assessments/assessment/', 'no-assessment-message');
+        handleAcknowledgeClick('group-assessment-list', '.acknowledge-group-assessment-btn', '/assessments/group-assessment/', 'no-group-assessment-message');
+    });
 </script>
 {% endblock %}

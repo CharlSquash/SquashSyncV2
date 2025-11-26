@@ -30,6 +30,7 @@ urlpatterns = [
     path('assessments/', include('assessments.urls')),
     path('finance/', include('finance.urls')),
     path('awards/', include('awards.urls')),
+    path('todo/', include('todo.urls', namespace="todo")),
 
     #// solosync2 urls
     path('api/solosync2/', include('solosync2.urls')),

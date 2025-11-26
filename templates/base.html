@@ -69,6 +69,7 @@
                     {% endif %}
 
                     {% if user.is_superuser %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'todo:lists' %}">Tasks</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'accounts:coach_list' %}">Coaches</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'scheduling:session_staffing' %}">Staffing</a>
                     </li>
