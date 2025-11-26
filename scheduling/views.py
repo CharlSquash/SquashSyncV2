@@ -166,8 +166,9 @@ def _coach_dashboard(request):
             availability_all_set = True
 
         # --- Logic for Upcoming Sessions Card (Today & Tomorrow) ---
+        local_now = timezone.localtime(now)
         upcoming_coach_sessions = Session.objects.filter(
-            Q(session_date=today, session_start_time__gte=now.time()) | Q(session_date=tomorrow),
+            Q(session_date=today, session_start_time__gte=local_now.time()) | Q(session_date=tomorrow),
             coaches_attending=coach,
             is_cancelled=False
         ).prefetch_related(

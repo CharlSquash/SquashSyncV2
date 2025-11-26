@@ -76,7 +76,8 @@
                         <ul class="upcoming-session-details">
                             <li><i class="bi bi-calendar-event"></i> {{ item.session.session_date|date:"l, d M Y" }}
                             </li>
-                            <li><i class="bi bi-clock"></i> {{ item.session.session_start_time|time:"H:i" }} ({{
+                            {# UPDATED: Using start_datetime ensures timezone awareness #}
+                            <li><i class="bi bi-clock"></i> {{ item.session.start_datetime|time:"H:i" }} ({{
                                 item.duration }} min)</li>
                             <li><i class="bi bi-geo-alt"></i> {{ item.session.venue.name|default:"No venue" }}</li>
                         </ul>
@@ -185,8 +186,6 @@
             </div>
         </div>
 
-        {# --- Awards Voting Card (Original Position - Removed from here) --- #}
-
         {% endif %}
 
 
@@ -202,7 +201,8 @@
                     {% for session in upcoming_sessions_for_admin %}
                     <li>
                         <a href="{% url 'scheduling:session_detail' session.id %}">
-                            <strong>{{ session.session_date|date:"D, d M" }} @ {{ session.session_start_time|time:"H:i"
+                            {# UPDATED: Changed session_start_time to start_datetime to fix display format #}
+                            <strong>{{ session.session_date|date:"D, d M" }} @ {{ session.start_datetime|time:"H:i"
                                 }}</strong>
                             {% if session.school_group %}<span>{{ session.school_group.name }}</span>{% endif %}
                             {% if session.is_cancelled %}<span class="badge-cancelled">CANCELLED</span>{% endif %}
