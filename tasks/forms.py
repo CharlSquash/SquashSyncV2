@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from todo.models import TaskList
@@ -41,10 +42,14 @@ class CustomModelChoiceField(forms.ModelChoiceField):
 
 class CustomAddEditTaskForm(AddEditTaskForm):
     assigned_to = CustomModelChoiceField(
-        queryset=User.objects.filter(is_active=True, groups__name='Coaches').distinct(),
+        queryset=User.objects.filter(Q(groups__name='Coaches') | Q(is_superuser=True), is_active=True).distinct(),
         required=False,
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
 
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
+        self.fields['assigned_to'].queryset = User.objects.filter(
+            Q(groups__name='Coaches') | Q(is_superuser=True), 
+            is_active=True
+        ).distinct()
