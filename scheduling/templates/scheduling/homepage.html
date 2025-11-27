@@ -191,6 +191,21 @@
 
         {% comment %} --- SECTION FOR SUPERUSERS --- {% endcomment %}
         {% if user.is_superuser %}
+        {# --- My Tasks Card --- #}
+        {% if pending_tasks_count > 0 %}
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="bi bi-list-check"></i> My Tasks</h3>
+            </div>
+            <div class="card-body">
+                <p>You have <strong>{{ pending_tasks_count }}</strong> pending task(s).</p>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'todo:mine' %}" class="card-action-link">View My Tasks <i
+                        class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+        {% endif %}
         <div class="dashboard-card">
             <div class="card-header">
                 <h3><i class="bi bi-calendar-event"></i> Upcoming Sessions (Today & Tomorrow)</h3>

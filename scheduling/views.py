@@ -110,6 +110,7 @@ def _admin_dashboard(request):
         'discrepancy_report': discrepancy_report,
         'all_coach_assessments': all_coach_assessments,
         'recent_group_assessments': recent_group_assessments,
+        'pending_tasks_count': Task.objects.filter(assigned_to=request.user, completed=False).count(),
     }
     return render(request, 'scheduling/homepage.html', context)
 
