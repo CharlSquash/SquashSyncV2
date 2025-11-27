@@ -56,7 +56,28 @@
 
     </div>
     <div class="row">
-        <div class="col-lg-12">
+        <div class="col-lg-2 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    Calendar Layers
+                </div>
+                <div class="card-body">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="toggleSessions" checked>
+                        <label class="form-check-label" for="toggleSessions">
+                            Squash Sessions
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="toggleTasks">
+                        <label class="form-check-label" for="toggleTasks">
+                            My Tasks
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-10">
             <div class="calendar-container">
                 <div id="sessionCalendar"></div>
             </div>
@@ -92,13 +113,36 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('sessionCalendar');
-    let eventsJson = [];
+    
+    // --- Parse Data Sources ---
+    let sessionsEvents = [];
+    let tasksEvents = [];
+    
     try {
-        eventsJson = JSON.parse('{{ events_json|escapejs }}');
-    } catch (e) { console.error("Error parsing calendar_events_json:", e); }
+        sessionsEvents = JSON.parse('{{ events_json|escapejs }}');
+    } catch (e) { console.error("Error parsing events_json:", e); }
+
+    try {
+        tasksEvents = JSON.parse('{{ tasks_json|escapejs }}');
+    } catch (e) { console.error("Error parsing tasks_json:", e); }
 
     const isMobile = window.innerWidth < 768;
 
+    // --- Define Event Sources ---
+    const sessionsSource = {
+        id: 'sessions',
+        events: sessionsEvents,
+        // You can add default color/className for this source here if you want
+    };
+
+    const tasksSource = {
+        id: 'tasks',
+        events: tasksEvents,
+        color: '#ffc107', // Fallback color if not set in event
+        textColor: '#000' // Ensure text is readable on yellow
+    };
+
+    // --- Initialize Calendar ---
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: isMobile ? 'listWeek' : 'dayGridMonth',
         
@@ -108,15 +152,23 @@ document.addEventListener('DOMContentLoaded', function() {
             right: 'dayGridMonth,timeGridWeek,listWeek'
         },
 
-        // This makes the calendar use the vertical space it needs, avoiding internal scrollbars.
         height: 'auto',
 
-        events: eventsJson,
+        // Start with ONLY sessions by default (as per requirement)
+        eventSources: [ sessionsSource ],
+
         eventClick: function(info) {
             info.jsEvent.preventDefault();
             const event = info.event;
             const props = event.extendedProps;
 
+            // Handle Task Clicks (Redirect)
+            if (props.type === 'task') {
+                window.location.href = event.url;
+                return;
+            }
+
+            // Handle Session Clicks (Modal)
             document.getElementById('modalTitle').textContent = `${props.school_group_name} Session`;
             document.getElementById('modalDate').textContent = new Date(event.startStr).toLocaleDateString();
             document.getElementById('modalTime').textContent = props.session_time_str;
@@ -126,7 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             document.getElementById('sessionPlanLink').href = event.url;
             
-            // Safely handle the admin link, which only exists for superusers
             const adminLink = document.getElementById('adminLink');
             if (adminLink) {
                 adminLink.href = props.admin_url;
@@ -137,6 +188,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     calendar.render();
+
+    // --- Layer Toggling Logic ---
+    const toggleSessions = document.getElementById('toggleSessions');
+    const toggleTasks = document.getElementById('toggleTasks');
+
+    if (toggleSessions) {
+        toggleSessions.addEventListener('change', function() {
+            if (this.checked) {
+                calendar.addEventSource(sessionsSource);
+            } else {
+                const source = calendar.getEventSourceById('sessions');
+                if (source) source.remove();
+            }
+        });
+    }
+
+    if (toggleTasks) {
+        toggleTasks.addEventListener('change', function() {
+            if (this.checked) {
+                calendar.addEventSource(tasksSource);
+            } else {
+                const source = calendar.getEventSourceById('tasks');
+                if (source) source.remove();
+            }
+        });
+    }
 
     // Modal closing logic
     const modal = document.getElementById('sessionDetailModal');

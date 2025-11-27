@@ -550,10 +550,31 @@ def session_calendar(request):
             'classNames': class_names
         })
 
+    # --- TASKS LAYER LOGIC ---
+    tasks_qs = Task.objects.filter(
+        assigned_to=request.user,
+        completed=False,
+        due_date__isnull=False
+    )
+
+    tasks_data = []
+    for task in tasks_qs:
+        tasks_data.append({
+            'title': task.title,
+            'start': task.due_date.isoformat(), # Output as ISO string YYYY-MM-DD
+            'allDay': True,
+            'url': reverse('todo:task_detail', args=[task.id]),
+            'color': '#ffc107', # Bootstrap warning yellow
+            'extendedProps': {
+                'type': 'task'
+            }
+        })
+
     # *** FIX 2: Add the necessary variables to the context for the template ***
     context = {
         'page_title': "Session Calendar",
         'events_json': json.dumps(events),
+        'tasks_json': json.dumps(tasks_data), # Add tasks data
         'can_view_all': can_view_all,
         'is_all_view': view_mode == 'all' and can_view_all,
     }
