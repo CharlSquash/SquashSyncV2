@@ -201,9 +201,7 @@
                     {% for session in upcoming_sessions_for_admin %}
                     <li>
                         <a href="{% url 'scheduling:session_detail' session.id %}">
-                            {# UPDATED: Changed session_start_time to start_datetime to fix display format #}
-                            <strong>{{ session.session_date|date:"D, d M" }} @ {{ session.start_datetime|time:"H:i"
-                                }}</strong>
+                            <strong>{{ session.session_date|date:"D, d M" }} @ {{ session.session_start_time|time:"H:i"}}</strong>
                             {% if session.school_group %}<span>{{ session.school_group.name }}</span>{% endif %}
                             {% if session.is_cancelled %}<span class="badge-cancelled">CANCELLED</span>{% endif %}
                         </a>
@@ -265,7 +263,8 @@
             </div>
             <div class="card-body">
                 {% if all_coach_assessments %}
-                <p>There are <strong>{{ all_coach_assessments.count }}</strong> new player assessment(s) waiting for
+                <p>There are <strong>{{ all_coach_assessments.count }}</strong> new player assessment(s) waiting
+                    for
                     your review.</p>
                 <div class="dashboard-list-scrollable">
                     <ul class="dashboard-list dashboard-list-condensed" id="assessment-list">
@@ -278,7 +277,8 @@
                                             assessment.player.full_name }}</a>
                                     </div>
                                     {% if assessment.coach_notes %}
-                                    <p class="assessment-review-notes">{{ assessment.coach_notes|linebreaksbr }}</p>
+                                    <p class="assessment-review-notes">{{ assessment.coach_notes|linebreaksbr }}
+                                    </p>
                                     {% endif %}
                                     <div class="assessment-review-meta">
                                         by {{
@@ -298,7 +298,8 @@
                 <p class="no-data-message" id="no-assessment-message" style="display: none;"><i
                         class="bi bi-check2-all text-success"></i> All player assessments reviewed.</p>
                 {% else %}
-                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All player assessments are
+                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> All player assessments
+                    are
                     reviewed.</p>
                 {% endif %}
             </div>
@@ -314,7 +315,8 @@
             </div>
             <div class="card-body">
                 {% if recent_group_assessments %}
-                <p>There are <strong>{{ recent_group_assessments.count }}</strong> new group assessment(s) waiting for
+                <p>There are <strong>{{ recent_group_assessments.count }}</strong> new group assessment(s)
+                    waiting for
                     your review.</p>
                 <div class="dashboard-list-scrollable">
                     <ul class="dashboard-list dashboard-list-condensed" id="group-assessment-list">
@@ -328,7 +330,8 @@
                                             assessment.session.school_group.name|default:"N/A" }}</a>
                                     </div>
                                     {% if assessment.general_notes %}
-                                    <p class="assessment-review-notes">{{ assessment.general_notes|linebreaksbr }}</p>
+                                    <p class="assessment-review-notes">{{ assessment.general_notes|linebreaksbr
+                                        }}</p>
                                     {% endif %}
                                     <div class="assessment-review-meta">
                                         by {{
@@ -349,7 +352,8 @@
                         class="bi bi-check2-all text-success"></i> All group assessments reviewed.</p>
                 {% else %}
                 <p class="no-data-message" id="no-group-assessment-message"><i
-                        class="bi bi-check2-all text-success"></i> All group assessments are reviewed.</p>
+                        class="bi bi-check2-all text-success"></i>
+                    All group assessments are reviewed.</p>
                 {% endif %}
             </div>
             <div class="card-footer">
@@ -387,7 +391,8 @@
             <form action="{% url 'scheduling:dashboard_decline' item.session.id %}" method="post">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title" id="declineReasonModalLabel-{{ item.session.id }}">Reason for Declining</h5>
+                    <h5 class="modal-title" id="declineReasonModalLabel-{{ item.session.id }}">Reason for
+                        Declining</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
