@@ -24,7 +24,7 @@ from .utils import get_month_start_end, check_for_conflicts
 from .forms import MonthYearFilterForm
 
 # Import models from their new app locations
-from .models import Session, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag, SessionCoach
+from .models import Session, CoachAvailability, Venue, ScheduledClass, AttendanceTracking, Drill, DrillTag, SessionCoach, Event
 from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, AttendanceForm
 from players.models import Player, SchoolGroup, AttendanceDiscrepancy
 from . import notifications
@@ -571,11 +571,29 @@ def session_calendar(request):
             }
         })
 
+    # --- SPECIAL EVENTS LAYER LOGIC ---
+    special_events_qs = Event.objects.all()
+    special_events_data = []
+    for event in special_events_qs:
+        special_events_data.append({
+            'title': event.name,
+            'start': event.event_date.isoformat(),
+            'allDay': True,
+            'color': '#17a2b8', # Info Teal
+            'editable': request.user.is_superuser, # Only superusers can move events
+            'extendedProps': {
+                'type': 'event',
+                'description': event.description,
+                'event_type': event.get_event_type_display()
+            }
+        })
+
     # *** FIX 2: Add the necessary variables to the context for the template ***
     context = {
         'page_title': "Session Calendar",
         'events_json': json.dumps(events),
         'tasks_json': json.dumps(tasks_data), # Add tasks data
+        'special_events_json': json.dumps(special_events_data), # Add special events data
         'can_view_all': can_view_all,
         'is_all_view': view_mode == 'all' and can_view_all,
     }
@@ -798,6 +816,70 @@ def set_bulk_availability_view(request):
     
     # --- NEW: Fetch existing availability statuses ---
     start_date, end_date = get_month_start_end(selected_year, selected_month)
+
+@require_POST
+@login_required
+def update_event_date(request):
+    """
+    AJAX view to update the date of an Event (drag & drop).
+    Only accessible by superusers.
+    """
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("You do not have permission to edit events.")
+
+    try:
+        data = json.loads(request.body)
+        event_id = data.get('event_id')
+        new_start = data.get('start') # ISO format date string
+
+        if not event_id or not new_start:
+            return JsonResponse({'status': 'error', 'message': 'Missing event_id or start date.'}, status=400)
+
+        event = get_object_or_404(Event, pk=event_id)
+        
+        # Parse the new date. FullCalendar sends ISO strings.
+        # Since these are all-day events, we just need the date part usually, 
+        # but the model field is DateTimeField.
+        # FullCalendar might send 'YYYY-MM-DD' or 'YYYY-MM-DDT...'
+        # We'll use dateutil or just basic parsing if it's simple.
+        # Given it's allDay, it likely sends 'YYYY-MM-DD'.
+        # Let's be robust.
+        try:
+            # If it's just a date string YYYY-MM-DD
+            new_date = datetime.fromisoformat(new_start)
+        except ValueError:
+            # Handle cases where it might be just a date string if fromisoformat fails on older python or specific formats
+            # But fromisoformat is quite good in recent python.
+            # Fallback for simple date string if needed, or just assume it works for now.
+             new_date = datetime.strptime(new_start, '%Y-%m-%d')
+
+        # Update the event
+        # We keep the time if we want, or reset it. 
+        # Since the requirement says "allDay: True", the time is less relevant, 
+        # but we should probably preserve the original time or set to default.
+        # However, the user drags to a DATE. 
+        # Let's just update the date part of the datetime, keeping time as is or 00:00.
+        # The model has default=timezone.now.
+        
+        # Construct new datetime with same time as before, or just 00:00?
+        # Let's go with 00:00 for all-day events to be clean, or preserve existing time.
+        # Let's preserve existing time to be safe, but change the date.
+        current_time = event.event_date.time()
+        new_datetime = datetime.combine(new_date.date(), current_time)
+        
+        # Make it aware if needed
+        if timezone.is_naive(new_datetime):
+            new_datetime = timezone.make_aware(new_datetime)
+            
+        event.event_date = new_datetime
+        event.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Event date updated.'})
+
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     existing_availabilities = CoachAvailability.objects.filter(
         coach=request.user,
         session__generated_from_rule__in=scheduled_classes_qs,
