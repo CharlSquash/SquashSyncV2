@@ -579,6 +579,7 @@ def session_calendar(request):
             'title': event.name,
             'start': event.event_date.isoformat(),
             'allDay': True,
+            'id': event.id, # Added ID
             'color': '#17a2b8', # Info Teal
             'editable': request.user.is_superuser, # Only superusers can move events
             'extendedProps': {
@@ -875,6 +876,33 @@ def update_event_date(request):
         event.save()
 
         return JsonResponse({'status': 'success', 'message': 'Event date updated.'})
+
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+@login_required
+def delete_event(request):
+    """
+    AJAX view to delete an Event.
+    Only accessible by superusers.
+    """
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("You do not have permission to delete events.")
+
+    try:
+        data = json.loads(request.body)
+        event_id = data.get('event_id')
+
+        if not event_id:
+            return JsonResponse({'status': 'error', 'message': 'Missing event_id.'}, status=400)
+
+        event = get_object_or_404(Event, pk=event_id)
+        event.delete()
+
+        return JsonResponse({'status': 'success', 'message': 'Event deleted successfully.'})
 
     except json.JSONDecodeError:
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON.'}, status=400)

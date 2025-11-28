@@ -186,6 +186,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            // Handle Special Event Clicks (Modal)
+            if (props.type === 'event') {
+                document.getElementById('eventModalTitle').textContent = event.title;
+                document.getElementById('eventModalDate').textContent = new Date(event.startStr).toLocaleDateString();
+                document.getElementById('eventModalType').textContent = props.event_type;
+                document.getElementById('eventModalDescription').textContent = props.description || 'No description';
+                
+                const deleteBtn = document.getElementById('deleteEventBtn');
+                if (deleteBtn) {
+                    deleteBtn.setAttribute('data-event-id', event.id);
+                }
+                
+                document.getElementById('eventDetailModal').style.display = 'block';
+                return;
+            }
+
             // Handle Session Clicks (Modal)
             document.getElementById('modalTitle').textContent = `${props.school_group_name} Session`;
             document.getElementById('modalDate').textContent = new Date(event.startStr).toLocaleDateString();
@@ -289,11 +305,73 @@ document.addEventListener('DOMContentLoaded', function() {
     // Modal closing logic
     const modal = document.getElementById('sessionDetailModal');
     modal.querySelector('.close-button').onclick = () => modal.style.display = "none";
+    
+    const eventModal = document.getElementById('eventDetailModal');
+    eventModal.querySelector('.close-button').onclick = () => eventModal.style.display = "none";
+
     window.onclick = (event) => {
         if (event.target == modal) {
             modal.style.display = "none";
         }
+        if (event.target == eventModal) {
+            eventModal.style.display = "none";
+        }
     };
+    
+    // Delete Event Logic
+    document.getElementById('deleteEventBtn').addEventListener('click', function() {
+        const eventId = this.getAttribute('data-event-id');
+        if (!eventId) return;
+        
+        if (!confirm("Are you sure you want to delete this event? This cannot be undone.")) {
+            return;
+        }
+        
+        fetch("{% url 'scheduling:delete_event' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ event_id: eventId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const event = calendar.getEventById(eventId);
+                if (event) event.remove();
+                eventModal.style.display = "none";
+                // alert("Event deleted successfully.");
+            } else {
+                alert("Failed to delete event: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the event.');
+        });
+    });
 });
 </script>
+{% endblock %}
+
+{% block extra_body %}
+<div id="eventDetailModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <div class="modal-header">
+            <h2 id="eventModalTitle"></h2>
+        </div>
+        <div class="modal-body">
+            <p><strong>Date:</strong> <span id="eventModalDate"></span></p>
+            <p><strong>Type:</strong> <span id="eventModalType"></span></p>
+            <p><strong>Description:</strong> <span id="eventModalDescription"></span></p>
+        </div>
+        <div class="modal-actions">
+            {% if request.user.is_superuser %}
+                <button id="deleteEventBtn" class="btn btn-sm btn-danger">Delete Event</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}
