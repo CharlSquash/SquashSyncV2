@@ -112,6 +112,24 @@
         </div>
     </div>
 </div>
+<div id="eventDetailModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <div class="modal-header">
+            <h2 id="eventModalTitle"></h2>
+        </div>
+        <div class="modal-body">
+            <p><strong>Date:</strong> <span id="eventModalDate"></span></p>
+            <p><strong>Type:</strong> <span id="eventModalType"></span></p>
+            <p><strong>Description:</strong> <span id="eventModalDescription"></span></p>
+        </div>
+        <div class="modal-actions">
+            {% if request.user.is_superuser %}
+                <button id="deleteEventBtn" class="btn btn-sm btn-danger">Delete Event</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -355,23 +373,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endblock %}
 
-{% block extra_body %}
-<div id="eventDetailModal" class="modal">
-    <div class="modal-content">
-        <span class="close-button">&times;</span>
-        <div class="modal-header">
-            <h2 id="eventModalTitle"></h2>
-        </div>
-        <div class="modal-body">
-            <p><strong>Date:</strong> <span id="eventModalDate"></span></p>
-            <p><strong>Type:</strong> <span id="eventModalType"></span></p>
-            <p><strong>Description:</strong> <span id="eventModalDescription"></span></p>
-        </div>
-        <div class="modal-actions">
-            {% if request.user.is_superuser %}
-                <button id="deleteEventBtn" class="btn btn-sm btn-danger">Delete Event</button>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endblock %}
+
