@@ -49,7 +49,19 @@ class CustomAddEditTaskForm(AddEditTaskForm):
 
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
+        
+        # Start with base query: Coaches or Superusers
+        query = Q(groups__name='Coaches') | Q(is_superuser=True)
+        
+        # Check if we have a specific task list context
+        initial_data = kwargs.get('initial', {})
+        task_list = initial_data.get('task_list')
+        
+        if task_list and hasattr(task_list, 'group') and task_list.group:
+            # Add the list's specific group to the allowed query
+            query |= Q(groups=task_list.group)
+            
         self.fields['assigned_to'].queryset = User.objects.filter(
-            Q(groups__name='Coaches') | Q(is_superuser=True), 
+            query, 
             is_active=True
         ).distinct()
