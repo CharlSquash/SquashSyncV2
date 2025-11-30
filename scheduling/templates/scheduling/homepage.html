@@ -298,9 +298,7 @@
                                     </p>
                                     {% endif %}
                                     <div class="assessment-review-meta">
-                                        by {{
-                                        assessment.submitted_by.get_full_name|default:assessment.submitted_by.username
-                                        }} on {{ assessment.date_recorded|date:"d M Y" }}
+                                        by {{assessment.submitted_by.get_full_name|default:assessment.submitted_by.username}} on {{ assessment.date_recorded|date:"d M Y" }}
                                     </div>
                                 </div>
                                 <button class="btn btn-sm btn-outline-success ms-2 acknowledge-assessment-btn"
