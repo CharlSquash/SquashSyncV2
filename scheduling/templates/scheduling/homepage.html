@@ -291,8 +291,7 @@
                             <div class="assessment-review-item">
                                 <div class="assessment-review-content">
                                     <div class="assessment-review-group">
-                                        <a href="{% url 'players:player_profile' assessment.player.id %}">{{
-                                            assessment.player.full_name }}</a>
+                                        <a href="{% url 'players:player_profile' assessment.player.id %}">{{assessment.player.full_name }}</a>
                                     </div>
                                     {% if assessment.coach_notes %}
                                     <p class="assessment-review-notes">{{ assessment.coach_notes|linebreaksbr }}
