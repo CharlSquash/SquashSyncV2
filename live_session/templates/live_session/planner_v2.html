@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SquashSync Planner - Mobile Ready</title>
+    
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Configure Import Map for React & Lucide -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0"
+      }
+    }
+    </script>
+
+    <!-- 3. Load Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Custom scrollbar to match the design */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 3px;
+        }
+        /* Mobile optimizations */
+        body {
+            overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile app feel */
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 4. Your Application Code -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            Play, Pause, SkipForward, SkipBack, Users, Youtube, Plus, Trash2, 
+            Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, RefreshCw, 
+            Search, Grid, Copy, Check, List, Library 
+        } from 'lucide-react';
+
+        /**
+         * Mock Data 
+         */
+        const SERVER_PLAYERS = {{ players_json|safe }}.map(p => ({
+            ...p,
+            name: `${p.first_name} ${p.last_name}`
+        }));
+        const SERVER_DRILLS = {{ drills_json|safe }};
+
+        {% verbatim %}
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        };
+
+        const CircularTimer = ({ duration, currentTime, isRest, size = "large" }) => {
+            const radius = size === "large" ? 120 : 60;
+            const stroke = size === "large" ? 12 : 6;
+            const normalizedRadius = radius - stroke * 2;
+            const circumference = normalizedRadius * 2 * Math.PI;
+            const strokeDashoffset = circumference - (currentTime / duration) * circumference;
+            const fontSize = size === "large" ? "text-6xl" : "text-2xl";
+            const subTextSize = size === "large" ? "text-sm" : "text-[10px]";
+
+            return (
+                <div className="relative flex items-center justify-center">
+                <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
+                    <circle stroke={isRest ? "#f59e0b" : "#334155"} strokeWidth={stroke} fill="transparent" r={normalizedRadius} cx={radius} cy={radius} />
+                    <circle stroke={isRest ? "#fbbf24" : "#10b981"} strokeWidth={stroke} strokeDasharray={circumference + ' ' + circumference} style={{ strokeDashoffset, transition: "stroke-dashoffset 0.5s linear" }} strokeLinecap="round" fill="transparent" r={normalizedRadius} cx={radius} cy={radius} />
+                </svg>
+                <div className="absolute flex flex-col items-center justify-center text-slate-100">
+                    <span className={`${fontSize} font-bold font-mono tracking-tighter`}>{formatTime(currentTime)}</span>
+                    <span className={`${subTextSize} font-semibold uppercase tracking-widest mt-1 ${isRest ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {isRest ? 'Rest' : 'Active'}
+                    </span>
+                </div>
+                </div>
+            );
+        };
+
+        function SquashSyncPlanner() {
+            // App State
+            const [view, setView] = useState('planning');
+            
+            // Mobile UI State
+            const [activeMobileTab, setActiveMobileTab] = useState('plan'); // 'players' | 'plan' | 'drills'
+            
+            // Data State
+            const [availablePlayers] = useState(SERVER_PLAYERS);
+            const [numCourts, setNumCourts] = useState(3);
+            const [groups, setGroups] = useState([]);
+            
+            // Revised Lesson Plan Structure
+            const [courtPlans, setCourtPlans] = useState([[], [], []]); 
+            const [planningTab, setPlanningTab] = useState('all');
+            
+            // Live Player State
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [liveCourtView, setLiveCourtView] = useState('all'); 
+            const [courtStates, setCourtStates] = useState([]);
+            const timerRef = useRef(null);
+
+            useEffect(() => {
+                setCourtPlans(prev => Array.from({ length: numCourts }, (_, i) => prev[i] || []));
+                setCourtStates(prev => Array.from({ length: numCourts }, (_, i) => prev[i] || { currentBlockIndex: 0, timeLeft: 0 }));
+                setGroups([]);
+            }, [numCourts]);
+
+            const autoGroupPlayers = () => {
+                const shuffled = [...availablePlayers].sort(() => 0.5 - Math.random());
+                const newGroups = Array.from({ length: numCourts }, () => []);
+                shuffled.forEach((player, index) => {
+                    const groupIndex = index % numCourts;
+                    newGroups[groupIndex].push(player);
+                });
+                setGroups(newGroups);
+            };
+
+            const getTargetCourts = () => planningTab === 'all' ? Array.from({ length: numCourts }, (_, i) => i) : [planningTab];
+
+            const addDrillToPlan = (drill) => {
+                const targets = getTargetCourts();
+                const newPlans = [...courtPlans];
+                targets.forEach(courtIdx => {
+                    newPlans[courtIdx] = [...newPlans[courtIdx], { 
+                        ...drill, 
+                        uid: Math.random().toString(36).substr(2, 9),
+                        customName: drill.name,
+                        duration: drill.defaultDuration,
+                        isRest: false
+                    }];
+                });
+                setCourtPlans(newPlans);
+                // On mobile, switch back to plan view after adding to see the result
+                if (window.innerWidth < 768) {
+                    setActiveMobileTab('plan');
+                }
+            };
+
+            const addRestPeriod = () => {
+                const targets = getTargetCourts();
+                const newPlans = [...courtPlans];
+                targets.forEach(courtIdx => {
+                    newPlans[courtIdx] = [...newPlans[courtIdx], {
+                        uid: Math.random().toString(36).substr(2, 9),
+                        name: "Water Break / Rotation",
+                        customName: "Water Break",
+                        type: "Rest",
+                        duration: 60,
+                        isRest: true,
+                        videoId: null
+                    }];
+                });
+                setCourtPlans(newPlans);
+            };
+
+            const removeBlock = (courtIndex, blockUid) => {
+                const newPlans = [...courtPlans];
+                if (planningTab === 'all') {
+                    const refIndex = courtPlans[0].findIndex(b => b.uid === blockUid);
+                    if (refIndex !== -1) {
+                        newPlans.forEach((plan, cIdx) => {
+                            if (plan[refIndex]) newPlans[cIdx] = plan.filter((_, i) => i !== refIndex);
+                        });
+                    }
+                } else {
+                    newPlans[courtIndex] = newPlans[courtIndex].filter(item => item.uid !== blockUid);
+                }
+                setCourtPlans(newPlans);
+            };
+
+            const updateDuration = (courtIndex, blockUid, newDuration) => {
+                const newPlans = [...courtPlans];
+                const duration = parseInt(newDuration) || 0;
+                if (planningTab === 'all') {
+                    const refIndex = courtPlans[0].findIndex(b => b.uid === blockUid);
+                    if (refIndex !== -1) {
+                        newPlans.forEach((plan, cIdx) => {
+                            if (plan[refIndex]) {
+                                const updated = [...plan];
+                                updated[refIndex] = { ...updated[refIndex], duration };
+                                newPlans[cIdx] = updated;
+                            }
+                        });
+                    }
+                } else {
+                    newPlans[courtIndex] = newPlans[courtIndex].map(item => item.uid === blockUid ? { ...item, duration } : item);
+                }
+                setCourtPlans(newPlans);
+            };
+
+            const loadTemplate = () => {
+                const template = [
+                    { ...SERVER_DRILLS[0], uid: 't1', customName: "Warmup: Boast & Drive", duration: 120, isRest: false },
+                    { uid: 'r1', name: "Rotate", customName: "Quick Rotate", type: "Rest", duration: 30, isRest: true, videoId: null },
+                    { ...SERVER_DRILLS[2], uid: 't2', customName: "Volley Kill Progression", duration: 180, isRest: false },
+                ];
+                const targets = getTargetCourts();
+                const newPlans = [...courtPlans];
+                targets.forEach(courtIdx => {
+                    const specificTemplate = template.map(t => ({ ...t, uid: Math.random().toString(36).substr(2, 9) }));
+                    newPlans[courtIdx] = specificTemplate;
+                });
+                setCourtPlans(newPlans);
+            };
+
+            const startSession = () => {
+                const initialStates = courtPlans.map(plan => ({
+                    currentBlockIndex: 0,
+                    timeLeft: plan.length > 0 ? plan[0].duration : 0,
+                    isFinished: plan.length === 0
+                }));
+                setCourtStates(initialStates);
+                setLiveCourtView('all');
+                setView('live');
+                setIsPlaying(false);
+            };
+
+            const togglePlay = () => setIsPlaying(!isPlaying);
+
+            const skipAll = (direction) => {
+                setCourtStates(prevStates => prevStates.map((state, idx) => {
+                    const plan = courtPlans[idx];
+                    let newIndex = state.currentBlockIndex + direction;
+                    if (newIndex < 0) newIndex = 0;
+                    if (newIndex >= plan.length) return { ...state, isFinished: true, timeLeft: 0 };
+                    return { ...state, currentBlockIndex: newIndex, timeLeft: plan[newIndex].duration, isFinished: false };
+                }));
+                setIsPlaying(false);
+            };
+
+            useEffect(() => {
+                if (isPlaying) {
+                    timerRef.current = setInterval(() => {
+                        setCourtStates(prevStates => prevStates.map((state, idx) => {
+                            if (state.isFinished || state.timeLeft <= 0) {
+                                const plan = courtPlans[idx];
+                                if (state.timeLeft <= 0 && !state.isFinished) {
+                                    const nextIndex = state.currentBlockIndex + 1;
+                                    if (nextIndex < plan.length) return { ...state, currentBlockIndex: nextIndex, timeLeft: plan[nextIndex].duration };
+                                    else return { ...state, isFinished: true, timeLeft: 0 };
+                                }
+                                return state;
+                            }
+                            return { ...state, timeLeft: state.timeLeft - 1 };
+                        }));
+                    }, 1000);
+                }
+                return () => clearInterval(timerRef.current);
+            }, [isPlaying, courtPlans]);
+
+            const planToRender = planningTab === 'all' ? courtPlans[0] : courtPlans[planningTab];
+            const activeCourtColor = planningTab === 'all' ? 'border-emerald-500' : 'border-blue-500';
+
+            // --- LIVE VIEW REMAINS LARGELY UNTOUCHED BUT RESPONSIVE ---
+            if (view === 'live') {
+                const isMasterView = liveCourtView === 'all';
+                const focusedCourtIdx = isMasterView ? 0 : liveCourtView;
+                const focusedState = courtStates[focusedCourtIdx];
+                const focusedPlan = courtPlans[focusedCourtIdx];
+                const currentBlock = focusedPlan?.[focusedState.currentBlockIndex];
+                const totalBlocks = courtPlans.reduce((acc, p) => acc + p.length, 0);
+                const completedBlocks = courtStates.reduce((acc, s) => acc + s.currentBlockIndex, 0);
+                const progressPercent = totalBlocks > 0 ? (completedBlocks / totalBlocks) * 100 : 0;
+
+                return (
+                    <div className="flex flex-col h-screen bg-slate-900 text-white font-sans overflow-hidden">
+                        <div className="h-16 bg-slate-800 flex items-center justify-between px-4 md:px-6 border-b border-slate-700">
+                            <div className="flex items-center space-x-2 md:space-x-4">
+                                <button onClick={() => setView('planning')} className="p-2 hover:bg-slate-700 rounded-full transition"><ArrowRight className="w-5 h-5 transform rotate-180 text-slate-400" /></button>
+                                <h1 className="text-lg md:text-xl font-bold tracking-tight text-slate-100">SquashSync <span className="text-emerald-500">Live</span></h1>
+                                <div className="hidden md:flex ml-8 bg-slate-900 rounded-lg p-1 border border-slate-700">
+                                    <button onClick={() => setLiveCourtView('all')} className={`px-3 py-1 text-xs font-bold rounded-md transition ${isMasterView ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>MASTER</button>
+                                    {Array.from({ length: numCourts }).map((_, idx) => (
+                                        <button key={idx} onClick={() => setLiveCourtView(idx)} className={`px-3 py-1 text-xs font-bold rounded-md transition ${liveCourtView === idx ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>C{idx + 1}</button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2 md:space-x-4">
+                                <div className="hidden md:block h-2 w-32 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${progressPercent}%` }}></div></div>
+                                <button onClick={togglePlay} className={`p-2 rounded-full ${isPlaying ? 'bg-amber-500' : 'bg-emerald-500'}`}>{isPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white" />}</button>
+                            </div>
+                        </div>
+
+                        {/* Mobile View Selector for Live Mode */}
+                        <div className="md:hidden flex overflow-x-auto p-2 bg-slate-800 border-b border-slate-700 space-x-2">
+                             <button onClick={() => setLiveCourtView('all')} className={`whitespace-nowrap px-3 py-1 text-xs font-bold rounded-md transition ${isMasterView ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 bg-slate-900'}`}>MASTER</button>
+                             {Array.from({ length: numCourts }).map((_, idx) => (
+                                <button key={idx} onClick={() => setLiveCourtView(idx)} className={`whitespace-nowrap px-3 py-1 text-xs font-bold rounded-md transition ${liveCourtView === idx ? 'bg-blue-600 text-white shadow' : 'text-slate-400 bg-slate-900'}`}>C{idx + 1}</button>
+                            ))}
+                        </div>
+
+                        {isMasterView && (
+                            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                    {courtPlans.map((plan, idx) => {
+                                        const state = courtStates[idx];
+                                        const block = plan[state.currentBlockIndex];
+                                        const finished = state.isFinished;
+                                        return (
+                                            <div key={idx} className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col shadow-lg min-h-[250px]">
+                                                <div className="bg-slate-750 p-3 border-b border-slate-700 flex justify-between items-center">
+                                                    <h3 className="font-bold text-slate-200">Court {idx + 1}</h3>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        {groups[idx]?.map(p => <span key={p.id} className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300">{p.name.split(' ')[0]}</span>)}
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 flex flex-col items-center justify-center flex-1">
+                                                    {finished ? (
+                                                        <div className="text-center"><Check className="w-12 h-12 text-emerald-500 mx-auto mb-2" /><span className="text-slate-400 font-bold">Session Complete</span></div>
+                                                    ) : block ? (
+                                                        <>
+                                                            <CircularTimer duration={block.duration} currentTime={state.timeLeft} isRest={block.isRest} size="small" />
+                                                            <div className="mt-4 text-center"><h4 className="text-lg md:text-xl font-bold text-white leading-tight mb-1">{block.customName}</h4><p className="text-xs text-slate-400 uppercase tracking-wider">{block.type}</p></div>
+                                                        </>
+                                                    ) : <span className="text-slate-500">No Plan</span>}
+                                                </div>
+                                                <div className="bg-slate-900/50 p-3 text-xs text-slate-500 flex justify-between items-center border-t border-slate-700"><span>Next:</span><span className="text-slate-300 font-medium truncate ml-2 max-w-[120px]">{plan[state.currentBlockIndex + 1]?.customName || "Finish"}</span></div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {!isMasterView && currentBlock && (
+                            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                                <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 border-b md:border-b-0 md:border-r border-slate-800 bg-gradient-to-br from-slate-900 to-slate-800 relative">
+                                    <div className="absolute top-4 left-4 flex items-center gap-3">
+                                        <div className="bg-blue-600 text-white font-bold text-lg md:text-xl px-3 py-1 md:px-4 md:py-2 rounded-lg shadow-lg">C{parseInt(liveCourtView) + 1}</div>
+                                        <div className="flex flex-col hidden md:flex"><span className="text-xs text-slate-400 uppercase font-bold">Players</span><span className="text-sm text-slate-200">{groups[liveCourtView]?.map(p => p.name).join(', ')}</span></div>
+                                    </div>
+                                    <div className="mb-6 md:mb-8 text-center z-10 mt-12 md:mt-0">
+                                        <span className={`inline-block px-3 py-1 rounded-full text-xs md:text-sm font-bold mb-4 ${currentBlock.isRest ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{currentBlock.isRest ? 'REST PERIOD' : 'DRILL IN PROGRESS'}</span>
+                                        <h2 className="text-4xl md:text-7xl font-black text-white leading-tight max-w-2xl mx-auto">{currentBlock.customName}</h2>
+                                    </div>
+                                    <CircularTimer duration={currentBlock.duration} currentTime={focusedState.timeLeft} isRest={currentBlock.isRest} />
+                                    <div className="mt-8 flex gap-4">
+                                        <button onClick={() => skipAll(-1)} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400"><SkipBack /></button>
+                                        <button onClick={() => skipAll(1)} className="p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400"><SkipForward /></button>
+                                    </div>
+                                </div>
+                                <div className="h-1/3 md:h-auto md:w-1/3 bg-slate-900 p-4 md:p-6 flex flex-col border-l border-slate-800 overflow-y-auto">
+                                    <div className="hidden md:block aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-slate-700 relative mb-6">
+                                        {currentBlock.videoId ? <div className="w-full h-full flex items-center justify-center bg-slate-800"><Youtube className="w-16 h-16 text-red-600 opacity-80" /></div> : <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500"><Activity className="w-12 h-12 opacity-50" /></div>}
+                                    </div>
+                                    <h3 className="text-slate-500 font-bold uppercase text-xs tracking-wider mb-4 sticky top-0 bg-slate-900 py-2">Current Session Plan</h3>
+                                    <div className="space-y-2">
+                                        {focusedPlan.map((block, idx) => {
+                                            const isActive = idx === focusedState.currentBlockIndex;
+                                            const isPast = idx < focusedState.currentBlockIndex;
+                                            return (
+                                                <div key={idx} className={`p-3 rounded-lg border transition-all ${isActive ? 'bg-slate-800 border-emerald-500 shadow-md' : isPast ? 'bg-slate-900 border-slate-800 opacity-40' : 'bg-slate-900 border-slate-700'}`}>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className={`font-bold text-sm md:text-base ${isActive ? 'text-white' : 'text-slate-400'}`}>{block.customName}</span>
+                                                        <span className="text-xs font-mono text-slate-500">{formatTime(block.duration)}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            // --- PLANNING MODE (MOBILE OPTIMIZED) ---
+            return (
+                <div className="h-screen bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden">
+                    <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm z-20 shrink-0">
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <div className="bg-emerald-600 p-1.5 md:p-2 rounded-lg"><Activity className="w-5 h-5 md:w-6 md:h-6 text-white" /></div>
+                            <div><h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight">SquashSync</h1><p className="hidden md:block text-xs text-slate-500">Coach Dashboard</p></div>
+                        </div>
+                        <div className="flex items-center gap-3 md:gap-6">
+                            <div className="flex items-center gap-2 bg-slate-50 px-2 py-1.5 md:px-3 rounded-lg border border-slate-200">
+                                <Grid className="w-4 h-4 text-slate-400" />
+                                <span className="hidden md:inline text-sm text-slate-600 font-medium">Courts:</span>
+                                <select value={numCourts} onChange={(e) => setNumCourts(parseInt(e.target.value))} className="bg-transparent text-sm font-bold text-slate-800 focus:outline-none cursor-pointer">{[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
+                            </div>
+                            <button onClick={startSession} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 md:px-5 md:py-2.5 rounded-lg font-medium transition shadow-sm hover:shadow-md text-sm md:text-base"><MonitorPlay className="w-4 h-4" /><span className="hidden md:inline">Start Live Session</span><span className="md:hidden">Start</span></button>
+                        </div>
+                    </header>
+                    
+                    <main className="flex-1 flex overflow-hidden relative">
+                        {/* LEFT: Players & Groups */}
+                        <aside className={`absolute inset-0 bg-white z-10 md:static md:w-80 border-r border-slate-200 flex flex-col overflow-y-auto transition-transform duration-300 ${activeMobileTab === 'players' ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+                            <div className="p-4 md:p-5 border-b border-slate-100">
+                                <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-slate-700 flex items-center gap-2"><Users className="w-4 h-4" /> Players</h2><span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-600">{availablePlayers.length} Active</span></div>
+                                <button onClick={autoGroupPlayers} className="w-full mb-4 flex items-center justify-center gap-2 text-sm bg-indigo-50 text-indigo-700 py-2 rounded-md hover:bg-indigo-100 transition border border-indigo-200"><RefreshCw className="w-3 h-3" /> Auto-Assign to {numCourts} Courts</button>
+                                {groups.length > 0 ? (
+                                    <div className="space-y-3">{groups.map((group, idx) => (
+                                        <div key={idx} className="bg-slate-50 p-3 rounded-md border border-slate-200">
+                                            <div className="flex justify-between items-center mb-2"><div className="text-xs font-bold text-slate-400 uppercase">Court {idx + 1}</div><div className="text-xs text-slate-400">{group.length} players</div></div>
+                                            <div className="flex flex-wrap gap-2">{group.map(p => <span key={p.id} className="text-sm font-medium text-slate-700 bg-white px-2 py-1 rounded shadow-sm border border-slate-100">{p.name}</span>)}</div>
+                                        </div>
+                                    ))}</div>
+                                ) : <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-200"><p className="text-sm text-slate-500">No Groups Assigned</p></div>}
+                            </div>
+                        </aside>
+                        
+                        {/* CENTER: Plan Timeline */}
+                        <div className={`flex-1 bg-slate-50/50 flex flex-col overflow-hidden w-full ${activeMobileTab === 'plan' ? 'flex' : 'hidden md:flex'}`}>
+                            <div className="bg-white px-4 md:px-6 pt-4 border-b border-slate-200 flex gap-2 overflow-x-auto shrink-0 no-scrollbar">
+                                <button onClick={() => setPlanningTab('all')} className={`whitespace-nowrap px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === 'all' ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>All Courts</button>
+                                {Array.from({ length: numCourts }).map((_, idx) => <button key={idx} onClick={() => setPlanningTab(idx)} className={`whitespace-nowrap px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === idx ? 'border-blue-500 text-blue-700 bg-blue-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Court {idx + 1}</button>)}
+                            </div>
+                            
+                            <div className="p-4 md:p-6 pb-2 shrink-0">
+                                <div className="flex flex-col md:flex-row justify-between md:items-end mb-4 md:mb-6 gap-3 md:gap-0">
+                                    <div>
+                                        <h2 className="text-xl md:text-2xl font-bold text-slate-800">{planningTab === 'all' ? "Master Session Plan" : `Court ${planningTab + 1} Plan`}</h2>
+                                        <p className="text-slate-500 text-xs md:text-sm mt-1 flex items-center gap-2">{planningTab === 'all' ? <><Copy className="w-3 h-3" /> Changes here apply to ALL courts.</> : "Customize drills specifically for this court."}</p>
+                                    </div>
+                                    <div className="flex gap-2 self-start md:self-auto">
+                                        <button onClick={loadTemplate} className="text-xs md:text-sm text-slate-600 hover:text-slate-900 px-3 py-2 bg-white border border-slate-300 rounded shadow-sm">Load Template</button>
+                                        <button onClick={addRestPeriod} className="text-xs md:text-sm text-amber-700 hover:text-amber-800 px-3 py-2 bg-amber-50 border border-amber-200 rounded shadow-sm flex items-center gap-2"><Clock className="w-4 h-4" /> Add Rest</button>
+                                    </div>
+                                </div>
+                                <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider"><div className="col-span-1">Seq</div><div className="col-span-5">Drill Name</div><div className="col-span-2">Duration (Sec)</div><div className="col-span-2">Type</div><div className="col-span-2 text-right">Actions</div></div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-20 md:pb-6 custom-scrollbar">
+                                {!planToRender || planToRender.length === 0 ? (
+                                    <div className="h-48 md:h-64 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 bg-slate-100/50"><Layout className="w-10 h-10 md:w-12 md:h-12 mb-3 opacity-50" /><p className="text-center px-4">No drills planned for {planningTab === 'all' ? 'all courts' : `Court ${planningTab + 1}`}.</p><p className="text-sm hidden md:block">Select drills from the right to add.</p><button onClick={() => setActiveMobileTab('drills')} className="md:hidden mt-4 text-emerald-600 font-bold text-sm bg-white px-4 py-2 rounded border border-emerald-200 shadow-sm">Add Drills</button></div>
+                                ) : (
+                                    <div className="space-y-3 md:space-y-2">
+                                        {planToRender.map((block, index) => (
+                                            <div key={block.uid} className={`bg-white rounded-lg shadow-sm border p-3 md:grid md:grid-cols-12 md:gap-4 md:items-center md:p-4 transition-all ${block.isRest ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-200'} ${activeCourtColor}`}>
+                                                {/* Mobile Layout: Flex Column */}
+                                                <div className="flex items-center justify-between mb-2 md:mb-0 md:col-span-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">{index + 1}</span>
+                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium md:hidden ${block.isRest ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{block.type}</span>
+                                                    </div>
+                                                    <button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="md:hidden p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
+
+                                                <div className="md:col-span-5 mb-2 md:mb-0">
+                                                    <input type="text" value={block.customName} onChange={(e) => { if (planningTab !== 'all') { const newPlans = [...courtPlans]; newPlans[planningTab][index].customName = e.target.value; setCourtPlans(newPlans); } }} disabled={planningTab === 'all'} className="w-full bg-transparent font-medium text-slate-700 text-sm md:text-base focus:outline-none focus:underline disabled:text-slate-500" />
+                                                </div>
+
+                                                <div className="flex items-center justify-between md:col-span-2 md:justify-start">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-3 h-3 text-slate-400 md:hidden" />
+                                                        <input type="number" value={block.duration} onChange={(e) => updateDuration(planningTab === 'all' ? 0 : planningTab, block.uid, e.target.value)} className="w-16 p-1 text-sm border border-slate-300 rounded text-center focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                                        <span className="text-xs text-slate-400">sec</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="hidden md:block md:col-span-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${block.isRest ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{block.type}</span></div>
+                                                
+                                                <div className="hidden md:block md:col-span-2 text-right"><button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"><Trash2 className="w-4 h-4" /></button></div>
+                                            </div>
+                                        ))}
+                                        <div className="mt-4 p-4 text-right text-sm font-medium text-slate-500">Total: <span className="text-slate-900 font-bold">{formatTime(planToRender.reduce((acc, curr) => acc + curr.duration, 0))}</span></div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* RIGHT: Drill Library */}
+                        <aside className={`absolute inset-0 bg-white z-10 md:static md:w-72 border-l border-slate-200 flex flex-col transition-transform duration-300 ${activeMobileTab === 'drills' ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+                            <div className="p-4 border-b border-slate-100">
+                                <h3 className="font-bold text-slate-700 mb-2">Drill Library</h3>
+                                <div className="relative"><Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" /><input type="text" placeholder="Search drills..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-emerald-500" /></div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                                {SERVER_DRILLS.map(drill => (
+                                    <div key={drill.id} className="group p-3 rounded-md border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition cursor-pointer bg-white shadow-sm relative" onClick={() => addDrillToPlan(drill)}>
+                                        <div className="flex justify-between items-start"><h4 className="font-medium text-sm text-slate-800">{drill.name}</h4>
+                                        <button className="md:opacity-0 md:group-hover:opacity-100 p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition" title={planningTab === 'all' ? "Add to ALL courts" : `Add to Court ${planningTab + 1}`}><Plus className="w-3 h-3" /></button></div>
+                                        <div className="flex items-center gap-2 mt-2"><span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{drill.type}</span><span className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(drill.defaultDuration)}</span></div>
+                                    </div>
+                                ))}
+                                <div className="p-4 border-t border-slate-100 mt-4"><button className="w-full py-2 border-2 border-dashed border-slate-300 text-slate-500 rounded-md text-sm hover:border-emerald-400 hover:text-emerald-600 transition flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> Create Custom Drill</button></div>
+                            </div>
+                        </aside>
+
+                        {/* MOBILE BOTTOM NAV */}
+                        <div className="md:hidden bg-white border-t border-slate-200 flex justify-around p-2 pb-safe z-30">
+                            <button onClick={() => setActiveMobileTab('players')} className={`flex flex-col items-center p-2 rounded-lg transition ${activeMobileTab === 'players' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>
+                                <Users className="w-6 h-6" />
+                                <span className="text-[10px] font-bold mt-1">Players</span>
+                            </button>
+                            <button onClick={() => setActiveMobileTab('plan')} className={`flex flex-col items-center p-2 rounded-lg transition ${activeMobileTab === 'plan' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>
+                                <List className="w-6 h-6" />
+                                <span className="text-[10px] font-bold mt-1">Plan</span>
+                            </button>
+                            <button onClick={() => setActiveMobileTab('drills')} className={`flex flex-col items-center p-2 rounded-lg transition ${activeMobileTab === 'drills' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>
+                                <Library className="w-6 h-6" />
+                                <span className="text-[10px] font-bold mt-1">Library</span>
+                            </button>
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        // 5. Mount the application
+        const root = createRoot(document.getElementById('root'));
+        root.render(<SquashSyncPlanner />);
+        {% endverbatim %}
+    </script>
+</body>
+</html>
