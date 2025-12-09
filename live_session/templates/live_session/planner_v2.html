@@ -75,29 +75,34 @@
         const getYouTubeId = (url) => {
             if (!url) return null;
             try {
-                // Handle partial URLs or IDs if necessary - though we expect full URLs from backend
+                // Handle partial URLs or IDs
                 if (!url.startsWith('http')) {
-                    // If it looks like an ID (11 chars), return it. Otherwise assume it's malformed or needs https
-                    if (url.length === 11) return url;
+                    if (url.length === 11) return url; // It's just the ID
                     url = `https://${url}`;
                 }
 
                 const urlObj = new URL(url);
-                const hostname = urlObj.hostname.replace('www.', '');
                 
-                if (hostname === 'youtu.be') {
+                // 1. Handle shortened URLs (youtu.be)
+                if (urlObj.hostname.includes('youtu.be')) {
                     return urlObj.pathname.slice(1);
                 }
                 
-                if (hostname === 'youtube.com' || hostname === 'youtube-nocookie.com') {
+                // 2. Handle all youtube.com domains (www, m, music, etc.)
+                if (urlObj.hostname.includes('youtube.com')) {
+                    // Check for standard 'v' parameter query (e.g. watch?v=ID)
                     if (urlObj.searchParams.has('v')) {
                         return urlObj.searchParams.get('v');
                     }
-                    if (urlObj.pathname.startsWith('/embed/')) {
-                        return urlObj.pathname.split('/')[2];
-                    }
-                    if (urlObj.pathname.startsWith('/v/')) {
-                        return urlObj.pathname.split('/')[2];
+                    
+                    // Check path-based formats
+                    // Splits path to handle: /shorts/ID, /live/ID, /embed/ID, /v/ID
+                    const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+                    if (pathSegments.length > 0) {
+                        // If path is like /shorts/ID, the first segment is the type, second is ID
+                        if (['shorts', 'live', 'embed', 'v'].includes(pathSegments[0])) {
+                            return pathSegments[1];
+                        }
                     }
                 }
             } catch (e) {
