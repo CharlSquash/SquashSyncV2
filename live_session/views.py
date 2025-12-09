@@ -229,11 +229,11 @@ def experimental_planner(request, session_id):
     else:
         players = Player.objects.filter(pk__in=attendee_pks).values('id', 'first_name', 'last_name')
 
-    drills = Drill.objects.all().values('id', 'name', 'category', 'difficulty', 'description', 'duration_minutes')
+    drills = Drill.objects.all().values('id', 'name', 'category', 'difficulty', 'description', 'duration_minutes', 'video_url')
     
     context = {
         'session_id': session.id,
-        'drills_json': json.dumps(list(drills)),
-        'players_json': json.dumps(list(players)),
+        'drills_json': list(drills),
+        'players_json': list(players),
     }
     return render(request, 'live_session/planner_v2.html', context)
