@@ -251,37 +251,6 @@ def homepage(request):
         # Fallback for non-staff users (render basic view with empty context)
         return render(request, 'scheduling/homepage.html', {'page_title': 'Dashboard'})
 
-def _get_default_plan(session):
-    # This function remains the same as the last version
-    duration = session.planned_duration_minutes
-    plan = {
-        "playerGroups": [
-            {"id": "groupA", "name": "Group A", "player_ids": []},
-            {"id": "groupB", "name": "Group B", "player_ids": []},
-            {"id": "groupC", "name": "Group C", "player_ids": []},
-        ], "timeline": []
-    }
-    all_group_ids = [g['id'] for g in plan['playerGroups']]
-    ts = int(time.time())
-    warmup_court = [{"id": f"court_warmup_{ts}", "name": "Court 1", "assignedGroupIds": all_group_ids, "activities": []}]
-    if duration >= 90:
-        phases = [
-            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": warmup_court},
-            {"id": f"phase_{ts}_2", "type": "Rotation", "name": "Rotation Drills", "duration": 45, "courts": [], "sub_blocks": []},
-            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Match Play", "duration": 20, "courts": []},
-            {"id": f"phase_{ts}_4", "type": "Fitness", "name": "Fitness", "duration": 15, "courts": []},
-        ]
-    elif duration >= 60:
-        phases = [
-            {"id": f"phase_{ts}_1", "type": "Warmup", "name": "Warmup", "duration": 10, "courts": warmup_court},
-            {"id": f"phase_{ts}_2", "type": "Rotation", "name": "Rotation Drills", "duration": 40, "courts": [], "sub_blocks": []},
-            {"id": f"phase_{ts}_3", "type": "Freeplay", "name": "Cooldown / Freeplay", "duration": 10, "courts": []},
-        ]
-    else:
-        phases = []
-    plan["timeline"] = phases
-    return plan
-
 @login_required
 @user_passes_test(is_staff)
 def session_detail(request, session_id):
@@ -290,32 +259,15 @@ def session_detail(request, session_id):
         pk=session_id
     )
 
-    # --- FETCH PREVIOUS SESSION GROUPS ---
-    previous_groups_data = SessionService.get_previous_session_groups(session)
-
-    # --- THIS IS THE NEW CORE LOGIC ---
-    all_players_for_display, players_for_grouping = SessionService.get_session_player_lists(session)
-    # The rest of the view remains the same...
-    drills_queryset = Drill.objects.prefetch_related('tags').all()
-    drills_data = []
-    for drill in drills_queryset:
-        drills_data.append({
-            'id': drill.id, 'name': drill.name, 'youtube_link': drill.youtube_link,
-            'tag_ids': list(drill.tags.values_list('id', flat=True))
-        })
-    all_tags_data = list(DrillTag.objects.all().values('id', 'name'))
-    plan_data = session.plan if isinstance(session.plan, dict) and 'timeline' in session.plan else _get_default_plan(session)
+    # We only need the display list for the attendance check
+    all_players_for_display, _ = SessionService.get_session_player_lists(session)
+    
     display_name = f"{session.school_group.name} Session" if session.school_group else f"Custom Session on {session.session_date.strftime('%Y-%m-%d')}"
 
     context = {
         'session': session,
         'coaches': session.coaches_attending.all(),
         'all_players_for_display': all_players_for_display, # For the top attendance list
-        'players_for_grouping': players_for_grouping, # For the JS planner
-        'drills': drills_data,
-        'all_tags': all_tags_data,
-        'plan': plan_data,
-        'previous_groups': previous_groups_data, # Pass the new data
         'page_title': f"Plan for {display_name}"
     }
 

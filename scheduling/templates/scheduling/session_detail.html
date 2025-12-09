@@ -13,68 +13,6 @@
     .planner-content { padding: 1.25rem; display: none; }
     .planner-section.is-open .planner-content { display: block; }
     .planner-section.is-open .arrow { transform: rotate(180deg); }
-
-    /* Player & Group Dragging Styles */
-    .player-list, .group-container { min-height: 100px; background-color: var(--bs-tertiary-bg); border-radius: 0.375rem; padding: 0.5rem; }
-    .player-card { background-color: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 0.375rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; cursor: grab; }
-    .player-card.dragging, .group-chip.dragging { opacity: 0.5; }
-    .group-container.drag-over, .player-list.drag-over, .court-container.drag-over { border: 2px dashed var(--bs-primary); background-color: var(--bs-primary-bg-subtle); }
-    
-    /* Timeline, Phase, and Activity Styles */
-    .group-chip-palette { border-bottom: 1px solid var(--bs-border-color); padding-bottom: 1rem; }
-    .group-chip { background-color: var(--bs-info-bg-subtle); border: 1px solid var(--bs-info-border-subtle); color: var(--bs-info-text-emphasis); padding: 0.375rem 0.75rem; border-radius: 2rem; font-weight: 500; cursor: grab; }
-    .group-chip.is-assigned { cursor: pointer; background-color: var(--bs-secondary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
-    .group-chip.is-assigned:hover { background-color: var(--bs-primary-bg-subtle); border-color: var(--bs-primary); }
-    
-    .phase-block { border-left: 5px solid var(--bs-secondary); }
-    .phase-block.type-warmup { border-left-color: var(--bs-orange); }
-    .phase-block.type-rotation { border-left-color: var(--bs-purple); }
-    .phase-block.type-freeplay { border-left-color: var(--bs-success); }
-    .phase-block.type-fitness { border-left-color: var(--bs-danger); }
-    .phase-block .planner-header h4 { display: flex; align-items: center; gap: 0.5rem; }
-    .phase-block .bi-grip-vertical { cursor: move; color: var(--bs-secondary-color); }
-
-    #add-phase-btn-container { padding: 0.5rem 0 0 1.25rem; }
-    .phase-option-btn { text-align: left; }
-
-    .courts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
-    .court-container { border: 1px solid var(--bs-border-color); background-color: var(--bs-tertiary-bg); border-radius: 0.5rem; padding: 0.75rem; min-height: 100px; display: flex; flex-direction: column; }
-    .court-name { font-weight: 600; color: var(--bs-secondary-color); }
-    .add-court-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 100px; border-style: dashed; }
-    
-    /* --- NEW ACTIVITY DISPLAY STYLES --- */
-    .court-activities-container {
-        border-top: 1px solid var(--bs-border-color-translucent);
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-    }
-    .court-activity-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.2rem 0.1rem;
-        font-size: 0.85em;
-    }
-
-    .youtube-preview-container {
-        position: relative;
-        overflow: hidden;
-        width: 100%;
-        padding-top: 56.25%; /* 16:9 Aspect Ratio */
-        margin-top: 1rem;
-        border-radius: 0.375rem;
-        background-color: #000;
-    }
-    .youtube-preview-container iframe {
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        right: 0;
-        width: 100%;
-        height: 100%;
-        border: none;
-    }
-
 </style>
 {% endblock %}
 
@@ -83,7 +21,7 @@
 <div id="session-planner-app" 
      class="container-fluid" 
      data-session-id="{{ session.id }}" 
-     data-save-url="{% url 'scheduling:save_session_plan' session.id %}"
+     data-save-url=""
      data-update-attendance-url="{% url 'scheduling:update_attendance_status' 0 %}"
      data-session-start-time="{{ session.session_start_time|time:'H:i' }}">
     
@@ -106,7 +44,6 @@
                 <a href="{% url 'scheduling:visual_attendance' session.id %}" class="btn btn-info"><i class="bi bi-person-check"></i> Take Attendance</a>
                 <a href="{% url 'live_session:planner_v2' session.id %}" class="btn btn-primary" target="_blank"><i class="bi bi-calendar-week"></i> Open Planner</a>
                 <a href="{% url 'live_session:live_session_display' session.id %}" class="btn btn-success"><i class="bi bi-play-circle-fill"></i> Go Live</a>
-                <button id="save-plan-btn" class="btn btn-primary"><i class="bi bi-save-fill"></i> Save Plan</button>
             </div>
         </div>
     </div>
@@ -120,113 +57,12 @@
             <div id="attendance-list" class="mb-2"></div>
         </div>
     </div>
-
-    <div id="grouping-section" class="planner-section is-open">
-        <div class="planner-header">
-            <h4><i class="bi bi-people-fill"></i> 2. Form Player Groups</h4>
-            {% if previous_groups %}
-            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#previousGroupsModal">
-                <i class="bi bi-eye"></i> Show Previous Groups
-            </button>
-            {% endif %}
-            <i class="bi bi-chevron-down arrow"></i>
-        </div>
-        <div class="planner-content">
-            <div class="row">
-                <div class="col-lg-3 col-md-4">
-                    <h6>Confirmed & Unassigned Players</h6>
-                    <div id="unassigned-players" class="player-list"></div>
-                </div>
-                <div class="col-lg-9 col-md-8">
-                    <h6>Session Groups</h6>
-                    <div id="session-groups-container" class="row"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="timeline-section" class="planner-section is-open">
-        <div class="planner-header">
-            <h4><i class="bi bi-list-ol"></i> 3. Build the Plan</h4>
-            <i class="bi bi-chevron-down arrow"></i>
-        </div>
-        <div class="planner-content">
-            <div id="timeline-container">
-                </div>
-        </div>
-    </div>
 </div>
-
-<div class="modal fade" id="addPhaseModal" tabindex="-1" aria-labelledby="addPhaseModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h1 class="modal-title fs-5" id="addPhaseModalLabel">Add New Session Phase</h1>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>Choose the type of phase you want to add to the plan.</p>
-        <div class="d-grid gap-2">
-            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Warmup"><i class="bi bi-fire me-2 text-orange"></i> Warmup</button>
-            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Rotation"><i class="bi bi-arrow-repeat me-2 text-purple"></i> Rotation Drills</button>
-            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Freeplay"><i class="bi bi-joystick me-2 text-success"></i> Freeplay / Matchplay</button>
-            <button class="btn btn-lg btn-light phase-option-btn" data-phase-type="Fitness"><i class="bi bi-heart-pulse-fill me-2 text-danger"></i> Fitness</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="activityModal" tabindex="-1" aria-labelledby="activityModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h1 class="modal-title fs-5" id="activityModalLabel">Edit Activities</h1><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div id="activity-list-container"></div><hr><div id="add-activity-form-container"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></div></div>
-</div>
-
-{% if previous_groups %}
-<div class="modal fade" id="previousGroupsModal" tabindex="-1" aria-labelledby="previousGroupsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h1 class="modal-title fs-5" id="previousGroupsModalLabel">Groups from Previous Session</h1>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p class="text-muted">These were the groups from the session on {{ previous_session.session_date|date:"l, d M Y" }}.</p>
-        <div class="row">
-          {% for group in previous_groups %}
-            <div class="col-md-4">
-              <div class="card mb-3">
-                <div class="card-header">{{ group.name }}</div>
-                <ul class="list-group list-group-flush">
-                  {% for player_name in group.player_names %}
-                    <li class="list-group-item">{{ player_name }}</li>
-                  {% empty %}
-                    <li class="list-group-item text-muted">No players were in this group.</li>
-                  {% endfor %}
-                </ul>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-
-{{ plan|json_script:"plan-data" }}
-{{ drills|json_script:"drills-data" }}
-{{ all_tags|json_script:"all-tags-data" }}
 
 {{ all_players_for_display|json_script:"all-players-data" }}
-
-{{ players_for_grouping|json_script:"players-data" }}
 
 {% endblock %}
 
 {% block extra_js %}
-    <script src="{% static 'js/session_planner.js' %}?v=1.1"></script>
+    <script src="{% static 'js/session_planner.js' %}?v=1.2"></script>
 {% endblock %}
