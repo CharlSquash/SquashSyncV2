@@ -1,12 +1,15 @@
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+from django.middleware.csrf import get_token
 from live_session.models import Drill
 from players.models import Player
 import json
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
+from django.db.models import Q
+from django.views.decorators.http import require_POST
 from scheduling.models import Session, AttendanceTracking
 from accounts.models import Coach
 
@@ -229,11 +232,83 @@ def experimental_planner(request, session_id):
     else:
         players = Player.objects.filter(pk__in=attendee_pks).values('id', 'first_name', 'last_name')
 
-    drills = Drill.objects.all().values('id', 'name', 'category', 'difficulty', 'description', 'duration_minutes', 'video_url')
+    # Determine current coach
+    try:
+        coach = Coach.objects.get(user=request.user)
+    except Coach.DoesNotExist:
+        coach = None
+
+    # Filter drills: Approved OR Created by this coach
+    if coach:
+        drills_qs = Drill.objects.filter(Q(is_approved=True) | Q(created_by=coach))
+    else:
+        drills_qs = Drill.objects.filter(is_approved=True)
+
+    # Use explicit list comprehension to ensure no SimpleLazyObject issues naturally
+    # Also added created_by_id which was missing
+    drills_values = drills_qs.values('id', 'name', 'category', 'difficulty', 'description', 'duration_minutes', 'video_url', 'created_by_id')
+    
+    # Explicitly convert potentially lazy objects to strings
+    drills = []
+    for d in drills_values:
+        drills.append({
+            'id': d['id'],
+            'name': str(d['name']),
+            'category': str(d['category']),
+            'difficulty': str(d['difficulty']),
+            'description': str(d['description']),
+            'duration_minutes': d['duration_minutes'],
+            'video_url': str(d['video_url']) if d['video_url'] else '',
+            'created_by_id': d['created_by_id']
+        })
+
+    # Explicitly sanitize player data as well
+    players_list = []
+    for p in players:
+        players_list.append({
+            'id': p['id'],
+            'first_name': str(p['first_name']),
+            'last_name': str(p['last_name'])
+        })
     
     context = {
         'session_id': session.id,
-        'drills_json': list(drills),
-        'players_json': list(players),
+        'drills_json': drills,
+        'players_json': players_list,
+        'csrf_token': str(get_token(request)),
     }
     return render(request, 'live_session/planner_v2.html', context)
+
+@login_required
+@require_POST
+def create_custom_drill(request):
+    try:
+        data = json.loads(request.body)
+        coach = get_object_or_404(Coach, user=request.user)
+        
+        drill = Drill.objects.create(
+            name=data.get('name'),
+            category=data.get('category', 'Technical'),
+            difficulty=data.get('difficulty', 'Beginner'),
+            description=data.get('description', ''),
+            duration_minutes=int(data.get('duration', 10)),
+            video_url=data.get('video_url', ''),
+            created_by=coach,
+            is_approved=False # Explicitly set to False
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'drill': {
+                'id': drill.id,
+                'name': drill.name,
+                'category': drill.category,
+                'difficulty': drill.difficulty,
+                'description': drill.description,
+                'duration_minutes': drill.duration_minutes,
+                'video_url': drill.video_url,
+                'created_by_id': coach.id
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)

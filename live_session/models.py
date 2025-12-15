@@ -15,6 +15,9 @@ class Drill(models.Model):
         ('Advanced', 'Advanced'),
     ]
 
+    created_by = models.ForeignKey('accounts.Coach', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_drills', help_text="The coach who created this custom drill.")
+    is_approved = models.BooleanField(default=False, help_text="If False, only the creator can see this drill.")
+
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default='Beginner')

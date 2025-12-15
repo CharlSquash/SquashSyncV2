@@ -47,6 +47,9 @@
     {{ drills_json|json_script:"drills-data" }}
     {% url 'scheduling:session_detail' session_id as session_url %}
     {{ session_url|json_script:"back-url" }}
+    {% url 'live_session:create_custom_drill' as create_drill_url %}
+    {{ create_drill_url|json_script:"create-drill-url" }}
+    {{ csrf_token|json_script:"csrf-token" }}
 
     <!-- 4. Your Application Code -->
     <script type="text/babel" data-type="module">
@@ -72,6 +75,8 @@
             difficulty: d.difficulty || 'All Levels'
         }));
         const BACK_URL = JSON.parse(document.getElementById('back-url').textContent);
+        const CREATE_DRILL_URL = JSON.parse(document.getElementById('create-drill-url').textContent);
+        const CSRF_TOKEN = JSON.parse(document.getElementById('csrf-token').textContent);
 
 
         const formatTime = (seconds) => {
@@ -144,6 +149,101 @@
             );
         };
 
+        const CreateDrillModal = ({ onClose, onCreated }) => {
+            const [localDrill, setLocalDrill] = useState({
+                name: '',
+                category: 'Technical',
+                difficulty: 'Beginner',
+                description: '',
+                duration: 10,
+                video_url: ''
+            });
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    const response = await fetch(CREATE_DRILL_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': CSRF_TOKEN
+                        },
+                        body: JSON.stringify(localDrill)
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        onCreated({
+                            ...data.drill,
+                            defaultDuration: (data.drill.duration_minutes || 10) * 60,
+                            type: data.drill.category,
+                            difficulty: data.drill.difficulty
+                        });
+                        onClose();
+                    } else {
+                        const err = await response.text();
+                        console.error("Failed to create drill:", err);
+                        alert("Failed to create drill. Check console.");
+                    }
+                } catch (error) {
+                    console.error("Error creating drill:", error);
+                    alert("Error creating drill.");
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-800 text-lg">Create Custom Drill</h3>
+                            <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition"><X className="w-5 h-5 text-slate-500" /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto">
+                            <form id="create-drill-form" onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Drill Name</label>
+                                    <input required type="text" value={localDrill.name} onChange={e => setLocalDrill({...localDrill, name: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g., Forehand Drive Target" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">Category</label>
+                                        <select value={localDrill.category} onChange={e => setLocalDrill({...localDrill, category: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                            <option value="Technical">Technical</option>
+                                            <option value="Conditioning">Conditioning</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">Difficulty</label>
+                                        <select value={localDrill.difficulty} onChange={e => setLocalDrill({...localDrill, difficulty: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                            <option value="Beginner">Beginner</option>
+                                            <option value="Intermediate">Intermediate</option>
+                                            <option value="Advanced">Advanced</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Duration (minutes)</label>
+                                    <input type="number" min="1" value={localDrill.duration} onChange={e => setLocalDrill({...localDrill, duration: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Video URL (YouTube)</label>
+                                    <input type="url" value={localDrill.video_url} onChange={e => setLocalDrill({...localDrill, video_url: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://youtube.com/..." />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
+                                    <textarea value={localDrill.description} onChange={e => setLocalDrill({...localDrill, description: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[100px]" placeholder="Describe the drill instructions..."></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                             <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg transition">Cancel</button>
+                             <button type="submit" form="create-drill-form" className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm">Create Drill</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         function SquashSyncPlanner() {
             // App State
             const [view, setView] = useState('planning');
@@ -153,6 +253,8 @@
             
             // Data State
             const [availablePlayers] = useState(SERVER_PLAYERS);
+            const [availableDrills, setAvailableDrills] = useState(SERVER_DRILLS);
+            const [showCreateDrillModal, setShowCreateDrillModal] = useState(false);
             const [numCourts, setNumCourts] = useState(3);
             const [groups, setGroups] = useState([]);
             
@@ -258,9 +360,9 @@
 
             const loadTemplate = () => {
                 const template = [
-                    { ...SERVER_DRILLS[0], uid: 't1', customName: "Warmup: Boast & Drive", duration: 120, isRest: false },
+                    { ...availableDrills[0], uid: 't1', customName: "Warmup: Boast & Drive", duration: 120, isRest: false },
                     { uid: 'r1', name: "Rotate", customName: "Quick Rotate", type: "Rest", duration: 30, isRest: true, videoId: null },
-                    { ...SERVER_DRILLS[2], uid: 't2', customName: "Volley Kill Progression", duration: 180, isRest: false },
+                    { ...availableDrills[2], uid: 't2', customName: "Volley Kill Progression", duration: 180, isRest: false },
                 ];
                 const targets = getTargetCourts();
                 const newPlans = [...courtPlans];
@@ -560,7 +662,7 @@
                                 <div className="relative"><Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" /><input type="text" placeholder="Search drills..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-emerald-500" /></div>
                             </div>
                             <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                                {SERVER_DRILLS.map(drill => (
+                                {availableDrills.map(drill => (
                                     <div key={drill.id} className="group p-3 rounded-md border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition cursor-pointer bg-white shadow-sm relative" onClick={() => setSelectedDrill(drill)}>
                                         <div className="flex justify-between items-start"><h4 className="font-medium text-sm text-slate-800">{drill.name}</h4>
                                         <button 
@@ -571,10 +673,14 @@
                                             <Plus className="w-3 h-3" />
                                         </button>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-2"><span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{drill.type}</span><span className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(drill.defaultDuration)}</span></div>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{drill.type}</span>
+                                            <span className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(drill.defaultDuration)}</span>
+                                            {drill.created_by_id && <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1 rounded flex items-center gap-1"><Users className="w-3 h-3" /> Custom</span>}
+                                        </div>
                                     </div>
                                 ))}
-                                <div className="p-4 border-t border-slate-100 mt-4"><button className="w-full py-2 border-2 border-dashed border-slate-300 text-slate-500 rounded-md text-sm hover:border-emerald-400 hover:text-emerald-600 transition flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> Create Custom Drill</button></div>
+                                <div className="p-4 border-t border-slate-100 mt-4"><button onClick={() => setShowCreateDrillModal(true)} className="w-full py-2 border-2 border-dashed border-slate-300 text-slate-500 rounded-md text-sm hover:border-emerald-400 hover:text-emerald-600 transition flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> Create Custom Drill</button></div>
                             </div>
                         </aside>
 
@@ -663,6 +769,14 @@
                                     </div>
                                 </div>
                             </div>
+                        )}
+                        
+                        {/* Create Drill Modal */}
+                        {showCreateDrillModal && (
+                            <CreateDrillModal 
+                                onClose={() => setShowCreateDrillModal(false)}
+                                onCreated={(newDrill) => setAvailableDrills([...availableDrills, newDrill])}
+                            />
                         )}
                     </main>
                 </div>
