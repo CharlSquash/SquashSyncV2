@@ -48,8 +48,7 @@
                     {% for item in sessions_for_coach_card %}
                     <div class="upcoming-session-card">
                         <div class="upcoming-session-header">
-                            <h4 class="upcoming-session-title">{{ item.session.school_group.name|default:"General
-                                Session" }}</h4>
+                            <h4 class="upcoming-session-title">{{ item.session.school_group.name|default:"General Session" }}</h4>
                             <div class="upcoming-session-status">
                                 {% if item.status == 'CONFIRM' %}
                                 <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Confirmed</span>
@@ -62,8 +61,7 @@
                             <li><i class="bi bi-calendar-event"></i> {{ item.session.session_date|date:"l, d M Y" }}
                             </li>
                             {# UPDATED: Using start_datetime ensures timezone awareness #}
-                            <li><i class="bi bi-clock"></i> {{ item.session.start_datetime|time:"H:i" }} ({{
-                                item.duration }} min)</li>
+                            <li><i class="bi bi-clock"></i> {{ item.session.start_datetime|time:"H:i" }} ({{item.duration }} min)</li>
                             <li><i class="bi bi-geo-alt"></i> {{ item.session.venue.name|default:"No venue" }}</li>
                         </ul>
                         <div class="upcoming-session-actions">
