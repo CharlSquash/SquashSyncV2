@@ -45,6 +45,8 @@
 
     {{ players_json|json_script:"players-data" }}
     {{ drills_json|json_script:"drills-data" }}
+    {% url 'scheduling:session_detail' session_id as session_url %}
+    {{ session_url|json_script:"back-url" }}
 
     <!-- 4. Your Application Code -->
     <script type="text/babel" data-type="module">
@@ -52,7 +54,7 @@
         import { createRoot } from 'react-dom/client';
         import { 
             Play, Pause, SkipForward, SkipBack, Users, Youtube, Plus, Trash2, 
-            Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, RefreshCw, 
+            Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library 
         } from 'lucide-react';
 
@@ -64,6 +66,7 @@
             name: `${p.first_name} ${p.last_name}`
         }));
         const SERVER_DRILLS = JSON.parse(document.getElementById('drills-data').textContent);
+        const BACK_URL = JSON.parse(document.getElementById('back-url').textContent);
 
 
         const formatTime = (seconds) => {
@@ -450,6 +453,9 @@
                 <div className="h-screen bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden">
                     <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm z-20 shrink-0">
                         <div className="flex items-center gap-2 md:gap-3">
+                            <a href={BACK_URL} className="p-1 -ml-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition" title="Back to Session">
+                                <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
+                            </a>
                             <div className="bg-emerald-600 p-1.5 md:p-2 rounded-lg"><Activity className="w-5 h-5 md:w-6 md:h-6 text-white" /></div>
                             <div><h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight">SquashSync</h1><p className="hidden md:block text-xs text-slate-500">Coach Dashboard</p></div>
                         </div>
