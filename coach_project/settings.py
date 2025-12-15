@@ -212,8 +212,19 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
+
 # --- TODO APP SETTINGS ---
 SITE_ID = 1
 TODO_STAFF_ONLY = True
+
+
+# --- NGROK CONFIGURATION ---
+try:
+    if DEBUG or os.environ.get('NGROK_AUTHTOKEN'):
+        ALLOWED_HOSTS.append('.ngrok-free.app')
+        ALLOWED_HOSTS.append('.ngrok.io')
+        CSRF_TRUSTED_ORIGINS.extend(['https://*.ngrok-free.app', 'https://*.ngrok.io'])
+except Exception as e:
+    pass
 
 
