@@ -86,10 +86,39 @@ class Player(models.Model):
     parent_contact_number = models.CharField(
         max_length=20,
         blank=True,
-        verbose_name="Parent Contact Number",
-        help_text="Enter number including country code if outside SA (e.g., +44... or 082...)"
+        verbose_name="Primary Guardian Contact Number",
+        help_text="Primary contact for session reminders. Enter number including country code if outside SA (e.g., +44... or 082...)"
     )
-    parent_email = models.EmailField(max_length=254, blank=True, null=True, help_text="The primary email for parent communication.")
+    parent_email = models.EmailField(
+        max_length=254, 
+        blank=True, 
+        null=True, 
+        verbose_name="Primary Guardian Email",
+        help_text="The primary email for parent communication and session reminders."
+    )
+
+    # Secondary Guardian
+    guardian_2_name = models.CharField(max_length=100, blank=True, verbose_name="Secondary Guardian Name")
+    guardian_2_contact_number = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Secondary Guardian Contact Number",
+        help_text="Enter number including country code."
+    )
+    guardian_2_email = models.EmailField(
+        max_length=254,
+        blank=True,
+        null=True,
+        verbose_name="Secondary Guardian Email"
+    )
+
+    # Health & Safety
+    medical_aid_number = models.CharField(max_length=100, blank=True, verbose_name="Medical Aid Number")
+    health_information = models.TextField(
+        blank=True, 
+        verbose_name="Health Information",
+        help_text="Allergies, illnesses, or specific medical conditions."
+    )
     notes = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     photo = models.ImageField(upload_to='player_photos/', null=True, blank=True)
@@ -115,6 +144,10 @@ class Player(models.Model):
     @property
     def parent_whatsapp_number(self):
         return self._format_for_whatsapp(self.parent_contact_number)
+
+    @property
+    def guardian_2_whatsapp_number(self):
+        return self._format_for_whatsapp(self.guardian_2_contact_number)
 
     def __str__(self):
         return self.full_name

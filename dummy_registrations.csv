@@ -1,0 +1,4 @@
+Name and Surname of Player;Grade in 2026;Parent/Guardian 1 Email;Parent/Guardian 1 cell phone;Player Cell Phone;Medical aid number;Illnesses and/or allergies
+John Doe;Grade 10;john.parent@example.com;0821234567;0721234567;MED123;None
+Jane van der Merwe;Grade 8;jane.parent@example.com;0839876543;;MED456;Peanuts
+New Player;Grade 5;new.parent@example.com;0841112233;;MED789;Asthma
