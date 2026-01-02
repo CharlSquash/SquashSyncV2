@@ -216,7 +216,7 @@ class Command(BaseCommand):
 
     def update_player(self, player, data):
         player.grade = self.clean_grade(data['grade_raw'])
-        # player.school = data['school'] # Not mapped explicitly in requested changes, uncomment if needed
+        player.school = data['school']
         player.parent_email = data['email']
         player.parent_contact_number = data['contact_1']
         player.contact_number = data['contact_2']
