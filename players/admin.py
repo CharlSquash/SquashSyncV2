@@ -47,6 +47,17 @@ class PlayerAdmin(admin.ModelAdmin):
     search_fields = ('first_name', 'last_name', 'school') # Add school here
     filter_horizontal = ('school_groups',)
     list_per_page = 50 # Show more players per page for easier bulk editing
+    change_list_template = "admin/players/player/change_list.html"
+
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        
+        # Calculate active players count
+        active_count = Player.objects.filter(is_active=True).count()
+        extra_context['active_count'] = active_count
+        
+        return super().changelist_view(request, extra_context=extra_context)
 
 # Register the metric models so they appear in the admin
 admin.site.register(CourtSprintRecord)
