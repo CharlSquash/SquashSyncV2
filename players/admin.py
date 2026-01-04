@@ -48,7 +48,7 @@ class PlayerAdmin(admin.ModelAdmin):
     filter_horizontal = ('school_groups',)
     list_per_page = 50 # Show more players per page for easier bulk editing
     change_list_template = "admin/players/player/change_list.html"
-    ordering = ('first_name', 'last_name')
+    ordering = ('-is_active', 'first_name', 'last_name')
 
     def get_full_name(self, obj):
         return obj.full_name
