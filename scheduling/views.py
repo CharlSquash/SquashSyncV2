@@ -264,11 +264,55 @@ def session_detail(request, session_id):
     
     display_name = f"{session.school_group.name} Session" if session.school_group else f"Custom Session on {session.session_date.strftime('%Y-%m-%d')}"
 
+    # --- Session History Logic ---
+    past_sessions = []
+    if session.school_group:
+        current_year = session.session_date.year
+        past_sessions_qs = Session.objects.filter(
+            school_group=session.school_group,
+            session_date__year=current_year,
+            session_date__lt=session.session_date,
+            plan__isnull=False
+        ).exclude(pk=session.id).order_by('-session_date')
+
+        for ps in past_sessions_qs:
+            drill_names = []
+            try:
+                plan = ps.plan if isinstance(ps.plan, dict) else json.loads(ps.plan)
+                # Handle New Format (courtPlans)
+                if plan and 'courtPlans' in plan:
+                    # Collect all unique drill names from all courts
+                    seen_drills = set()
+                    for court_blocks in plan.get('courtPlans', []):
+                        for block in court_blocks:
+                            if not block.get('isRest', False):
+                                name = block.get('customName') or block.get('name')
+                                if name and name not in seen_drills:
+                                    seen_drills.add(name)
+                                    drill_names.append(name)
+                
+                # Handle Old Format (timeline)
+                elif plan and 'timeline' in plan:
+                     # Gather from timeline -> active blocks
+                     pass # Simple implementation for now: skip or basic parsing if needed 
+                     # (Users are moving to new format, showing legacy history might be overkill complexity for now)
+            except:
+                pass
+            
+            # Create a simple structure for the template
+            past_sessions.append({
+                'id': ps.id,
+                'date': ps.session_date,
+                'drill_summary': ", ".join(drill_names) if drill_names else "No drills recorded"
+            })
+
+
     context = {
         'session': session,
         'coaches': session.coaches_attending.all(),
         'all_players_for_display': all_players_for_display, # For the top attendance list
-        'page_title': f"Plan for {display_name}"
+        'page_title': f"Plan for {display_name}",
+        'past_sessions': past_sessions,
     }
 
     return render(request, 'scheduling/session_detail.html', context)

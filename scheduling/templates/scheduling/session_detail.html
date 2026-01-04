@@ -58,6 +58,32 @@
     </div>
 </div>
 
+    <!-- Session History Section -->
+    <div class="mt-5 pt-4 border-top">
+        <h4 class="mb-3">Session History (This Year)</h4>
+        {% if past_sessions %}
+            <div class="row">
+                {% for session in past_sessions %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="card-title mb-0">{{ session.date|date:"d M Y" }}</h5>
+                                    <a href="{% url 'scheduling:session_detail' session.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                </div>
+                                <p class="card-text text-muted small">
+                                    {{ session.drill_summary|default:"No drills recorded" }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted">No past finished sessions found for this group in the current year.</p>
+        {% endif %}
+    </div>
+
 {{ all_players_for_display|json_script:"all-players-data" }}
 
 {% endblock %}
