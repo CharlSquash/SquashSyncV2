@@ -1,1 +1,0 @@
-DELETE FROM django_migrations WHERE app = 'finance' AND name = '0001_initial';
