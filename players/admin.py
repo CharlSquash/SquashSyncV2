@@ -41,13 +41,19 @@ class SchoolGroupAdmin(admin.ModelAdmin):
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
     # Add 'gender' to list_display, list_editable, list_filter
-    list_display = ('full_name', 'grade', 'gender', 'school', 'is_active')
+    list_display = ('get_full_name', 'grade', 'gender', 'school', 'is_active')
     list_editable = ('grade', 'gender', 'school', 'is_active') # Add gender here
     list_filter = ('is_active', 'school_groups', 'grade', 'gender') # Add gender here
     search_fields = ('first_name', 'last_name', 'school') # Add school here
     filter_horizontal = ('school_groups',)
     list_per_page = 50 # Show more players per page for easier bulk editing
     change_list_template = "admin/players/player/change_list.html"
+    ordering = ('first_name', 'last_name')
+
+    def get_full_name(self, obj):
+        return obj.full_name
+    get_full_name.short_description = 'Full Name'
+    get_full_name.admin_order_field = 'first_name'
 
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
