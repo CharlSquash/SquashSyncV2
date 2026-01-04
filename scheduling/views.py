@@ -299,11 +299,24 @@ def session_detail(request, session_id):
             except:
                 pass
             
+            # Extract Groupings
+            groupings = []
+            if plan and 'groups' in plan:
+                for idx, group in enumerate(plan['groups']):
+                    if group: # If group has players
+                        # Extract names. The group is a list of player objects (dicts)
+                        player_names = [p.get('name', f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()) for p in group]
+                        groupings.append({
+                            'court_name': f"Court {idx + 1}",
+                            'players': player_names
+                        })
+
             # Create a simple structure for the template
             past_sessions.append({
                 'id': ps.id,
                 'date': ps.session_date,
-                'drill_summary': ", ".join(drill_names) if drill_names else "No drills recorded"
+                'drill_summary': ", ".join(drill_names) if drill_names else "No drills recorded",
+                'groupings': groupings
             })
 
 
