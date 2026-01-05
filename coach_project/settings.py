@@ -33,7 +33,8 @@ else:
 
 # --- APPLICATION DEFINITION ---
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # 'django.contrib.admin',
+    'core.admin_config.SquashSyncAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
