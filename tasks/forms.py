@@ -7,32 +7,16 @@ from todo.forms import AddTaskListForm as OriginalAddListForm, AddEditTaskForm
 
 User = get_user_model()
 
-class AddListWithMembersForm(forms.ModelForm):
-    members = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(groups__name='Coaches'), # Filter to Coaches initially
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-        help_text="Select coaches to add to this list's group."
-    )
 
+
+
+class AddProjectForm(forms.ModelForm):
     class Meta:
         model = TaskList
         fields = ['name']
-
-
-class ManageMembersForm(forms.Form):
-    members = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(groups__name='Coaches'),
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-        help_text="Select coaches to be in this group."
-    )
-
-    def __init__(self, *args, **kwargs):
-        group = kwargs.pop('group', None)
-        super().__init__(*args, **kwargs)
-        if group:
-            self.fields['members'].initial = group.user_set.all()
+        labels = {
+            'name': 'Project Name'
+        }
 
 
 class CustomModelChoiceField(forms.ModelChoiceField):
@@ -42,7 +26,7 @@ class CustomModelChoiceField(forms.ModelChoiceField):
 
 class CustomAddEditTaskForm(AddEditTaskForm):
     assigned_to = CustomModelChoiceField(
-        queryset=User.objects.filter(Q(groups__name='Coaches') | Q(is_superuser=True), is_active=True).distinct(),
+        queryset=User.objects.filter(is_active=True).filter(Q(is_staff=True) | Q(is_superuser=True)),
         required=False,
         widget=forms.Select(attrs={'class': 'form-control'}),
     )
@@ -50,18 +34,8 @@ class CustomAddEditTaskForm(AddEditTaskForm):
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
         
-        # Start with base query: Coaches or Superusers
-        query = Q(groups__name='Coaches') | Q(is_superuser=True)
-        
-        # Check if we have a specific task list context
-        initial_data = kwargs.get('initial', {})
-        task_list = initial_data.get('task_list')
-        
-        if task_list and hasattr(task_list, 'group') and task_list.group:
-            # Add the list's specific group to the allowed query
-            query |= Q(groups=task_list.group)
-            
         self.fields['assigned_to'].queryset = User.objects.filter(
-            query, 
             is_active=True
-        ).distinct()
+        ).filter(
+            Q(is_staff=True) | Q(is_superuser=True)
+        )

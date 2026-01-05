@@ -31,8 +31,8 @@ urlpatterns = [
     path('assessments/', include('assessments.urls')),
     path('finance/', include('finance.urls')),
     path('awards/', include('awards.urls')),
-    path('todo/add_list/', task_views.add_list_with_users, name='add_list_custom'), # Custom add list view
-    path('todo/manage_members/<int:list_id>/', task_views.manage_list_members, name='manage_list_members'),
+    path('todo/add_list/', task_views.add_project, name='add_list_custom'), # Custom add list view
+    # path('todo/manage_members/<int:list_id>/', task_views.manage_list_members, name='manage_list_members'), # REMOVED
     path('todo/<int:list_id>/<str:list_slug>/', task_views.custom_list_detail, name='todo_list_detail'),
     path('todo/<int:list_id>/<str:list_slug>/completed/', task_views.custom_list_detail, {'view_completed': True}, name='todo_list_detail_completed'),
     path('todo/', include('todo.urls', namespace="todo")),

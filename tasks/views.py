@@ -7,72 +7,38 @@ from django.utils.text import slugify
 from django.db import IntegrityError
 
 from todo.models import TaskList
-from .forms import AddListWithMembersForm, ManageMembersForm
+from .forms import CustomAddEditTaskForm, AddProjectForm
 from todo.utils import staff_check
 
 @login_required
-@user_passes_test(staff_check)
-def add_list_with_users(request):
+@user_passes_test(lambda u: u.is_superuser)
+def add_project(request):
     if request.method == "POST":
-        print(f"DEBUG: POST request to add_list_with_users. POST data: {request.POST}")
-        form = AddListWithMembersForm(request.POST)
+        form = AddProjectForm(request.POST)
         if form.is_valid():
             try:
                 new_list = form.save(commit=False)
                 
-                # Create a new group for this list
-                group_name = f"{new_list.name} Group"
-                # Ensure unique group name
-                base_name = group_name
-                counter = 1
-                while Group.objects.filter(name=group_name).exists():
-                    group_name = f"{base_name} {counter}"
-                    counter += 1
+                # Get or create "Admins" group
+                admins_group, created = Group.objects.get_or_create(name="Admins")
                 
-                new_group = Group.objects.create(name=group_name)
+                # Ensure the current user (creator) is in the "Admins" group
+                admins_group.user_set.add(request.user)
                 
-                # Add selected members to the group
-                members = form.cleaned_data.get('members')
-                if members:
-                    new_group.user_set.set(members)
-                
-                # Always add the creator to the group so they can see the list
-                new_group.user_set.add(request.user)
-                
-                # Assign group to list
-                new_list.group = new_group
+                # Assign "Admins" group to the new list
+                new_list.group = admins_group
                 new_list.slug = slugify(new_list.name)
                 new_list.save()
                 
-                messages.success(request, f"List '{new_list.name}' created with group '{new_group.name}'.")
+                messages.success(request, f"Project '{new_list.name}' created and assigned to 'Admins' group.")
                 return redirect("todo:list_detail", list_id=new_list.id, list_slug=new_list.slug)
                 
             except IntegrityError:
                 messages.error(request, "A list with this name already exists.")
     else:
-        print("DEBUG: GET request to add_list_with_users. Instantiating empty form.")
-        form = AddListWithMembersForm(data=None)
+        form = AddProjectForm()
 
-    print(f"DEBUG: Form errors: {form.errors}")
-    return render(request, "todo/add_list.html", {"form": form})
-
-@login_required
-@user_passes_test(staff_check)
-def manage_list_members(request, list_id):
-    task_list = get_object_or_404(TaskList, id=list_id)
-    group = task_list.group
-    
-    if request.method == "POST":
-        form = ManageMembersForm(request.POST, group=group)
-        if form.is_valid():
-            members = form.cleaned_data['members']
-            group.user_set.set(members)
-            messages.success(request, f"Members updated for list '{task_list.name}'.")
-            return redirect("todo:list_detail", list_id=task_list.id, list_slug=task_list.slug)
-    else:
-        form = ManageMembersForm(group=group)
-
-    return render(request, "todo/manage_members.html", {"task_list": task_list, "form": form})
+    return render(request, "todo/add_project.html", {"form": form})
 
 
 @login_required

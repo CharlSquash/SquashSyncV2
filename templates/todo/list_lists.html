@@ -1,10 +1,10 @@
 {% extends "todo/base.html" %}
 
-{% block title %}Todo Lists{% endblock %}
+{% block title %}Projects{% endblock %}
 
 {% block content %}
-<h1>Todo Lists</h1>
-<p>{{ task_count }} tasks in {{ lists.count }} lists</p>
+<h1>Projects</h1>
+<p>{{ task_count }} tasks in {{ lists.count }} projects</p>
 
 {% for list in lists %}
 <div class="card mb-3">
@@ -22,15 +22,15 @@
             No members
             {% endfor %}
         </p>
-        <a href="{% url 'manage_list_members' list.id %}" class="btn btn-sm btn-secondary">Manage Members</a>
+
     </div>
 </div>
 {% empty %}
-<p>No lists found.</p>
+<p>No projects found.</p>
 {% endfor %}
 
 <p>
-    <a href="{% url 'add_list_custom' %}" class="btn btn-primary">Create new todo list</a>
+    <a href="{% url 'add_list_custom' %}" class="btn btn-primary">Create new Project</a>
 </p>
 
 {% endblock %}
