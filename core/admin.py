@@ -29,4 +29,9 @@ class SquashSyncAdminSite(admin.AdminSite):
         app_list.sort(key=get_sort_key)
         return app_list
 
+    def each_context(self, request):
+        context = super().each_context(request)
+        context['dev_mode'] = settings.DEBUG
+        return context
+
 # Register your models here.
