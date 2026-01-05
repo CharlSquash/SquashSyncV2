@@ -35,6 +35,7 @@ urlpatterns = [
     # path('todo/manage_members/<int:list_id>/', task_views.manage_list_members, name='manage_list_members'), # REMOVED
     path('todo/<int:list_id>/<str:list_slug>/', task_views.custom_list_detail, name='todo_list_detail'),
     path('todo/<int:list_id>/<str:list_slug>/completed/', task_views.custom_list_detail, {'view_completed': True}, name='todo_list_detail_completed'),
+    path('todo/toggle/<int:task_id>/', task_views.task_toggle_done, name='custom_task_toggle_done'),
     path('todo/', include('todo.urls', namespace="todo")),
 
     #// solosync2 urls

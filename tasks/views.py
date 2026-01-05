@@ -9,6 +9,9 @@ from django.db import IntegrityError
 from todo.models import TaskList
 from .forms import CustomAddEditTaskForm, AddProjectForm
 from todo.utils import staff_check
+from todo.models import TaskList, Task
+from django.utils import timezone
+from django.core.exceptions import PermissionDenied
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -118,3 +121,30 @@ def custom_list_detail(request, list_id=None, list_slug=None, view_completed=Fal
     }
 
     return render(request, "todo/list_detail.html", context)
+
+
+@login_required
+@user_passes_test(staff_check)
+def task_toggle_done(request, task_id):
+    if request.method == "POST":
+        task = get_object_or_404(Task, id=task_id)
+
+        # Allow if superuser OR user in group OR user is assignee
+        if not (request.user.is_superuser or task.task_list.group in request.user.groups.all() or task.assigned_to == request.user):
+            raise PermissionDenied
+
+        task.completed = not task.completed
+        if task.completed:
+            task.completed_date = timezone.now()
+        else:
+            task.completed_date = None
+            
+        task.save()
+        
+        status_msg = "done" if task.completed else "not done"
+        messages.success(request, f"Task '{task.title}' marked as {status_msg}.")
+
+        return redirect("todo:list_detail", list_id=task.task_list.id, list_slug=task.task_list.slug)
+        
+    else:
+        raise PermissionDenied
