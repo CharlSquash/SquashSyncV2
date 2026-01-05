@@ -12,8 +12,10 @@ from core.utils import process_profile_image
 
 # --- MODEL: SchoolGroup ---
 class SchoolGroup(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100) # Removed unique=True
     description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    year = models.IntegerField(null=True, blank=True)
     attendance_form_url = models.URLField(
         max_length=1024, blank=True, null=True, verbose_name="Attendance Form URL",
         help_text="Link to the external Google Form or attendance sheet for this group."
@@ -21,7 +23,7 @@ class SchoolGroup(models.Model):
     def __str__(self):
         return self.name
     class Meta:
-        ordering = ['name']
+        ordering = ['-is_active', 'name']
         permissions = [
             ("can_manage_school_groups", "Can manage school groups"),
         ]

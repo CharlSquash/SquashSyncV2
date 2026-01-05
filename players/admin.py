@@ -29,7 +29,8 @@ class SchoolGroupAdminForm(forms.ModelForm):
 @admin.register(SchoolGroup)
 class SchoolGroupAdmin(admin.ModelAdmin):
     form = SchoolGroupAdminForm
-    list_display = ('name', 'description')
+    list_display = ('name', 'year', 'is_active', 'description')
+    list_filter = ('is_active', 'year')
     search_fields = ('name',)
 
     def save_model(self, request, obj, form, change):

@@ -281,11 +281,29 @@ def school_group_list(request):
     else:
         form = SchoolGroupForm()
 
-    groups = SchoolGroup.objects.all()
+    groups = SchoolGroup.objects.filter(is_active=True)
+    available_years = SchoolGroup.objects.values_list('year', flat=True).distinct().order_by('-year')
+    available_years = [y for y in available_years if y is not None]
+
+    selected_year = request.GET.get('year')
+    show_archive = request.GET.get('archive')
+
+    if selected_year:
+        groups = SchoolGroup.objects.filter(year=selected_year, is_active=False)
+    elif show_archive:
+         # Generic "show all archives" if needed, or default to most recent? 
+         # User asked for "?year=2024 or ?archive=true". 
+         # If archive=true is passed without year, maybe show all inactive?
+         # Let's show all inactive if archive=true is passed.
+         groups = SchoolGroup.objects.filter(is_active=False)
+
     context = {
         'page_title': 'School Groups',
         'groups': groups,
         'form': form,
+        'available_years': available_years,
+        'selected_year': int(selected_year) if selected_year and selected_year.isdigit() else None,
+        'showing_archive': bool(selected_year or show_archive)
     }
     return render(request, 'players/school_group_list.html', context)
 

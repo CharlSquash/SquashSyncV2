@@ -6,7 +6,29 @@
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>{{ page_title }}</h1>
+        <div>
+            <h1>{{ page_title }}</h1>
+            
+            <div class="btn-group mt-2">
+                <a href="{% url 'players:school_group_list' %}" class="btn btn-sm {% if not showing_archive %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+                    Current
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="visually-hidden">Toggle Dropdown</span>
+                    {% if selected_year %}{{ selected_year }}{% else %}Archive{% endif %}
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{% url 'players:school_group_list' %}?archive=true">All Archived</a></li>
+                    {% if available_years %}
+                        <li><hr class="dropdown-divider"></li>
+                        {% for year in available_years %}
+                        <li><a class="dropdown-item" href="{% url 'players:school_group_list' %}?year={{ year }}">{{ year }}</a></li>
+                        {% endfor %}
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGroupModal">
             <i class="bi bi-plus-circle-fill"></i> Add New Group
         </button>

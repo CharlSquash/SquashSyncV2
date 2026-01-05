@@ -11,6 +11,7 @@ from .models import (
     Venue, Drill, DrillTag, Session, ScheduledClass,
     CoachAvailability, Event, SessionCoach, 
 )
+from players.models import SchoolGroup
 
 @admin.register(Venue)
 class VenueAdmin(admin.ModelAdmin):
@@ -88,6 +89,11 @@ class ScheduledClassAdmin(admin.ModelAdmin):
     list_filter = ('school_group', 'day_of_week', 'is_active')
     filter_horizontal = ('default_coaches',)
     actions = ['generate_sessions_action']
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "school_group":
+            kwargs["queryset"] = SchoolGroup.objects.filter(is_active=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def generate_sessions_action(self, request, queryset):
         form = GenerateSessionsForm(request.POST or None)
