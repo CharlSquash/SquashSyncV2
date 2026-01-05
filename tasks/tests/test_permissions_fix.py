@@ -10,7 +10,7 @@ class CustomAddEditTaskFormPermissionsTest(TestCase):
         
         # Create a 'Coaches' group and a coach user
         self.coaches_group = Group.objects.create(name='Coaches')
-        self.coach_user = User.objects.create_user(username='coach', password='password')
+        self.coach_user = User.objects.create_user(username='coach', password='password', is_staff=True)
         self.coach_user.groups.add(self.coaches_group)
         
         # Create a TaskList and its associated group

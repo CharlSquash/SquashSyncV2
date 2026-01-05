@@ -130,7 +130,7 @@ def task_toggle_done(request, task_id):
         task = get_object_or_404(Task, id=task_id)
 
         # Allow if superuser OR user in group OR user is assignee
-        if not (request.user.is_superuser or task.task_list.group in request.user.groups.all() or task.assigned_to == request.user):
+        if not (request.user.is_superuser or request.user.is_staff or task.task_list.group in request.user.groups.all() or task.assigned_to == request.user):
             raise PermissionDenied
 
         task.completed = not task.completed

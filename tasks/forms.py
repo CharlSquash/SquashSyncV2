@@ -34,8 +34,14 @@ class CustomAddEditTaskForm(AddEditTaskForm):
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
         
+        task_list = self.initial.get('task_list')
+        if not task_list and self.instance and hasattr(self.instance, 'task_list'):
+            task_list = self.instance.task_list
+
+        filters = Q(is_staff=True) | Q(is_superuser=True)
+        if task_list and task_list.group:
+            filters |= Q(groups__in=[task_list.group])
+
         self.fields['assigned_to'].queryset = User.objects.filter(
             is_active=True
-        ).filter(
-            Q(is_staff=True) | Q(is_superuser=True)
-        )
+        ).filter(filters).distinct()
