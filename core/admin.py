@@ -1,7 +1,9 @@
 from django.contrib import admin
 
+from django.conf import settings
+
 class SquashSyncAdminSite(admin.AdminSite):
-    site_header = "SquashSync Administration"
+    site_header = "SquashSync (DEV MODE)" if settings.DEBUG else "SquashSync (PRODUCTION)"
     site_title = "SquashSync Portal"
     index_title = "Academy Management"
 

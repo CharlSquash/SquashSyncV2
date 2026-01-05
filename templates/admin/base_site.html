@@ -1,0 +1,37 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {% if debug %}
+    <style>
+        :root {
+            --primary: #d32f2f !important;
+            --primary-fg: #fff !important;
+            --header-bg: #d32f2f !important;
+            --header-color: #fff !important;
+            --link-fg: #d32f2f !important;
+            --link-hover-color: #b71c1c !important;
+        }
+        /* Fallback for older Django admin versions or specific elements if vars aren't fully used */
+        #header {
+            background: #d32f2f !important;
+            color: #ffffff !important;
+        }
+        .module caption, .module h2 {
+            background: #d32f2f !important;
+        }
+        div.breadcrumbs {
+            background: #b71c1c !important; 
+        }
+        a:link, a:visited {
+            color: #d32f2f;
+        }
+        a:hover {
+            color: #b71c1c;
+        }
+        .button.default, input[type=submit].default, .submit-row input.default {
+            background: #d32f2f !important;
+        }
+    </style>
+    {% endif %}
+{% endblock %}
