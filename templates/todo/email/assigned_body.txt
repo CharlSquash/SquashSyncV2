@@ -1,6 +1,6 @@
 {{ task.assigned_to.first_name }} -
 
-A new task on the list {{ task.task_list.name }} has been assigned to you by {{ task.created_by.get_full_name }}:
+A new task on the Project {{ task.task_list.name }} has been assigned to you by {{ task.created_by.get_full_name }}:
 
 {{ task.title }}
 
@@ -13,5 +13,5 @@ Note: {{ task.note }}
 Task details/comments:
 https://www.squashsync.com{% url 'todo:task_detail' task.id %}
 
-List {{ task.task_list.name }}:
+Project {{ task.task_list.name }}:
 https://www.squashsync.com{% url 'todo:list_detail' task.task_list.id task.task_list.slug %}
