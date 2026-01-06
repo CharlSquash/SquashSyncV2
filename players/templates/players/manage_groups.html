@@ -176,6 +176,15 @@
     </div>
 </div>
 
+<!-- Context Menu -->
+<ul id="playerContextMenu" class="dropdown-menu shadow" style="display:none; position:fixed; z-index: 10000; min-width: 150px;">
+    <li>
+        <a class="dropdown-item" href="#" id="ctxOpenProfile" target="_blank">
+            <i class="fas fa-external-link-alt me-2"></i> Open Profile
+        </a>
+    </li>
+</ul>
+
 <style>
     .bg-darker { background-color: #1a1d20; }
     .custom-scrollbar::-webkit-scrollbar {
@@ -448,6 +457,58 @@
                 // If we drop to Bench, Bench's onAdd handles the removal logic.
             });
         });
+
+
+        // --- CONTEXT MENU ---
+        const contextMenu = document.getElementById('playerContextMenu');
+        const ctxOpenProfile = document.getElementById('ctxOpenProfile');
+        
+        // We use a dummy ID '0' that we will replace in JS
+        const profileUrlBase = "{% url 'players:player_profile' 0 %}".replace('/0/', '/');
+
+        document.addEventListener('contextmenu', function(e) {
+            const playerCard = e.target.closest('.player-card');
+            
+            if (playerCard) {
+                e.preventDefault();
+                const playerId = playerCard.dataset.id;
+                
+                // Set the URL for the profile link
+                ctxOpenProfile.href = profileUrlBase + playerId + '/';
+                
+                // Position the menu
+                // Ensure it doesn't go off screen
+                let x = e.clientX;
+                let y = e.clientY;
+                
+                contextMenu.style.display = 'block';
+                
+                // Adjust position if close to edge (simple check)
+                const menuRect = contextMenu.getBoundingClientRect();
+                if (x + menuRect.width > window.innerWidth) {
+                    x -= menuRect.width;
+                }
+                if (y + menuRect.height > window.innerHeight) {
+                    y -= menuRect.height;
+                }
+                
+                contextMenu.style.left = `${x}px`;
+                contextMenu.style.top = `${y}px`;
+            } else {
+                contextMenu.style.display = 'none';
+            }
+        });
+
+        // Hide menu on any click
+        document.addEventListener('click', function(e) {
+            contextMenu.style.display = 'none';
+        });
+        
+        // Hide menu on scroll (optional, but good for fixed elements)
+        document.addEventListener('scroll', function(e) {
+            contextMenu.style.display = 'none';
+        }, true); 
+
 
     });
 </script>
