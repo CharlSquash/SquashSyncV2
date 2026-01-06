@@ -18,10 +18,24 @@
 
 {% if tasks %}
 {% if list_slug == "mine" %}
-<h1>My Active Tasks</h1>
+    <h1>{% if view_completed %}My Completed Tasks{% else %}My Active Tasks{% endif %}</h1>
+    <p>
+        {% if view_completed %}
+            <a href="{% url 'todo_mine_custom' %}">View Active Tasks</a>
+        {% else %}
+            <a href="{% url 'todo_mine_completed' %}">View Completed Tasks</a>
+        {% endif %}
+    </p>
 {% else %}
-<h1>{{ view_completed|yesno:"Completed tasks, Tasks" }} in Project "{{ task_list.name }}"</h1>
-{% if user.is_superuser %}<p><small><i>In workgroup "{{ task_list.group }}" - drag rows to set priorities.</i></small></p>{% endif %}
+    <h1>{{ view_completed|yesno:"Completed tasks, Tasks" }} in Project "{{ task_list.name }}"</h1>
+    <p>
+        {% if view_completed %}
+             <a href="{% url 'todo_list_detail' list_id list_slug %}">View Active Tasks</a>
+        {% else %}
+             <a href="{% url 'todo_list_detail_completed' list_id list_slug %}">View Completed Tasks</a>
+        {% endif %}
+    </p>
+    {% if user.is_superuser %}<p><small><i>In workgroup "{{ task_list.group }}" - drag rows to set priorities.</i></small></p>{% endif %}
 {% endif %}
 
 <div class="d-none d-md-block">
@@ -99,9 +113,21 @@
 
 {% else %}
 {% if list_slug == "mine" %}
-<h4>You have no active tasks. Good job!</h4>
+    {% if view_completed %}
+        <h4>No completed tasks to show.</h4>
+        <p><a href="{% url 'todo_mine_custom' %}">View Active Tasks</a></p>
+    {% else %}
+        <h4>You have no active tasks. Good job!</h4>
+        <p><a href="{% url 'todo_mine_completed' %}">View Completed Tasks</a></p>
+    {% endif %}
 {% else %}
-<h4>No tasks in this project yet (add one!)</h4>
+    {% if view_completed %}
+        <h4>No completed tasks in this project.</h4>
+        <p><a href="{% url 'todo_list_detail' list_id list_slug %}">View Active Tasks</a></p>
+    {% else %}
+        <h4>No tasks in this project yet (add one!)</h4>
+        <p><a href="{% url 'todo_list_detail_completed' list_id list_slug %}">View Completed Tasks</a></p>
+    {% endif %}
 {% endif %}
 {% include 'todo/include/toggle_delete.html' %}
 

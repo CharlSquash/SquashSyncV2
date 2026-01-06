@@ -34,6 +34,7 @@ urlpatterns = [
     path('todo/add_list/', task_views.add_project, name='add_list_custom'), # Custom add list view
     # path('todo/manage_members/<int:list_id>/', task_views.manage_list_members, name='manage_list_members'), # REMOVED
     path('todo/mine/', task_views.custom_list_detail, {'list_slug': 'mine'}, name='todo_mine_custom'),
+    path('todo/mine/completed/', task_views.custom_list_detail, {'list_slug': 'mine', 'view_completed': True}, name='todo_mine_completed'),
     path('todo/<int:list_id>/<str:list_slug>/', task_views.custom_list_detail, name='todo_list_detail'),
     path('todo/<int:list_id>/<str:list_slug>/completed/', task_views.custom_list_detail, {'view_completed': True}, name='todo_list_detail_completed'),
     path('todo/toggle/<int:task_id>/', task_views.task_toggle_done, name='custom_task_toggle_done'),
