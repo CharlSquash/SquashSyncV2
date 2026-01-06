@@ -7,10 +7,10 @@ from django.utils import timezone
 from scheduling.models import Event
 
 class Command(BaseCommand):
-    help = 'Imports events from data_imports/data_imports/2026_events.csv'
+    help = 'Imports events from 2026_events.csv in project root'
 
     def handle(self, *args, **options):
-        file_path = os.path.join(settings.BASE_DIR, 'data_imports', 'data_imports', '2026_events.csv')
+        file_path = os.path.join(settings.BASE_DIR, '2026_events.csv')
 
         if not os.path.exists(file_path):
             self.stdout.write(self.style.ERROR(f"File not found: {file_path}"))
