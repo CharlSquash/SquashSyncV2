@@ -4,28 +4,28 @@
 {% block content %}
 <div class="container-fluid py-4 min-vh-100 d-flex flex-column">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 text-white">Manage Groups</h1>
+        <h1 class="h3 text-heading">Manage Groups</h1>
         <div class="d-flex align-items-center gap-2">
             
             <!-- Group Visibility Filter -->
             <div class="dropdown">
-                <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="groupFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="groupFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                     <i class="fas fa-filter"></i> Select Groups
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow p-3 bg-dark border-secondary" aria-labelledby="groupFilterDropdown" style="width: 300px; max-height: 400px; overflow-y: auto;">
-                    <li><h6 class="dropdown-header text-white-50">Toggle Visibility</h6></li>
+                 <ul class="dropdown-menu dropdown-menu-end shadow p-3 border-theme" aria-labelledby="groupFilterDropdown" style="width: 300px; max-height: 400px; overflow-y: auto;">
+                    <li><h6 class="dropdown-header">Toggle Visibility</h6></li>
                     <li>
                          <div class="form-check form-switch mb-2">
                             <input class="form-check-input" type="checkbox" id="toggleAllGroups" checked>
-                            <label class="form-check-label text-white small" for="toggleAllGroups">Show All</label>
+                            <label class="form-check-label small" for="toggleAllGroups">Show All</label>
                         </div>
                     </li>
-                    <li><hr class="dropdown-divider bg-secondary"></li>
+                    <li><hr class="dropdown-divider"></li>
                     <div id="groupCheckboxes">
                         {% for group in active_groups %}
                         <div class="form-check mb-1">
                             <input class="form-check-input group-visibility-toggle" type="checkbox" value="{{ group.id }}" id="chk-group-{{ group.id }}" checked>
-                            <label class="form-check-label text-white small" for="chk-group-{{ group.id }}">
+                            <label class="form-check-label small" for="chk-group-{{ group.id }}">
                                 {{ group.name }}
                             </label>
                         </div>
@@ -34,7 +34,7 @@
                 </ul>
             </div>
 
-             <a href="{% url 'players:school_group_list' %}" class="btn btn-outline-light btn-sm">
+             <a href="{% url 'players:school_group_list' %}" class="btn btn-outline-primary btn-sm">
                 <i class="fas fa-list"></i> List View
             </a>
         </div>
@@ -45,18 +45,18 @@
         
         <!-- Sidebar: Player Bench -->
         <div class="col-md-3 d-flex flex-column h-100">
-            <div class="card bg-dark text-white border-secondary h-100 shadow">
-                <div class="card-header border-secondary bg-darker">
+            <div class="card h-100 shadow custom-card">
+                <div class="card-header">
                     <h5 class="card-title mb-0"><i class="fas fa-users me-2"></i>Player Bench</h5>
                 </div>
                 <!-- Filters -->
-                <div class="card-body border-bottom border-secondary py-3 flex-grow-0">
+                <div class="card-body border-bottom border-theme py-3 flex-grow-0">
                      <div class="mb-2">
-                        <input type="text" id="benchSearch" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Search name...">
+                        <input type="text" id="benchSearch" class="form-control form-control-sm bg-theme-input" placeholder="Search name...">
                     </div>
                     <div class="row g-2 mb-2">
                          <div class="col-6">
-                            <select id="filterGrade" class="form-select form-select-sm bg-dark text-white border-secondary">
+                            <select id="filterGrade" class="form-select form-select-sm bg-theme-input">
                                 <option value="">All Grades</option>
                                 <option value="0">Grade R</option>
                                 <option value="1">Grade 1</option>
@@ -74,7 +74,7 @@
                             </select>
                         </div>
                         <div class="col-6">
-                             <select id="filterGender" class="form-select form-select-sm bg-dark text-white border-secondary">
+                             <select id="filterGender" class="form-select form-select-sm bg-theme-input">
                                 <option value="">All Genders</option>
                                 <option value="M">Male</option>
                                 <option value="F">Female</option>
@@ -94,7 +94,7 @@
                 <div class="card-body p-2 overflow-auto custom-scrollbar flex-grow-1" id="benchContainer">
                     <div id="benchList" class="list-group list-group-flush gap-2 min-vh-50">
                         {% for player in all_players %}
-                        <div class="list-group-item bg-secondary text-white rounded player-card border-0 p-2 cursor-grab"
+                        <div class="list-group-item rounded player-card border-0 p-2 cursor-grab"
                              data-id="{{ player.id }}"
                              data-name="{{ player.full_name|lower }}"
                              data-grade="{{ player.grade|default_if_none:'' }}"
@@ -103,7 +103,7 @@
                              data-active-group-count="{{ player.active_group_count }}"
                              draggable="true">
                             <div class="d-flex align-items-center">
-                                 <div class="avatar-sm me-2 bg-dark rounded-circle d-flex align-items-center justify-content-center text-secondary fw-bold" style="width: 32px; height: 32px; flex-shrink: 0; overflow: hidden;">
+                                 <div class="avatar-sm me-2 bg-theme-avatar rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; flex-shrink: 0; overflow: hidden;">
                                     {% if player.photo %}
                                         <img src="{{ player.photo.url }}" alt="{{ player.first_name }}" class="img-fluid w-100 h-100 object-fit-cover">
                                     {% else %}
@@ -111,12 +111,12 @@
                                     {% endif %}
                                 </div>
                                 <div class="flex-grow-1 min-w-0">
-                                    <h6 class="mb-0 text-truncate text-white small fw-bold">{{ player.full_name }}</h6>
-                                    <div class="small text-white-50 d-flex justify-content-between">
+                                    <h6 class="mb-0 text-truncate small fw-bold">{{ player.full_name }}</h6>
+                                    <div class="small text-muted d-flex justify-content-between">
                                         <span>
                                             {% if player.grade %}Gr {{ player.grade }}{% endif %}
                                         </span>
-                                        <span class="badge bg-dark-subtle text-light border border-secondary group-count-badge" 
+                                        <span class="badge bg-secondary-subtle text-secondary-emphasis border border-theme group-count-badge" 
                                               {% if player.active_group_count == 0 %}style="display:none;"{% endif %}
                                               title="{% for g in player.school_groups.all %}{% if g.is_active %}{{ g.name }}&#10;{% endif %}{% endfor %}"
                                               data-bs-toggle="tooltip">
@@ -139,8 +139,8 @@
         <div class="col-md-9 h-100">
              <div class="d-flex flex-nowrap overflow-auto custom-scrollbar h-100 gap-3 pb-3 px-1" id="groupsCanvas">
                 {% for group in active_groups %}
-                <div id="group-card-{{ group.id }}" class="card bg-dark text-white border-secondary shadow-sm flex-shrink-0 d-flex flex-column h-100" style="width: 300px; max-width: 300px;">
-                    <div class="card-header bg-darker border-secondary d-flex justify-content-between align-items-center py-2">
+                <div id="group-card-{{ group.id }}" class="card custom-card shadow-sm flex-shrink-0 d-flex flex-column h-100" style="width: 300px; max-width: 300px;">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
                         <h6 class="card-title mb-0 text-truncate" title="{{ group.name }}">{{ group.name }}</h6>
                         <span class="badge bg-primary rounded-pill group-counter">{{ group.players.count }}</span>
                     </div>
@@ -150,10 +150,10 @@
                         
                         {% for player in group.players.all %}
                             <!-- DUPLICATE CARD STRUCTURE FOR GROUP MEMBERS -->
-                             <div class="list-group-item bg-secondary text-white rounded player-card border-0 p-2 cursor-grab mb-2"
+                             <div class="list-group-item rounded player-card border-0 p-2 cursor-grab mb-2"
                                  data-id="{{ player.id }}">
                                 <div class="d-flex align-items-center">
-                                     <div class="avatar-sm me-2 bg-dark rounded-circle d-flex align-items-center justify-content-center text-secondary fw-bold" style="width: 32px; height: 32px; flex-shrink: 0; overflow: hidden;">
+                                     <div class="avatar-sm me-2 bg-theme-avatar rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; flex-shrink: 0; overflow: hidden;">
                                         {% if player.photo %}
                                             <img src="{{ player.photo.url }}" alt="{{ player.first_name }}" class="img-fluid w-100 h-100 object-fit-cover">
                                         {% else %}
@@ -161,8 +161,8 @@
                                         {% endif %}
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
-                                        <h6 class="mb-0 text-truncate text-white small fw-bold">{{ player.full_name }}</h6>
-                                        <div class="small text-white-50">{% if player.grade %}Gr {{ player.grade }}{% endif %}</div>
+                                        <h6 class="mb-0 text-truncate small fw-bold">{{ player.full_name }}</h6>
+                                        <div class="small text-muted">{% if player.grade %}Gr {{ player.grade }}{% endif %}</div>
                                     </div>
                                 </div>
                             </div>
@@ -186,20 +186,58 @@
 </ul>
 
 <style>
-    .bg-darker { background-color: #1a1d20; }
+    /* Theme Mappings */
+    .custom-card {
+        background-color: var(--container-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+    }
+    .card-header {
+        background-color: var(--container-light-bg);
+        border-bottom: 1px solid var(--border-color);
+        color: var(--heading-color);
+    }
+    .border-theme {
+        border-color: var(--border-color) !important;
+    }
+    .bg-theme-input {
+        background-color: var(--input-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+    }
+    .text-heading {
+        color: var(--heading-color);
+    }
+
+    /* Player Card Styling */
+    .player-card {
+        background-color: var(--activity-bg) !important; 
+        color: var(--activity-text) !important;
+        border: 1px solid var(--activity-border) !important;
+        transition: transform 0.1s;
+    }
+    .player-card:hover {
+        background-color: var(--container-light-bg) !important;
+    }
+    .bg-theme-avatar {
+        background-color: var(--court-bg);
+        color: var(--subheading-color);
+        border: 1px solid var(--border-light);
+    }
+
     .custom-scrollbar::-webkit-scrollbar {
         width: 8px;
         height: 8px;
     }
     .custom-scrollbar::-webkit-scrollbar-track {
-        background: #212529; 
+        background: var(--container-light-bg); 
     }
     .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #495057; 
+        background: var(--border-color); 
         border-radius: 4px;
     }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #6c757d; 
+        background: var(--subheading-color); 
     }
     .cursor-grab { cursor: grab; }
     .cursor-grab:active { cursor: grabbing; }
@@ -207,13 +245,17 @@
     /* Sortable Ghost and Drag Classes */
     .sortable-ghost {
         opacity: 0.4;
-        background-color: #0d6efd !important; /* Bootstrap Primary */
+        background-color: var(--link-color) !important; /* Bootstrap Primary or Link Color */
     }
     .sortable-drag {
-        background-color: #0d6efd !important;
+        background-color: var(--link-color) !important;
         opacity: 1;
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
+        color: #fff !important; /* Ensure text is visible on primary color */
         transform: scale(1.02);
+    }
+    .sortable-drag .small, .sortable-drag h6 {
+        color: #fff !important;
     }
 </style>
 
