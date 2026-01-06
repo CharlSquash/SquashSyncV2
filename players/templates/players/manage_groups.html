@@ -116,7 +116,10 @@
                                         <span>
                                             {% if player.grade %}Gr {{ player.grade }}{% endif %}
                                         </span>
-                                        <span class="badge bg-dark-subtle text-light border border-secondary group-count-badge" {% if player.active_group_count == 0 %}style="display:none;"{% endif %}>
+                                        <span class="badge bg-dark-subtle text-light border border-secondary group-count-badge" 
+                                              {% if player.active_group_count == 0 %}style="display:none;"{% endif %}
+                                              title="{% for g in player.school_groups.all %}{% if g.is_active %}{{ g.name }}&#10;{% endif %}{% endfor %}"
+                                              data-bs-toggle="tooltip">
                                             <i class="fas fa-layer-group fa-xs"></i>
                                         </span>
                                     </div>
