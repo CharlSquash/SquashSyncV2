@@ -23,4 +23,8 @@ urlpatterns = [
     path('api/session/<int:session_id>/update_attendance/', views.update_attendance_status, name='update_attendance_status'),
     path('api/update-event-date/', views.update_event_date, name='update_event_date'),
     path('api/delete-event/', views.delete_event, name='delete_event'),
+    # Management API
+    path('api/session/update/', views.update_session_ajax, name='update_session_ajax'),
+    path('api/session/create/', views.create_session_ajax, name='create_session_ajax'),
+    path('api/session/delete/', views.delete_session_ajax, name='delete_session_ajax'),
 ]

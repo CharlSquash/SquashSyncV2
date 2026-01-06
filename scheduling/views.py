@@ -606,6 +606,9 @@ def session_calendar(request):
         'special_events_json': json.dumps(special_events_data), # Add special events data
         'can_view_all': can_view_all,
         'is_all_view': view_mode == 'all' and can_view_all,
+        # DATA FOR MANAGEMENT MODE
+        'all_school_groups': SchoolGroup.objects.filter(is_active=True).order_by('name'),
+        'all_venues': Venue.objects.filter(is_active=True).order_by('name'),
     }
     return render(request, 'scheduling/session_calendar.html', context)
 
@@ -1490,3 +1493,138 @@ def decline_all_for_day_reason(request, date_str, token):
     }
     return render(request, 'scheduling/decline_all_reason_form.html', context)
 
+@login_required
+@require_POST
+@user_passes_test(lambda u: u.is_superuser)
+def update_session_ajax(request):
+    try:
+        data = json.loads(request.body)
+        session_id = data.get('session_id')
+        start_time_str = data.get('start_time') # HH:MM
+        date_str = data.get('session_date') # YYYY-MM-DD
+        
+        if not all([session_id, start_time_str, date_str]):
+             return JsonResponse({'status': 'error', 'message': 'Missing required fields.'}, status=400)
+
+        session = get_object_or_404(Session, pk=session_id)
+        
+        # Parse new values
+        new_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        new_time = datetime.strptime(start_time_str, '%H:%M').time()
+        
+        # NOTE: We are intentionally NOT modifying the generated_from_rule link.
+        # This session effectively becomes a "custom" instance of that rule for this specific date.
+        
+        session.session_date = new_date
+        session.session_start_time = new_time
+        session.save()
+        
+        return JsonResponse({'status': 'success', 'message': 'Session updated successfully.'})
+    except (json.JSONDecodeError, ValueError) as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@user_passes_test(lambda u: u.is_superuser)
+def create_session_ajax(request):
+    try:
+        data = json.loads(request.body)
+        school_group_id = data.get('school_group_id') # Can be None/null
+        venue_id = data.get('venue_id')
+        date_str = data.get('date')
+        time_str = data.get('time')
+        duration = data.get('duration', 60)
+        notes = data.get('notes', '')
+        
+        if not all([date_str, time_str]):
+             return JsonResponse({'status': 'error', 'message': 'Date and Time are required.'}, status=400)
+
+        session_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        session_time = datetime.strptime(time_str, '%H:%M').time()
+        
+        # Basic Conflict Check (Optional - can be made stricter)
+        # Using existing utility if available, or simple overlap check
+        # For now, we will trust the superuser but maybe warn? 
+        # Requirement said: "Ensure new sessions do not conflict... by reusing check_for_conflicts if applicable."
+        # check_for_conflicts(date, start_time, duration, venue, exclude_session_id=None)
+        
+        venue = None
+        if venue_id:
+            venue = get_object_or_404(Venue, pk=venue_id)
+            
+            # --- VENUE CONFLICT CHECK ---
+            # Calculate end time of the proposed session
+            # We can't trust passed session object yet as it's not created.
+            # We do logic on times.
+            
+            # Convert to datetime for comparison
+            # Note: session_time is a time object, date is date object.
+            
+            # Helper to get start/end datetimes
+            start_dt = datetime.combine(session_date, session_time)
+            end_dt = start_dt + timedelta(minutes=int(duration))
+            
+            # Normalize to time if sessions are only within one day?
+            # Session model supports efficient date querying.
+            
+            overlapping_sessions = Session.objects.filter(
+                venue=venue,
+                session_date=session_date,
+                is_cancelled=False
+            )
+            
+            conflicts = []
+            for existing in overlapping_sessions:
+                if not existing.session_start_time: continue
+                
+                existing_start = datetime.combine(existing.session_date, existing.session_start_time)
+                existing_end = existing_start + timedelta(minutes=existing.planned_duration_minutes)
+                
+                # Check Overlap: A_start < B_end and A_end > B_start
+                if start_dt < existing_end and end_dt > existing_start:
+                    conflicts.append(f"{existing.school_group.name if existing.school_group else 'Session'} ({existing.session_start_time.strftime('%H:%M')})")
+            
+            if conflicts:
+                 return JsonResponse({'status': 'error', 'message': 'Venue conflict detected with: ' + ", ".join(conflicts)}, status=409)
+
+        school_group = None
+        if school_group_id:
+            school_group = get_object_or_404(SchoolGroup, pk=school_group_id)
+
+        session = Session.objects.create(
+            school_group=school_group,
+            venue=venue,
+            session_date=session_date,
+            session_start_time=session_time,
+            planned_duration_minutes=int(duration),
+            notes=notes,
+            status='active'
+        )
+        
+        return JsonResponse({'status': 'success', 'session_id': session.id})
+        
+    except (json.JSONDecodeError, ValueError) as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+@user_passes_test(lambda u: u.is_superuser)
+def delete_session_ajax(request):
+    try:
+        data = json.loads(request.body)
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return JsonResponse({'status': 'error', 'message': 'Session ID is required.'}, status=400)
+            
+        session = get_object_or_404(Session, pk=session_id)
+        session.delete()
+        
+        return JsonResponse({'status': 'success', 'message': 'Session deleted successfully.'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
