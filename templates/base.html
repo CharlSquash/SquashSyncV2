@@ -53,7 +53,9 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'scheduling:session_calendar' %}">Calendar</a>
                     </li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'players:players_list' %}">Players</a></li>
+                    {% if not user.is_superuser %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'todo:mine' %}">My Tasks</a></li>
+                    {% endif %}
 
                     {% if user.is_staff and not user.is_superuser %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'accounts:my_profile' %}">My Profile</a></li>
@@ -76,9 +78,7 @@
                     </li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'finance:completion_report' %}">Completion
                             Report</a></li>
-                    <li class="nav-item"><a class="nav-link"
-                            href="{% url 'admin:finance_payslip_changelist' %}">Payslips</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'awards:prize_list' %}">Awards</a></li>
+
                     {% endif %}
                 </ul>
                 {% endif %}
