@@ -355,3 +355,56 @@ def school_group_profile(request, group_id):
     }
     return render(request, 'players/school_group_profile.html', context)
 
+
+@permission_required('players.can_manage_school_groups', raise_exception=True)
+def manage_school_groups(request):
+    """
+    Visual interface for managing school groups via drag-and-drop.
+    """
+    active_groups = SchoolGroup.objects.filter(is_active=True).prefetch_related('players')
+    
+    # We want all active players for the sidebar "bench"
+    all_players = Player.objects.filter(is_active=True).prefetch_related('school_groups').annotate(
+        active_group_count=Count('school_groups', filter=Q(school_groups__is_active=True))
+    ).order_by('grade', 'last_name')
+    
+    context = {
+        'page_title': "Manage School Groups",
+        'active_groups': active_groups,
+        'all_players': all_players,
+    }
+    return render(request, 'players/manage_groups.html', context)
+
+
+@require_POST
+@permission_required('players.can_manage_school_groups', raise_exception=True)
+def update_player_group_membership(request):
+    """
+    API endpoint to update player group membership.
+    Payload: { "player_id": int, "new_group_id": int/null, "old_group_id": int/null }
+    """
+    try:
+        data = json.loads(request.body)
+        player_id = data.get('player_id')
+        new_group_id = data.get('new_group_id')
+        old_group_id = data.get('old_group_id')
+        
+        player = get_object_or_404(Player, pk=player_id)
+        
+        # Remove from old group if specified
+        if old_group_id:
+            # Check if group exists
+            old_group = get_object_or_404(SchoolGroup, pk=old_group_id)
+            player.school_groups.remove(old_group)
+            
+        # Add to new group if specified
+        if new_group_id:
+            new_group = get_object_or_404(SchoolGroup, pk=new_group_id)
+            player.school_groups.add(new_group)
+            
+        return JsonResponse({'status': 'success'})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

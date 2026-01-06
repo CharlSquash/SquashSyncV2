@@ -1,0 +1,451 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4 min-vh-100 d-flex flex-column">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 text-white">Manage Groups</h1>
+        <div class="d-flex align-items-center gap-2">
+            
+            <!-- Group Visibility Filter -->
+            <div class="dropdown">
+                <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="groupFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                    <i class="fas fa-filter"></i> Select Groups
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow p-3 bg-dark border-secondary" aria-labelledby="groupFilterDropdown" style="width: 300px; max-height: 400px; overflow-y: auto;">
+                    <li><h6 class="dropdown-header text-white-50">Toggle Visibility</h6></li>
+                    <li>
+                         <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="toggleAllGroups" checked>
+                            <label class="form-check-label text-white small" for="toggleAllGroups">Show All</label>
+                        </div>
+                    </li>
+                    <li><hr class="dropdown-divider bg-secondary"></li>
+                    <div id="groupCheckboxes">
+                        {% for group in active_groups %}
+                        <div class="form-check mb-1">
+                            <input class="form-check-input group-visibility-toggle" type="checkbox" value="{{ group.id }}" id="chk-group-{{ group.id }}" checked>
+                            <label class="form-check-label text-white small" for="chk-group-{{ group.id }}">
+                                {{ group.name }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </ul>
+            </div>
+
+             <a href="{% url 'players:school_group_list' %}" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-list"></i> List View
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="row flex-grow-1" style="height: calc(100vh - 150px); overflow: hidden;">
+        
+        <!-- Sidebar: Player Bench -->
+        <div class="col-md-3 d-flex flex-column h-100">
+            <div class="card bg-dark text-white border-secondary h-100 shadow">
+                <div class="card-header border-secondary bg-darker">
+                    <h5 class="card-title mb-0"><i class="fas fa-users me-2"></i>Player Bench</h5>
+                </div>
+                <!-- Filters -->
+                <div class="card-body border-bottom border-secondary py-3 flex-grow-0">
+                     <div class="mb-2">
+                        <input type="text" id="benchSearch" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Search name...">
+                    </div>
+                    <div class="row g-2 mb-2">
+                         <div class="col-6">
+                            <select id="filterGrade" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                <option value="">All Grades</option>
+                                <option value="0">Grade R</option>
+                                <option value="1">Grade 1</option>
+                                <option value="2">Grade 2</option>
+                                <option value="3">Grade 3</option>
+                                <option value="4">Grade 4</option>
+                                <option value="5">Grade 5</option>
+                                <option value="6">Grade 6</option>
+                                <option value="7">Grade 7</option>
+                                <option value="8">Grade 8</option>
+                                <option value="9">Grade 9</option>
+                                <option value="10">Grade 10</option>
+                                <option value="11">Grade 11</option>
+                                <option value="12">Grade 12</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                             <select id="filterGender" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                <option value="">All Genders</option>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                            </select>
+                        </div>
+                    </div>
+                     <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="toggleUnassigned" checked>
+                        <label class="form-check-label small text-muted" for="toggleUnassigned">Show Unassigned Only</label>
+                    </div>
+                    <div class="mt-2 text-center text-muted small">
+                        <span id="visibleCount">0</span> active players visible
+                    </div>
+                </div>
+
+                <!-- Draggable List -->
+                <div class="card-body p-2 overflow-auto custom-scrollbar flex-grow-1" id="benchContainer">
+                    <div id="benchList" class="list-group list-group-flush gap-2 min-vh-50">
+                        {% for player in all_players %}
+                        <div class="list-group-item bg-secondary text-white rounded player-card border-0 p-2 cursor-grab"
+                             data-id="{{ player.id }}"
+                             data-name="{{ player.full_name|lower }}"
+                             data-grade="{{ player.grade|default_if_none:'' }}"
+                             data-gender="{{ player.gender }}"
+                             data-groups="{% for g in player.school_groups.all %}{{ g.id }},{% endfor %}"
+                             data-active-group-count="{{ player.active_group_count }}"
+                             draggable="true">
+                            <div class="d-flex align-items-center">
+                                 <div class="avatar-sm me-2 bg-dark rounded-circle d-flex align-items-center justify-content-center text-secondary fw-bold" style="width: 32px; height: 32px; flex-shrink: 0; overflow: hidden;">
+                                    {% if player.photo %}
+                                        <img src="{{ player.photo.url }}" alt="{{ player.first_name }}" class="img-fluid w-100 h-100 object-fit-cover">
+                                    {% else %}
+                                        {{ player.first_name|first }}{{ player.last_name|first }}
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <h6 class="mb-0 text-truncate text-white small fw-bold">{{ player.full_name }}</h6>
+                                    <div class="small text-white-50 d-flex justify-content-between">
+                                        <span>
+                                            {% if player.grade %}Gr {{ player.grade }}{% endif %}
+                                        </span>
+                                        <span class="badge bg-dark-subtle text-light border border-secondary group-count-badge" {% if player.active_group_count == 0 %}style="display:none;"{% endif %}>
+                                            <i class="fas fa-layer-group fa-xs"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                         <div class="text-center text-muted mt-4 small d-none" id="emptyBenchMsg">
+                            No players match filters.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Groups Canvas -->
+        <div class="col-md-9 h-100">
+             <div class="d-flex flex-nowrap overflow-auto custom-scrollbar h-100 gap-3 pb-3 px-1" id="groupsCanvas">
+                {% for group in active_groups %}
+                <div id="group-card-{{ group.id }}" class="card bg-dark text-white border-secondary shadow-sm flex-shrink-0 d-flex flex-column h-100" style="width: 300px; max-width: 300px;">
+                    <div class="card-header bg-darker border-secondary d-flex justify-content-between align-items-center py-2">
+                        <h6 class="card-title mb-0 text-truncate" title="{{ group.name }}">{{ group.name }}</h6>
+                        <span class="badge bg-primary rounded-pill group-counter">{{ group.players.count }}</span>
+                    </div>
+                    <div class="card-body p-2 overflow-auto custom-scrollbar flex-grow-1 group-dropzone" 
+                         data-group-id="{{ group.id }}" 
+                         id="group-list-{{ group.id }}">
+                        
+                        {% for player in group.players.all %}
+                            <!-- DUPLICATE CARD STRUCTURE FOR GROUP MEMBERS -->
+                             <div class="list-group-item bg-secondary text-white rounded player-card border-0 p-2 cursor-grab mb-2"
+                                 data-id="{{ player.id }}">
+                                <div class="d-flex align-items-center">
+                                     <div class="avatar-sm me-2 bg-dark rounded-circle d-flex align-items-center justify-content-center text-secondary fw-bold" style="width: 32px; height: 32px; flex-shrink: 0; overflow: hidden;">
+                                        {% if player.photo %}
+                                            <img src="{{ player.photo.url }}" alt="{{ player.first_name }}" class="img-fluid w-100 h-100 object-fit-cover">
+                                        {% else %}
+                                            {{ player.first_name|first }}{{ player.last_name|first }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <h6 class="mb-0 text-truncate text-white small fw-bold">{{ player.full_name }}</h6>
+                                        <div class="small text-white-50">{% if player.grade %}Gr {{ player.grade }}{% endif %}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-darker { background-color: #1a1d20; }
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #212529; 
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #495057; 
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #6c757d; 
+    }
+    .cursor-grab { cursor: grab; }
+    .cursor-grab:active { cursor: grabbing; }
+    
+    /* Sortable Ghost and Drag Classes */
+    .sortable-ghost {
+        opacity: 0.4;
+        background-color: #0d6efd !important; /* Bootstrap Primary */
+    }
+    .sortable-drag {
+        background-color: #0d6efd !important;
+        opacity: 1;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
+        transform: scale(1.02);
+    }
+</style>
+
+<!-- SortableJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const benchList = document.getElementById('benchList');
+        const groups = document.querySelectorAll('.group-dropzone');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : null;
+
+        // --- GROUP VISIBILITY LOGIC ---
+        const groupCheckboxes = document.querySelectorAll('.group-visibility-toggle');
+        const toggleAllGroups = document.getElementById('toggleAllGroups');
+
+        function updateGroupVisibility() {
+            groupCheckboxes.forEach(chk => {
+                const groupId = chk.value;
+                const card = document.getElementById(`group-card-${groupId}`); // We need to add this ID to the card
+                if (card) {
+                    if (chk.checked) {
+                        card.classList.remove('d-none');
+                        card.classList.add('d-flex'); // Restore flex
+                    } else {
+                        card.classList.add('d-none');
+                        card.classList.remove('d-flex');
+                    }
+                }
+            });
+            
+            // Uncheck "Show All" if any individual is unchecked
+            const allChecked = Array.from(groupCheckboxes).every(c => c.checked);
+            toggleAllGroups.checked = allChecked;
+        }
+
+        groupCheckboxes.forEach(chk => {
+            chk.addEventListener('change', updateGroupVisibility);
+        });
+
+        toggleAllGroups.addEventListener('change', function() {
+            const isChecked = this.checked;
+            groupCheckboxes.forEach(chk => {
+                chk.checked = isChecked;
+            });
+            updateGroupVisibility();
+        });
+
+        // --- FILTERING LOGIC ---
+        const searchInput = document.getElementById('benchSearch');
+        const filterGrade = document.getElementById('filterGrade');
+        const filterGender = document.getElementById('filterGender');
+        const toggleUnassigned = document.getElementById('toggleUnassigned');
+        const visibleCountSpan = document.getElementById('visibleCount');
+
+        function filterBench() {
+            const term = searchInput.value.toLowerCase();
+            const grade = filterGrade.value;
+            const gender = filterGender.value;
+            const showUnassignedOnly = toggleUnassigned.checked;
+            
+            let visible = 0;
+            const cards = benchList.querySelectorAll('.player-card');
+
+            cards.forEach(card => {
+                const name = card.dataset.name;
+                const pGrade = card.dataset.grade;
+                const pGender = card.dataset.gender;
+                const pGroups = card.dataset.groups; // string like "1,2,"
+                const activeGroupCount = parseInt(card.dataset.activeGroupCount || "0");
+
+                let matches = true;
+                if (term && !name.includes(term)) matches = false;
+                if (grade && pGrade != grade) matches = false;
+                if (gender && pGender != gender) matches = false;
+                
+                // Unassigned logic: if checked, only show if activeGroupCount is 0
+                if (showUnassignedOnly && activeGroupCount > 0) matches = false;
+
+                if (matches) {
+                    card.classList.remove('d-none');
+                    visible++;
+                } else {
+                    card.classList.add('d-none');
+                }
+            });
+            visibleCountSpan.textContent = visible;
+        }
+
+        searchInput.addEventListener('input', filterBench);
+        filterGrade.addEventListener('change', filterBench);
+        filterGender.addEventListener('change', filterBench);
+        toggleUnassigned.addEventListener('change', filterBench);
+
+        // Initial Filter run
+        filterBench();
+
+        // --- API HELPER ---
+        async function updateMembership(playerId, newGroupId, oldGroupId) {
+            try {
+                const response = await fetch("{% url 'players:update_player_group_membership' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        player_id: playerId,
+                        new_group_id: newGroupId,
+                        old_group_id: oldGroupId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API Error');
+                }
+                const data = await response.json();
+                console.log("Update success", data);
+                // Update specific counters if needed, but the DOM move is already done by Sortable
+                // If we want to be fancy, we'd update the player card's data-groups attribute
+                // to reflect the new state so filtering keeps working correctly without refresh.
+                // But for now, basic functionality. 
+                
+                // Let's at least update the badge count in the group header
+                 if(newGroupId) updateGroupCount(newGroupId, 1);
+                 if(oldGroupId) updateGroupCount(oldGroupId, -1);
+
+            } catch (error) {
+                console.error('Error updating membership:', error);
+                alert("Failed to update group membership. Please refresh.");
+                // Simplest rollback is refresh, complex rollback requires undoing DOM change
+            }
+        }
+
+        function updateGroupCount(groupId, change) {
+            const container = document.getElementById(`group-list-${groupId}`);
+            if(container) {
+                const badge = container.closest('.card').querySelector('.group-counter');
+                let count = parseInt(badge.textContent || '0');
+                badge.textContent = Math.max(0, count + change);
+            }
+        }
+
+
+        // --- DRAG AND DROP ---
+        
+        // 1. Sidebar (Bench) Config
+        new Sortable(benchList, {
+            group: {
+                name: 'players',
+                pull: 'clone', // Clone the element when dragging out
+                put: true // Allow putting back (removing from group)
+            },
+            sort: false, // Sidebar shouldn't be sortable itself (based on filters)
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            onEnd: function (evt) {
+                // If dropped outside of any valid list, revert happens automatically by Sortable usually
+                // But specifically for 'clone', the original stays.
+                
+                // If we drag from bench to a group, Sortable creates a clone in the target.
+                // The API call happens in the TARGET's onAdd usually? 
+                // Wait, 'pull: clone' means the item stays in the Bench AND goes to the destination.
+                // But if we want to "Assign", do we want to Keep it in the bench?
+                // Visual requirement: "If in 'Show All' mode, the card should probably be cloned visually... but standard move is fine".
+                // Let's stick to standard behavior first, maybe pull: true (move) is less confusing than clone for now, 
+                // UNLESS the user wants to see the player in the bench still.
+                // "Sortable behavior is fine (it moves)" -> Let's use pull: true for simplicity.
+                // If pull: true, the item is REMOVED from bench. That's good for "Unassigned Only" view.
+                // For "Show All", it might disappear, which is correct if it's now in that group?
+                // Actually, a player can be in MULTIPLE groups. 
+                // So if I drag Player A to Group 1, they are now in Group 1. 
+                // If I drag Player A to Group 2, they are now in Group 1 AND Group 2.
+                // So dragging OUT of bench shouldn't generally remove them from bench conceptual list, 
+                // but we need to signal "Adding to Group".
+                
+                // Let's use 'pull: "clone"' so the player technically stays in the "All Players" list (Bench).
+                // However, if we drag INTO the bench from a Group, it implies "Remove from Group".
+            }, 
+            // When something is dropped INTO the bench (Remove from Group)
+            onAdd: function (evt) {
+                const item = evt.item;
+                const playerId = item.dataset.id;
+                const fromList = evt.from;
+                const oldGroupId = fromList.dataset.groupId; // The group we came from
+                
+                // Remove the element immediately because it's already in the bench list (since we cloned from it earlier or it exists)
+                // Actually, if we use cloning, dropping back might create duplicates.
+                // We should just remove the item that was dropped here to clean up UI, 
+                // treating the action purely as "Remove from Group".
+                item.remove(); 
+                
+                if (oldGroupId) {
+                    console.log(`Removing player ${playerId} from group ${oldGroupId}`);
+                    updateMembership(playerId, null, oldGroupId);
+                }
+            }
+        });
+
+        // 2. Group Lists Config
+        groups.forEach(groupList => {
+            new Sortable(groupList, {
+                group: {
+                    name: 'players',
+                    pull: true, // Allow moving FROM group (to another group or back to bench)
+                    put: true   // Allow dropping INTO group
+                },
+                sort: true, // Allow reordering within group? Not strictly needed but fine.
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                
+                // Player Added to this Group (from Bench OR another Group)
+                onAdd: function (evt) {
+                    const item = evt.item;
+                    const playerId = item.dataset.id;
+                    const newGroupId = groupList.dataset.groupId;
+                    const fromList = evt.from;
+                    
+                    // Check source
+                    const oldGroupId = fromList.dataset.groupId || null; // If null, it came from Bench
+                    
+                    console.log(`Added player ${playerId} to group ${newGroupId} (From: ${oldGroupId ? oldGroupId : 'Bench'})`);
+                    
+                    // If it came from another group, we treat it as a TRANSFER (Remove from Old, Add to New)
+                    // If it came from Bench (oldGroupId is null), we just ADD.
+                    
+                    updateMembership(playerId, newGroupId, oldGroupId);
+                    
+                    // If we cloned from sidebar, we might want to ensure the card inside the group 
+                    // doesn't have the 'd-none' utility if it was filtered hidden in the sidebar for some reason?
+                    // But usually you drag visible items.
+                    // Also, we might want to clean up classes specific to sidebar items vs group items if there were any.
+                    item.classList.remove('d-none'); // Ensure visible
+                },
+                
+                // Player Removed from this Group (Drag to another Group OR to Bench)
+                // We handle the API call in the DESTINATION's onAdd.
+                // Except if we drop to "Nowhere"? (Sortable usually reverts).
+                // If we drop to Bench, Bench's onAdd handles the removal logic.
+            });
+        });
+
+    });
+</script>
+{% endblock %}
