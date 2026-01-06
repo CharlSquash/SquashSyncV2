@@ -64,7 +64,7 @@
             </label>
         </div>
         <div class="form-check form-check-inline">
-            <input class="form-check-input" type="checkbox" value="" id="toggleTasks">
+            <input class="form-check-input" type="checkbox" value="" id="toggleTasks" checked>
             <label class="form-check-label" for="toggleTasks">
                 Tasks
             </label>
@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
         height: 'auto',
 
         // Start with ONLY sessions by default (as per requirement)
-        eventSources: [ sessionsSource ],
+        eventSources: [ sessionsSource, tasksSource ],
 
         eventClick: function(info) {
             info.jsEvent.preventDefault();
