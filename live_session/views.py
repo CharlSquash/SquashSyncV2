@@ -273,7 +273,19 @@ def experimental_planner(request, session_id):
 def create_custom_drill(request):
     try:
         data = json.loads(request.body)
-        coach = get_object_or_404(Coach, user=request.user)
+        
+        coach = None
+        is_approved = False
+
+        try:
+            coach = Coach.objects.get(user=request.user)
+        except Coach.DoesNotExist:
+            if request.user.is_superuser:
+                # Admins don't need a coach profile, and their drills are auto-approved
+                coach = None
+                is_approved = True
+            else:
+                 return JsonResponse({'status': 'error', 'message': 'No Coach profile found for this user.'}, status=400)
         
         drill = Drill.objects.create(
             name=data.get('name'),
@@ -283,7 +295,7 @@ def create_custom_drill(request):
             duration_minutes=int(data.get('duration', 10)),
             video_url=data.get('video_url', ''),
             created_by=coach,
-            is_approved=False # Explicitly set to False
+            is_approved=is_approved # Explicitly set to False
         )
         
         return JsonResponse({
@@ -296,7 +308,7 @@ def create_custom_drill(request):
                 'description': drill.description,
                 'duration_minutes': drill.duration_minutes,
                 'video_url': drill.video_url,
-                'created_by_id': coach.id
+                'created_by_id': coach.id if coach else None
             }
         })
     except Exception as e:
