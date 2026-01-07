@@ -7,6 +7,16 @@ class Drill(models.Model):
     CATEGORY_CHOICES = [
         ('Technical', 'Technical'),
         ('Conditioning', 'Conditioning'),
+        ('Warmups', 'Warmups'),
+        ('Hand-Eye Coordination', 'Hand-Eye Coordination'),
+        ('Fun Games', 'Fun Games'),
+        ('Ghosting', 'Ghosting'),
+        ('Drills - Racketwork', 'Drills - Racketwork'),
+        ('Feeding Drills', 'Feeding Drills'),
+        ('Condition Games', 'Condition Games'),
+        ('Fitness', 'Fitness'),
+        ('Movement', 'Movement'),
+        ('Circuits (Score/Time)', 'Circuits (Score/Time)'),
     ]
 
     DIFFICULTY_CHOICES = [
