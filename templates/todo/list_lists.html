@@ -13,17 +13,7 @@
             <a href="{% url 'todo:list_detail' list.id list.slug %}">{{ list.name }}</a>
         </h5>
     </div>
-    <div class="card-body">
-        <p><strong>Group:</strong> {{ list.group.name }}</p>
-        <p><strong>Members:</strong>
-            {% for user in list.group.user_set.all %}
-            {{ user.get_full_name|default:user.username }}{% if not forloop.last %}, {% endif %}
-            {% empty %}
-            No members
-            {% endfor %}
-        </p>
 
-    </div>
 </div>
 {% empty %}
 <p>No projects found.</p>

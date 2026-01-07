@@ -11,7 +11,8 @@ class ListCreationTest(TestCase):
         self.user = User.objects.create_user(
             username='testuser',
             password='password123',
-            is_staff=True # Needed for some checks potentially
+            is_superuser=True, # Needed for add_project view
+            is_staff=True # Needed for staff_check decorator
         )
         self.client = Client()
         self.client.login(username='testuser', password='password123')
