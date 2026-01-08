@@ -62,7 +62,8 @@
             Play, Pause, SkipForward, SkipBack, Users, Youtube, Plus, Trash2, 
             Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library, Info, X, Cloud, CloudLightning,
-            Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move
+            Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move,
+            ChevronLeft, ChevronRight
         } from 'lucide-react';
 
         /**
@@ -273,6 +274,7 @@
             const [showCreateDrillModal, setShowCreateDrillModal] = useState(false);
             const [selectedCategory, setSelectedCategory] = useState('All');
             const [expandedDrillId, setExpandedDrillId] = useState(null); // For Quick Preview
+            const [isLibraryExpanded, setIsLibraryExpanded] = useState(false);
             
             // Initial Load Logic
             const [numCourts, setNumCourts] = useState(() => {
@@ -815,13 +817,21 @@
                         </div>
 
                         {/* RIGHT: Drill Library */}
-                        <aside className={`absolute inset-0 bg-white z-10 md:static md:w-72 border-l border-slate-200 flex flex-col transition-transform duration-300 ${activeMobileTab === 'drills' ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+                        <aside className={`absolute inset-0 bg-white z-10 ${isLibraryExpanded ? 'md:absolute md:left-auto md:right-0 md:w-3/4 md:shadow-2xl border-l-2' : 'md:static md:w-72 border-l'} border-slate-200 flex flex-col transition-all duration-300 ${activeMobileTab === 'drills' ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} group/sidebar`}>
+                            {/* Toggle Button - Desktop Only */}
+                            <button 
+                                onClick={() => setIsLibraryExpanded(!isLibraryExpanded)}
+                                className="hidden md:flex absolute -left-3 top-20 bg-white border border-slate-200 border-r-0 rounded-l-md p-1 shadow-sm text-slate-400 hover:text-emerald-600 transition z-50 items-center justify-center h-8 w-6"
+                                title={isLibraryExpanded ? "Collapse Library" : "Expand Library"}
+                            >
+                                {isLibraryExpanded ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                            </button>
                             <div className="p-4 border-b border-slate-100 flex flex-col gap-3">
                                 <h3 className="font-bold text-slate-700">Drill Library</h3>
                                 <div className="relative"><Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" /><input type="text" placeholder="Search drills..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-emerald-500" /></div>
                                 
                                 {/* Category Filter */}
-                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 custom-scrollbar">
+                                <div className={`flex gap-2 ${isLibraryExpanded ? 'flex-wrap' : 'overflow-x-auto pb-2 -mx-4 px-4 custom-scrollbar'}`}>
                                     {['All', 'Technical', 'Conditioning', 'Warmups', 'Fun Games', 'Ghosting', 'Drills - Racketwork', 'Feeding Drills', 'Condition Games', 'Fitness', 'Movement', 'Circuits (Score/Time)', 'Hand-Eye Coordination'].map(cat => (
                                         <button 
                                             key={cat}
@@ -838,7 +848,7 @@
                                     ))}
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                            <div className={`flex-1 overflow-y-auto p-2 ${isLibraryExpanded ? 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 content-start' : 'space-y-2'}`}>
                                 {availableDrills.filter(d => selectedCategory === 'All' || d.type === selectedCategory).map(drill => (
                                     <div key={drill.id} className="group p-3 rounded-md border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition cursor-pointer bg-white shadow-sm relative" onClick={() => setExpandedDrillId(expandedDrillId === drill.id ? null : drill.id)}>
                                         <div className="flex justify-between items-start"><h4 className="font-medium text-sm text-slate-800">{drill.name}</h4>
@@ -872,7 +882,7 @@
                                                     {drill.video_url ? (
                                                         <iframe 
                                                             className="w-full h-full" 
-                                                            src={`https://www.youtube.com/embed/${getYouTubeId(drill.video_url)}?start=0`} 
+                                                            src={`https://www.youtube.com/embed/${getYouTubeId(drill.video_url)}?start=0&rel=0`} 
                                                             title={drill.name}
                                                             frameBorder="0" 
                                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
