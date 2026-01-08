@@ -61,7 +61,7 @@ class DrillCreationTests(TestCase):
         self.client.force_login(self.admin_user)
         data = {
             'name': 'Admin Drill',
-            'category': 'Technical',
+            'category': 'Conditioning',
             'difficulty': 'Beginner',
             'description': 'Test',
             'duration': 10

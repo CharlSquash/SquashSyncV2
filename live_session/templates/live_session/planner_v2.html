@@ -159,7 +159,7 @@
         const CreateDrillModal = ({ onClose, onCreated }) => {
             const [localDrill, setLocalDrill] = useState({
                 name: '',
-                category: 'Technical',
+                category: 'Conditioning',
                 difficulty: 'Beginner',
                 description: '',
                 duration: 10,
@@ -215,7 +215,7 @@
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">Category</label>
                                         <select value={localDrill.category} onChange={e => setLocalDrill({...localDrill, category: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                            <option value="Technical">Technical</option>
+
                                             <option value="Conditioning">Conditioning</option>
                                             <option value="Warmups">Warmups</option>
                                             <option value="Hand-Eye Coordination">Hand-Eye Coordination</option>
@@ -832,7 +832,7 @@
                                 
                                 {/* Category Filter */}
                                 <div className={`flex gap-2 ${isLibraryExpanded ? 'flex-wrap' : 'overflow-x-auto pb-2 -mx-4 px-4 custom-scrollbar'}`}>
-                                    {['All', 'Technical', 'Conditioning', 'Warmups', 'Fun Games', 'Ghosting', 'Drills - Racketwork', 'Feeding Drills', 'Condition Games', 'Fitness', 'Movement', 'Circuits (Score/Time)', 'Hand-Eye Coordination'].map(cat => (
+                                    {['All', 'Conditioning', 'Warmups', 'Fun Games', 'Ghosting', 'Drills - Racketwork', 'Feeding Drills', 'Condition Games', 'Fitness', 'Movement', 'Circuits (Score/Time)', 'Hand-Eye Coordination'].map(cat => (
                                         <button 
                                             key={cat}
                                             onClick={() => setSelectedCategory(cat)}

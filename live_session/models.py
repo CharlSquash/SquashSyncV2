@@ -5,7 +5,7 @@ from django.core.validators import MinValueValidator
 
 class Drill(models.Model):
     CATEGORY_CHOICES = [
-        ('Technical', 'Technical'),
+
         ('Conditioning', 'Conditioning'),
         ('Warmups', 'Warmups'),
         ('Hand-Eye Coordination', 'Hand-Eye Coordination'),

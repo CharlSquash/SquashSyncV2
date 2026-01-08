@@ -289,7 +289,7 @@ def create_custom_drill(request):
         
         drill = Drill.objects.create(
             name=data.get('name'),
-            category=data.get('category', 'Technical'),
+            category=data.get('category', 'Conditioning'),
             difficulty=data.get('difficulty', 'Beginner'),
             description=data.get('description', ''),
             duration_minutes=int(data.get('duration', 10)),
