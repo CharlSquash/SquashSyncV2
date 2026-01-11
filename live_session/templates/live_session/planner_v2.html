@@ -261,6 +261,77 @@
             );
         };
 
+        const MobileDrillPicker = ({ onClose, onAdd, availableDrills, formatTime }) => {
+            const [search, setSearch] = useState('');
+            const [cat, setCat] = useState('All');
+            
+            const filtered = availableDrills.filter(d => {
+                const matchSearch = d.name.toLowerCase().includes(search.toLowerCase());
+                const matchCat = cat === 'All' || d.type === cat;
+                return matchSearch && matchCat;
+            });
+
+            return (
+                <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+                    {/* Header */}
+                    <div className="bg-white px-4 py-3 border-b border-slate-200 shadow-sm flex items-center justify-between shrink-0">
+                        <h2 className="font-bold text-slate-800 text-lg">Add Drill</h2>
+                        <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    {/* Search & Filter */}
+                    <div className="p-4 bg-white border-b border-slate-100 space-y-3 shrink-0">
+                        <div className="relative">
+                            <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
+                            <input 
+                                type="text" 
+                                placeholder="Search drills..." 
+                                className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-base focus:ring-2 focus:ring-emerald-500 outline-none"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+                            {['All', 'Conditioning', 'Warmups', 'Fun Games', 'Drills - Racketwork', 'Movement'].map(c => (
+                                <button 
+                                    key={c} 
+                                    onClick={() => setCat(c)}
+                                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition ${cat === c ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}
+                                >
+                                    {c}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* List */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {filtered.map(drill => (
+                            <button 
+                                key={drill.id}
+                                onClick={() => { onAdd(drill); }}
+                                className="w-full bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
+                            >
+                                <div className="text-left">
+                                    <h4 className="font-bold text-slate-800">{drill.name}</h4>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{drill.type}</span>
+                                        <span className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(drill.defaultDuration)}</span>
+                                    </div>
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                    <Plus className="w-5 h-5" />
+                                </div>
+                            </button>
+                        ))}
+                        <div className="h-20"></div> {/* Spacer for bottom safety */}
+                    </div>
+                </div>
+            );
+        };
+
         function SquashSyncPlanner() {
             // App State
             const [view, setView] = useState('planning');
@@ -275,6 +346,7 @@
             const [selectedCategory, setSelectedCategory] = useState('All');
             const [expandedDrillId, setExpandedDrillId] = useState(null); // For Quick Preview
             const [isLibraryExpanded, setIsLibraryExpanded] = useState(false);
+            const [showMobileDrillPicker, setShowMobileDrillPicker] = useState(false);
             
             // Initial Load Logic
             const [numCourts, setNumCourts] = useState(() => {
@@ -700,23 +772,52 @@
                             <a href={BACK_URL} className="p-1 -ml-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition" title="Back to Session">
                                 <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
                             </a>
-                            <div className="bg-emerald-600 p-1.5 md:p-2 rounded-lg"><Activity className="w-5 h-5 md:w-6 md:h-6 text-white" /></div>
-                            <div><h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight">SquashSync</h1><p className="hidden md:block text-xs text-slate-500">Coach Dashboard</p></div>
+                            {/* Mobile: Compact Logo */}
+                            <div className="md:hidden font-bold text-slate-800 text-lg">
+                                Planner
+                            </div>
+                            {/* Desktop: Full Logo */}
+                            <div className="hidden md:flex items-center gap-3">
+                                <div className="bg-emerald-600 p-2 rounded-lg"><Activity className="w-6 h-6 text-white" /></div>
+                                <div><h1 className="text-xl font-bold text-slate-800 leading-tight">SquashSync</h1><p className="text-xs text-slate-500">Coach Dashboard</p></div>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3 md:gap-6">
-                            {/* STATUS INDICATOR */}
+
+                        {/* Mobile Box: Court Selector + Go Live */}
+                        <div className="md:hidden flex items-center gap-3">
+                            {/* Dropdown Court Selector */}
+                            <div className="relative">
+                                <select 
+                                    value={planningTab} 
+                                    onChange={(e) => setPlanningTab(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                                    className="appearance-none pl-3 pr-8 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                >
+                                    <option value="all">Master Plan</option>
+                                    {Array.from({ length: numCourts }).map((_, i) => (
+                                        <option key={i} value={i}>Court {i + 1}</option>
+                                    ))}
+                                </select>
+                                <ChevronRight className="w-4 h-4 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                            </div>
+
+                            <button onClick={startSession} className="bg-emerald-600 text-white p-2 rounded-full shadow-md active:bg-emerald-700">
+                                <MonitorPlay className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Desktop Controls */}
+                        <div className="hidden md:flex items-center gap-6">
                             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
                                 {saveStatus === 'saving' && <span className="text-slate-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin"/> Saving...</span>}
                                 {saveStatus === 'saved' && <span className="text-emerald-500 flex items-center gap-1"><Cloud className="w-3 h-3"/> Saved</span>}
                                 {saveStatus === 'error' && <span className="text-red-500 flex items-center gap-1"><CloudLightning className="w-3 h-3"/> Error</span>}
                             </div>
-
-                            <div className="flex items-center gap-2 bg-slate-50 px-2 py-1.5 md:px-3 rounded-lg border border-slate-200">
+                            <div className="flex items-center gap-2 bg-slate-50 px-3 rounded-lg border border-slate-200">
                                 <Grid className="w-4 h-4 text-slate-400" />
-                                <span className="hidden md:inline text-sm text-slate-600 font-medium">Courts:</span>
-                                <select value={numCourts} onChange={(e) => setNumCourts(parseInt(e.target.value))} className="bg-transparent text-sm font-bold text-slate-800 focus:outline-none cursor-pointer">{[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
+                                <span className="text-sm text-slate-600 font-medium">Courts:</span>
+                                <select value={numCourts} onChange={(e) => setNumCourts(parseInt(e.target.value))} className="bg-transparent text-sm font-bold text-slate-800 focus:outline-none cursor-pointer py-1.5">{[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
                             </div>
-                            <button onClick={startSession} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 md:px-5 md:py-2.5 rounded-lg font-medium transition shadow-sm hover:shadow-md text-sm md:text-base"><MonitorPlay className="w-4 h-4" /><span className="hidden md:inline">Start Live Session</span><span className="md:hidden">Start</span></button>
+                            <button onClick={startSession} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-medium transition shadow-sm hover:shadow-md"><MonitorPlay className="w-4 h-4" /> Start Live Session</button>
                         </div>
                     </header>
                     
@@ -757,28 +858,33 @@
                         
                         {/* CENTER: Plan Timeline */}
                         <div className={`flex-1 bg-slate-50/50 flex flex-col overflow-hidden w-full ${activeMobileTab === 'plan' ? 'flex' : 'hidden md:flex'}`}>
-                            <div className="bg-white px-4 md:px-6 pt-4 border-b border-slate-200 flex gap-2 overflow-x-auto shrink-0 no-scrollbar">
-                                <button onClick={() => setPlanningTab('all')} className={`whitespace-nowrap px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === 'all' ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>All Courts</button>
-                                {Array.from({ length: numCourts }).map((_, idx) => <button key={idx} onClick={() => setPlanningTab(idx)} className={`whitespace-nowrap px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === idx ? 'border-blue-500 text-blue-700 bg-blue-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Court {idx + 1}</button>)}
+                            {/* Desktop Tabs (Hidden on Mobile) */}
+                            <div className="hidden md:flex bg-white px-6 pt-4 border-b border-slate-200 gap-2 shrink-0">
+                                <button onClick={() => setPlanningTab('all')} className={`px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === 'all' ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>All Courts</button>
+                                {Array.from({ length: numCourts }).map((_, idx) => <button key={idx} onClick={() => setPlanningTab(idx)} className={`px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === idx ? 'border-blue-500 text-blue-700 bg-blue-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Court {idx + 1}</button>)}
                             </div>
                             
                             <div className="p-4 md:p-6 pb-2 shrink-0">
                                 <div className="flex flex-col md:flex-row justify-between md:items-end mb-4 md:mb-6 gap-3 md:gap-0">
-                                    <div>
+                                    <div className="hidden md:block">
                                         <h2 className="text-xl md:text-2xl font-bold text-slate-800">{planningTab === 'all' ? "Master Session Plan" : `Court ${planningTab + 1} Plan`}</h2>
                                         <p className="text-slate-500 text-xs md:text-sm mt-1 flex items-center gap-2">{planningTab === 'all' ? <><Copy className="w-3 h-3" /> Changes here apply to ALL courts.</> : "Customize drills specifically for this court."}</p>
                                     </div>
-                                    <div className="flex gap-2 self-start md:self-auto">
-                                        <button onClick={loadTemplate} className="text-xs md:text-sm text-slate-600 hover:text-slate-900 px-3 py-2 bg-white border border-slate-300 rounded shadow-sm">Load Template</button>
-                                        <button onClick={addRestPeriod} className="text-xs md:text-sm text-amber-700 hover:text-amber-800 px-3 py-2 bg-amber-50 border border-amber-200 rounded shadow-sm flex items-center gap-2"><Clock className="w-4 h-4" /> Add Rest</button>
+                                    <div className="flex gap-2 w-full md:w-auto">
+                                        <button onClick={loadTemplate} className="flex-1 md:flex-none text-xs md:text-sm text-slate-600 hover:text-slate-900 px-3 py-2 bg-white border border-slate-300 rounded shadow-sm">Load Template</button>
+                                        <button onClick={addRestPeriod} className="flex-1 md:flex-none text-xs md:text-sm text-amber-700 hover:text-amber-800 px-3 py-2 bg-amber-50 border border-amber-200 rounded shadow-sm flex items-center justify-center gap-2"><Clock className="w-4 h-4" /> Add Rest</button>
                                     </div>
                                 </div>
                                 <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider"><div className="col-span-1">Seq</div><div className="col-span-5">Drill Name</div><div className="col-span-2">Duration (Min)</div><div className="col-span-2">Type</div><div className="col-span-2 text-right">Actions</div></div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-20 md:pb-6 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-32 md:pb-6 custom-scrollbar relative">
                                 {!planToRender || planToRender.length === 0 ? (
-                                    <div className="h-48 md:h-64 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 bg-slate-100/50"><Layout className="w-10 h-10 md:w-12 md:h-12 mb-3 opacity-50" /><p className="text-center px-4">No drills planned for {planningTab === 'all' ? 'all courts' : `Court ${planningTab + 1}`}.</p><p className="text-sm hidden md:block">Select drills from the right to add.</p><button onClick={() => setActiveMobileTab('drills')} className="md:hidden mt-4 text-emerald-600 font-bold text-sm bg-white px-4 py-2 rounded border border-emerald-200 shadow-sm">Add Drills</button></div>
+                                    <div className="h-48 md:h-64 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 bg-slate-100/50">
+                                        <Layout className="w-10 h-10 md:w-12 md:h-12 mb-3 opacity-50" />
+                                        <p className="text-center px-4">No drills planned.</p>
+                                        <button onClick={() => setShowMobileDrillPicker(true)} className="md:hidden mt-4 text-emerald-600 font-bold text-sm bg-white px-4 py-2 rounded border border-emerald-200 shadow-sm">Add Drill</button>
+                                    </div>
                                 ) : (
                                     <div className="space-y-3 md:space-y-2">
                                         {planToRender.map((block, index) => (
@@ -790,7 +896,7 @@
                                                         <button onClick={() => setSelectedDrill(block)} className="text-slate-400 hover:text-blue-500 transition" title="View Details"><Info className="w-4 h-4" /></button>
                                                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium md:hidden ${block.isRest ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{block.type}</span>
                                                     </div>
-                                                    <button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="md:hidden p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="md:hidden p-2 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
 
                                                 <div className="md:col-span-5 mb-2 md:mb-0">
@@ -810,6 +916,13 @@
                                                 <div className="hidden md:block md:col-span-2 text-right"><button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"><Trash2 className="w-4 h-4" /></button></div>
                                             </div>
                                         ))}
+                                        {/* Mobile Add Drill FAB Area */}
+                                        <button 
+                                            onClick={() => setShowMobileDrillPicker(true)}
+                                            className="md:hidden w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition"
+                                        >
+                                            <Plus className="w-5 h-5" /> Add New Drill
+                                        </button>
                                         <div className="mt-4 p-4 text-right text-sm font-medium text-slate-500">Total: <span className="text-slate-900 font-bold">{formatTime(planToRender.reduce((acc, curr) => acc + curr.duration, 0))}</span></div>
                                     </div>
                                 )}
@@ -817,7 +930,7 @@
                         </div>
 
                         {/* RIGHT: Drill Library */}
-                        <aside className={`absolute inset-0 bg-white z-10 ${isLibraryExpanded ? 'md:absolute md:left-auto md:right-0 md:w-3/4 md:shadow-2xl border-l-2' : 'md:static md:w-72 border-l'} border-slate-200 flex flex-col transition-all duration-300 ${activeMobileTab === 'drills' ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} group/sidebar`}>
+                        <aside className={`hidden md:flex absolute inset-0 bg-white z-10 ${isLibraryExpanded ? 'md:absolute md:left-auto md:right-0 md:w-3/4 md:shadow-2xl border-l-2' : 'md:relative md:w-72 border-l'} border-slate-200 flex-col transition-all duration-300 group/sidebar`}>
                             {/* Toggle Button - Desktop Only */}
                             <button 
                                 onClick={() => setIsLibraryExpanded(!isLibraryExpanded)}
@@ -912,10 +1025,6 @@
                                 <List className="w-6 h-6" />
                                 <span className="text-[10px] font-bold mt-1">Plan</span>
                             </button>
-                            <button onClick={() => setActiveMobileTab('drills')} className={`flex flex-col items-center p-2 rounded-lg transition ${activeMobileTab === 'drills' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>
-                                <Library className="w-6 h-6" />
-                                <span className="text-[10px] font-bold mt-1">Library</span>
-                            </button>
                         </div>
                         
                         {/* Drill Details Modal */}
@@ -994,6 +1103,19 @@
                             <CreateDrillModal 
                                 onClose={() => setShowCreateDrillModal(false)}
                                 onCreated={(newDrill) => setAvailableDrills([...availableDrills, newDrill])}
+                            />
+                        )}
+
+                        {/* Mobile Drill Picker Modal */}
+                        {showMobileDrillPicker && (
+                            <MobileDrillPicker 
+                                onClose={() => setShowMobileDrillPicker(false)}
+                                availableDrills={availableDrills}
+                                formatTime={formatTime}
+                                onAdd={(drill) => {
+                                    addDrillToPlan(drill);
+                                    setShowMobileDrillPicker(false);
+                                }}
                             />
                         )}
                     </main>
