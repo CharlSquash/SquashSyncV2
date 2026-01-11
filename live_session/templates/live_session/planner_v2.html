@@ -261,7 +261,7 @@
             );
         };
 
-        const MobileDrillPicker = ({ onClose, onAdd, availableDrills, formatTime }) => {
+        const MobileDrillPicker = ({ onClose, onAdd, onCreate, availableDrills, formatTime }) => {
             const [search, setSearch] = useState('');
             const [cat, setCat] = useState('All');
             
@@ -276,9 +276,14 @@
                     {/* Header */}
                     <div className="bg-white px-4 py-3 border-b border-slate-200 shadow-sm flex items-center justify-between shrink-0">
                         <h2 className="font-bold text-slate-800 text-lg">Add Drill</h2>
-                        <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">
-                            <X className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button onClick={onCreate} className="text-emerald-600 font-bold text-sm bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition flex items-center gap-1">
+                                <Plus className="w-4 h-4" /> Create
+                            </button>
+                            <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
                     
                     {/* Search & Filter */}
@@ -1126,6 +1131,10 @@
                                 onAdd={(drill) => {
                                     addDrillToPlan(drill);
                                     setShowMobileDrillPicker(false);
+                                }}
+                                onCreate={() => {
+                                    setShowMobileDrillPicker(false);
+                                    setShowCreateDrillModal(true);
                                 }}
                             />
                         )}
