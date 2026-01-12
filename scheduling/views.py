@@ -794,16 +794,17 @@ def set_bulk_availability_view(request):
 
         for rule in rules:
             availability_status_str = request.POST.get(f'availability_rule_{rule.id}')
-            if not availability_status_str or availability_status_str == 'PENDING': # PENDING is the default, no change needed
-                continue
+            
+            # DEFAULT LOGIC: If the user leaves it empty/pending, it implies UNAVAILABLE
+            status_to_set = CoachAvailability.Status.UNAVAILABLE
 
-            status_map = {
-                'AVAILABLE': CoachAvailability.Status.AVAILABLE,
-                'EMERGENCY': CoachAvailability.Status.EMERGENCY,
-            }
-            status_to_set = status_map.get(availability_status_str)
-            if not status_to_set:
-                continue
+            if availability_status_str == 'AVAILABLE':
+                status_to_set = CoachAvailability.Status.AVAILABLE
+            elif availability_status_str == 'EMERGENCY':
+                status_to_set = CoachAvailability.Status.EMERGENCY
+            
+            # We enforce setting the status for ALL sessions of this rule in the month,
+            # regardless of whether they chose 'Available', 'Emergency', or left it blank (Unavailable).
 
             sessions_to_update = Session.objects.filter(
                 generated_from_rule=rule,
