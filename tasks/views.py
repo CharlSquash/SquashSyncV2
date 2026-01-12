@@ -28,6 +28,7 @@ from todo.utils import (
     toggle_task_completed,
     user_can_read_task,
 )
+from .forms import CustomAddEditTaskForm
 
 if HAS_TASK_MERGE:
     from dal import autocomplete
@@ -268,20 +269,59 @@ def task_detail(request, task_id: int) -> HttpResponse:
 
     # Save task edits
     if not request.POST.get("add_edit_task"):
-        form = AddEditTaskForm(request.user, instance=task, initial={"task_list": task.task_list})
+        form = CustomAddEditTaskForm(request.user, instance=task, initial={"task_list": task.task_list})
     else:
-        form = AddEditTaskForm(
+        form = CustomAddEditTaskForm(
             request.user, request.POST, instance=task, initial={"task_list": task.task_list}
         )
 
         if form.is_valid():
+            # Save the primary task changes first
             item = form.save(commit=False)
             item.note = bleach.clean(form.cleaned_data["note"], strip=True)
             item.title = bleach.clean(form.cleaned_data["title"], strip=True)
-            item.save()
-            messages.success(request, "The task has been edited.")
+            
+            assignees = form.cleaned_data.get('assignees', [])
+            original_assignee = task.assigned_to
+            
+            if assignees:
+                remaining_assignees = list(assignees)
+                
+                # If original assignee is still in the list, keep this task for them
+                if original_assignee in remaining_assignees:
+                    remaining_assignees.remove(original_assignee)
+                    # item.assigned_to is already set/preserved by form.save if we didn't touch it, 
+                    # but CustomAddEditTaskForm removes 'assigned_to' field, so we must ensure it stays.
+                    item.assigned_to = original_assignee
+                else:
+                    # Original assignee removed, reassign this task to the first new person
+                    new_primary = remaining_assignees.pop(0)
+                    item.assigned_to = new_primary
+
+                item.save()
+
+                # Create clones for remaining assignees
+                clones_created = 0
+                for assignee in remaining_assignees:
+                    clone = item
+                    clone.pk = None # Reset PK to create new
+                    clone.assigned_to = assignee
+                    clone.save()
+                    clones_created += 1
+                
+                if clones_created > 0:
+                     messages.success(request, f"The task has been edited and assigned to {item.assigned_to}. {clones_created} copies created for other assignees.")
+                else:
+                     messages.success(request, f"The task has been edited and assigned to {item.assigned_to}.")
+
+            else:
+                 # No assignees selected? Keep as is or handle unassignment? 
+                 # Current logic usually keeps it or sets to None?
+                 item.save()
+                 messages.success(request, "The task has been edited.")
+
             return redirect(
-                "todo_list_detail", list_id=task.task_list.id, list_slug=task.task_list.slug
+                "todo:list_detail", list_id=task.task_list.id, list_slug=task.task_list.slug
             )
 
     # Mark complete

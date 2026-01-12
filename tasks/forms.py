@@ -28,11 +28,12 @@ class CustomAddEditTaskForm(AddEditTaskForm):
     assignees = forms.ModelMultipleChoiceField(
         queryset=User.objects.filter(is_active=True).filter(Q(is_staff=True) | Q(is_superuser=True)),
         required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        widget=forms.CheckboxSelectMultiple,  # Changed to checkboxes
         label="Assigned To"
     )
 
     def __init__(self, user, *args, **kwargs):
+        # Initialize parent first
         super().__init__(user, *args, **kwargs)
         
         # Remove original assigned_to field if it exists to avoid confusion/conflict
@@ -42,6 +43,11 @@ class CustomAddEditTaskForm(AddEditTaskForm):
         task_list = self.initial.get('task_list')
         if not task_list and self.instance and hasattr(self.instance, 'task_list'):
             task_list = self.instance.task_list
+
+        # If we are editing an existing task (instance is present and has a pk)
+        if self.instance and self.instance.pk and self.instance.assigned_to:
+            # Set the initial value for assignees to the current assignee
+            self.initial['assignees'] = [self.instance.assigned_to]
 
         filters = Q(is_staff=True) | Q(is_superuser=True)
         if task_list and task_list.group:
