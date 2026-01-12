@@ -100,7 +100,7 @@ def custom_list_detail(request, list_id=None, list_slug=None, view_completed=Fal
 
     # Which tasks to show on this list view?
     if list_slug == "mine":
-        tasks = Task.objects.filter(assigned_to=request.user)
+        tasks = Task.objects.filter(assigned_to=request.user).order_by('created_date')
 
     else:
         # Show a specific list, ensuring permissions.
@@ -109,7 +109,7 @@ def custom_list_detail(request, list_id=None, list_slug=None, view_completed=Fal
         if not request.user.is_superuser:
             if task_list.group not in request.user.groups.all():
                 return redirect("todo_mine_custom")
-        tasks = Task.objects.filter(task_list=task_list.id)
+        tasks = Task.objects.filter(task_list=task_list.id).order_by('created_date')
 
     # Additional filtering
     if view_completed:

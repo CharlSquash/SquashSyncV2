@@ -11,7 +11,61 @@
 
 {# Task edit / new task form #}
 <div id="AddEditTask" class="collapse">
-    {% include 'todo/include/task_edit.html' %}
+    <div class="card border-0">
+        <div class="card-body">
+            <form action="" method="post">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
+                {# Hidden fields #}
+                {{ form.task_list.as_hidden }}
+
+                <div class="row">
+                    <!-- Left Column -->
+                    <div class="col-md-7">
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+                            {{ form.title }}
+                            {{ form.title.errors }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.due_date.id_for_label }}" class="form-label">Due Date</label>
+                            {{ form.due_date }}
+                            {{ form.due_date.errors }}
+                        </div>
+                        {{ form.priority.as_hidden }}
+
+                        <div class="mb-3">
+                            <label for="{{ form.note.id_for_label }}" class="form-label">Note</label>
+                            {{ form.note }}
+                            {{ form.note.errors }}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="notify" name="notify" checked>
+                            <label class="form-check-label" for="notify">Notify assignee via email</label>
+                        </div>
+                        
+                        <button type="submit" name="add_edit_task" value="1" class="btn btn-primary">Save Task</button>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="col-md-5">
+                        <label class="form-label">Assign To:</label>
+                        <div class="assignee-scroll-container">
+                            {% for checkbox in form.assignees %}
+                            <div class="assignee-option">
+                                {{ checkbox.tag }}
+                                <label for="{{ checkbox.id_for_label }}">{{ checkbox.choice_label }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {{ form.assignees.errors }}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 <hr />
 {% endif %}

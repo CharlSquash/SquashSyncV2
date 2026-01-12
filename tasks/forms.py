@@ -28,7 +28,7 @@ class CustomAddEditTaskForm(AddEditTaskForm):
     assignees = forms.ModelMultipleChoiceField(
         queryset=User.objects.filter(is_active=True).filter(Q(is_staff=True) | Q(is_superuser=True)),
         required=False,
-        widget=forms.CheckboxSelectMultiple,  # Changed to checkboxes
+        widget=forms.CheckboxSelectMultiple,
         label="Assigned To"
     )
 
@@ -56,3 +56,12 @@ class CustomAddEditTaskForm(AddEditTaskForm):
         self.fields['assignees'].queryset = User.objects.filter(
             is_active=True
         ).filter(filters).distinct()
+
+        # Modernize widgets
+        self.fields['note'].widget.attrs['rows'] = 3
+        
+        for field_name in ['title', 'due_date', 'note', 'priority']:
+            if field_name in self.fields:
+                existing_class = self.fields[field_name].widget.attrs.get('class', '')
+                if 'form-control' not in existing_class:
+                    self.fields[field_name].widget.attrs['class'] = (existing_class + ' form-control').strip()
