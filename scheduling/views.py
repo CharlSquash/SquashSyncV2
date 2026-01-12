@@ -125,6 +125,7 @@ def _coach_dashboard(request):
     sessions_for_coach_card = []
     show_bulk_availability_reminder = False
     availability_all_set = False
+    availability_success_message = "" # Added initialization
     prompt_month_name = ""
     bulk_availability_url = ""
     show_awards_voting_card = False
@@ -179,6 +180,18 @@ def _coach_dashboard(request):
             bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_start.strftime('%Y-%m')}"
         else:
             availability_all_set = True
+            # Determine success message based on whether next month actually has sessions
+            sessions_exist_next_month = Session.objects.filter(
+                session_date__year=next_month_start.year,
+                session_date__month=next_month_start.month,
+                generated_from_rule__isnull=False,
+                is_cancelled=False
+            ).exists()
+            
+            if sessions_exist_next_month:
+                availability_success_message = "Your bulk availability for the current and next month is set."
+            else:
+                availability_success_message = "Your bulk availability for the current month is set."
 
         # --- Logic for Upcoming Sessions Card (Today & Tomorrow) ---
         local_now = timezone.localtime(now)
@@ -247,6 +260,7 @@ def _coach_dashboard(request):
         'sessions_for_coach_card': sessions_for_coach_card,
         'show_bulk_availability_reminder': show_bulk_availability_reminder,
         'availability_all_set': availability_all_set,
+        'availability_success_message': availability_success_message, # Added to context
         'next_month_name': prompt_month_name,
         'bulk_availability_url': bulk_availability_url,
         'show_awards_voting_card': show_awards_voting_card,

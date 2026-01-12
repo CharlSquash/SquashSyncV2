@@ -170,8 +170,9 @@
                     Set Availability for {{ next_month_name }}
                 </a>
                 {% elif availability_all_set %}
-                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Your bulk availability for the
-                    current and next month is set.</p>
+                <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> 
+                    {{ availability_success_message|default:"Your availability for the upcoming months is up to date." }}
+                </p>
                 <p class="text-muted small mt-3">You can still make specific changes to your weekly schedule.</p>
                 {% else %}
                 <p class="no-data-message"><i class="bi bi-check2-all text-success"></i> Your bulk availability for next
