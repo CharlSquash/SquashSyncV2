@@ -122,6 +122,9 @@ def custom_list_detail(request, list_id=None, list_slug=None, view_completed=Fal
     # ######################
 
     if request.POST.getlist("add_edit_task"):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        
         form = CustomAddEditTaskForm(
             request.user,
             request.POST,
@@ -171,7 +174,7 @@ def custom_list_detail(request, list_id=None, list_slug=None, view_completed=Fal
             return redirect(request.path)
     else:
         # Don't allow adding new tasks on some views
-        if list_slug not in ["mine", "recent-add", "recent-complete"]:
+        if list_slug not in ["mine", "recent-add", "recent-complete"] and request.user.is_superuser:
             form = CustomAddEditTaskForm(
                 request.user,
                 initial={"assigned_to": request.user.id, "priority": 999, "task_list": task_list},
@@ -240,7 +243,7 @@ def task_detail(request, task_id: int) -> HttpResponse:
 
     # Determine if user can edit the task details
     # Assignees generally can READ/COMMENT/COMPLETE but NOT EDIT task details unless they have other privileges.
-    can_edit_task = request.user.is_superuser or request.user.is_staff or (task.task_list.group in request.user.groups.all())
+    can_edit_task = request.user.is_superuser
 
     # Handle task merging
     if not HAS_TASK_MERGE:
