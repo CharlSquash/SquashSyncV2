@@ -8,9 +8,32 @@
 <style>
     /* ... existing styles ... */
     .assignment-columns {
-        display: grid;
-        grid-template-columns: minmax(220px, 1fr) 3fr; /* First column is 1 part, second is 3 parts */
-        gap: 1rem 2rem; /* row-gap column-gap */
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .other-coaches-summary {
+        cursor: pointer;
+        outline: none;
+        list-style: none; /* Hide default arrow in some browsers */
+    }
+    .other-coaches-summary::-webkit-details-marker {
+        display: none; /* Hide default arrow in Chrome/Safari */
+    }
+    .other-coaches-summary h6 {
+        display: inline-block;
+        margin: 0;
+        user-select: none;
+    }
+    /* Rotate the icon when open */
+    details[open] > .other-coaches-summary .bi-chevron-right {
+        transform: rotate(90deg);
+        transition: transform 0.2s ease;
+    }
+    .bi-chevron-right {
+         transition: transform 0.2s ease;
+         display: inline-block;
     }
 
     /* The multi-column grid now applies ONLY to the 'Other Coaches' list */
@@ -281,9 +304,11 @@
                                                     </div>
 
                                                     {# Column 2: Other Coaches #}
-                                                    <div>
-                                                        <h6>Other Coaches</h6>
-                                                        <div class="other-coaches-grid">
+                                                    <details>
+                                                        <summary class="other-coaches-summary text-muted">
+                                                            <h6><i class="bi bi-chevron-right"></i> Other Coaches</h6>
+                                                        </summary>
+                                                        <div class="other-coaches-grid mt-2">
                                                             {% for coach in all_coaches_for_form %}
                                                                 {% if coach.id not in assigned_coach_ids and coach.id not in available_coach_ids %}
                                                                     {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
@@ -298,7 +323,7 @@
                                                                 {% endif %}
                                                             {% endfor %}
                                                         </div>
-                                                    </div>
+                                                    </details>
                                                 </div>
 
                                                 {% endwith %}
