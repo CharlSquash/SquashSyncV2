@@ -32,6 +32,7 @@
     <div class="card col-sm-4 p-0">
       <ul class="list-group list-group-flush">
         <li class="list-group-item">
+          {% if can_edit_task %}
           <button
             class="btn btn-sm btn-primary"
             id="EditTaskButton"
@@ -40,6 +41,7 @@
             data-bs-target="#TaskEdit">
             Edit Task
           </button>
+          {% endif %}
 
           <form method="post" action="{% url "todo:task_toggle_done" task.id %}" role="form" class="d-inline">
             {% csrf_token %}
@@ -50,6 +52,7 @@
             </div>
           </form>
 
+          {% if can_edit_task %}
           <form method="post" action="{% url "todo:delete_task" task.id %}" role="form" class="d-inline">
             {% csrf_token %}
             <div style="display:inline;">
@@ -58,6 +61,7 @@
               </button>
             </div>
           </form>
+          {% endif %}
         </li>
         <li class="list-group-item">
           <strong>Assigned to:</strong>
@@ -90,6 +94,7 @@
     </div>
   </div>
 
+  {% if can_edit_task %}
   <div id="TaskEdit" class="collapse">
     {# Task edit / new task form #}
     {% include 'todo/include/task_edit.html' %}
@@ -114,6 +119,7 @@
     </form>
     {% endif %}
   </div>
+  {% endif %}
 
 {% if attachments_enabled %}
   <div class="card mt-4">

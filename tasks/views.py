@@ -238,6 +238,10 @@ def task_detail(request, task_id: int) -> HttpResponse:
     if not (request.user.is_superuser or request.user.is_staff or task.task_list.group in request.user.groups.all() or task.assigned_to == request.user):
         raise PermissionDenied
 
+    # Determine if user can edit the task details
+    # Assignees generally can READ/COMMENT/COMPLETE but NOT EDIT task details unless they have other privileges.
+    can_edit_task = request.user.is_superuser or request.user.is_staff or (task.task_list.group in request.user.groups.all())
+
     # Handle task merging
     if not HAS_TASK_MERGE:
         merge_form = None
@@ -271,6 +275,10 @@ def task_detail(request, task_id: int) -> HttpResponse:
     if not request.POST.get("add_edit_task"):
         form = CustomAddEditTaskForm(request.user, instance=task, initial={"task_list": task.task_list})
     else:
+        # Only allow saving if user has edit permission
+        if not can_edit_task:
+            raise PermissionDenied
+
         form = CustomAddEditTaskForm(
             request.user, request.POST, instance=task, initial={"task_list": task.task_list}
         )
@@ -365,6 +373,7 @@ def task_detail(request, task_id: int) -> HttpResponse:
         "thedate": thedate,
         "comment_classes": defaults("TODO_COMMENT_CLASSES"),
         "attachments_enabled": defaults("TODO_ALLOW_FILE_ATTACHMENTS"),
+        "can_edit_task": can_edit_task,
     }
 
     return render(request, "todo/task_detail.html", context)
