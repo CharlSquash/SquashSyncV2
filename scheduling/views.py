@@ -139,7 +139,23 @@ def _coach_dashboard(request):
         this_month_start = today.replace(day=1)
         next_month_start = (this_month_start + timedelta(days=32)).replace(day=1)
 
-        # Check if availability is set for the current month
+        # 1. Check if sessions exist for the current month (generated from rules)
+        sessions_exist_current_month = Session.objects.filter(
+            session_date__year=this_month_start.year,
+            session_date__month=this_month_start.month,
+            generated_from_rule__isnull=False,
+            is_cancelled=False
+        ).exists()
+
+        # 2. Check if sessions exist for the next month (generated from rules)
+        sessions_exist_next_month = Session.objects.filter(
+            session_date__year=next_month_start.year,
+            session_date__month=next_month_start.month,
+            generated_from_rule__isnull=False,
+            is_cancelled=False
+        ).exists()
+
+        # 3. Check if availability is set for the current month
         has_set_current_month = CoachAvailability.objects.filter(
             coach=request.user,
             session__session_date__year=this_month_start.year,
@@ -147,7 +163,7 @@ def _coach_dashboard(request):
             status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
         ).exists()
 
-        # Check if availability is set for the next month
+        # 4. Check if availability is set for the next month
         has_set_next_month = CoachAvailability.objects.filter(
             coach=request.user,
             session__session_date__year=next_month_start.year,
@@ -155,11 +171,16 @@ def _coach_dashboard(request):
             status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
         ).exists()
 
-        if not has_set_current_month:
+        # LOGIC:
+        # - If current month has sessions AND availability not set -> Prompt Current
+        # - Else if next month has sessions AND availability not set -> Prompt Next
+        # - Else -> All Set (or nothing to set)
+
+        if sessions_exist_current_month and not has_set_current_month:
             show_bulk_availability_reminder = True
             prompt_month_name = this_month_start.strftime('%B')
             bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={this_month_start.strftime('%Y-%m')}"
-        elif not has_set_next_month:
+        elif sessions_exist_next_month and not has_set_next_month:
             show_bulk_availability_reminder = True
             prompt_month_name = next_month_start.strftime('%B')
             bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_start.strftime('%Y-%m')}"
