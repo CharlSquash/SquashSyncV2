@@ -219,13 +219,40 @@
             </div>
         </div>
 
-        {# --- My Tasks Card --- #}
-        {% if pending_tasks_count > 0 %}
+        {# --- Tasks & Activity Card --- #}
+        {% if pending_tasks_count > 0 or task_notifications %}
         <div class="dashboard-card">
             <div class="card-header">
-                <h3><i class="bi bi-list-check"></i> My Tasks</h3>
+                <h3><i class="bi bi-list-check"></i> Tasks & Activity</h3>
             </div>
             <div class="card-body">
+                {% if task_notifications %}
+                <h6>Recent Activity</h6>
+                <ul class="dashboard-list dashboard-list-condensed" id="task-notification-list">
+                    {% for notification in task_notifications %}
+                    <li data-id="{{ notification.id }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="text-muted">{{ notification.timestamp|date:"d M H:i" }}</small><br>
+                                <strong>{{ notification.get_notification_type_display }}</strong>: 
+                                <a href="{% url 'todo:task_detail' notification.task.id %}">{{ notification.task.title }}</a>
+                                <div class="text-muted small">
+                                    by {{ notification.actor.get_full_name|default:notification.actor.username }}
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-success ms-2 acknowledge-notification-btn"
+                                data-id="{{ notification.id }}" title="Dismiss">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="no-data-message" id="no-notifications-message" style="display: none;"><i
+                    class="bi bi-check2-all text-success"></i> All notifications dismissed.</p>
+                <hr>
+                {% endif %}
+                
                 <p>You have <strong>{{ pending_tasks_count }}</strong> pending task(s).</p>
             </div>
             <div class="card-footer">
@@ -510,6 +537,7 @@
         handleAcknowledgeClick('discrepancy-list', '.acknowledge-btn', '/players/discrepancy/', 'no-discrepancy-message');
         handleAcknowledgeClick('assessment-list', '.acknowledge-assessment-btn', '/assessments/assessment/', 'no-assessment-message');
         handleAcknowledgeClick('group-assessment-list', '.acknowledge-group-assessment-btn', '/assessments/group-assessment/', 'no-group-assessment-message');
+        handleAcknowledgeClick('task-notification-list', '.acknowledge-notification-btn', '/tasks/', 'no-notifications-message');
     });
 </script>
 {% endblock %}

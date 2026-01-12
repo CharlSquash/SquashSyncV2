@@ -29,6 +29,10 @@ from todo.utils import (
     user_can_read_task,
 )
 from .forms import CustomAddEditTaskForm
+from .utils import create_admin_notifications
+from .models import TaskNotification
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
 
 if HAS_TASK_MERGE:
     from dal import autocomplete
@@ -50,6 +54,9 @@ def handle_add_comment(request, task):
     )
 
     messages.success(request, "Comment posted. Notification email sent to thread participants.")
+    
+    # Create dashboard notification for admins
+    create_admin_notifications(task, request.user, 'comment')
 
 
 @login_required
@@ -212,6 +219,9 @@ def task_toggle_done(request, task_id):
         
         status_msg = "done" if task.completed else "not done"
         messages.success(request, f"Task '{task.title}' marked as {status_msg}.")
+
+        if task.completed:
+            create_admin_notifications(task, request.user, 'complete')
 
         if request.user.is_superuser:
             return redirect("todo:list_detail", list_id=task.task_list.id, list_slug=task.task_list.slug)
@@ -380,3 +390,15 @@ def task_detail(request, task_id: int) -> HttpResponse:
     }
 
     return render(request, "todo/task_detail.html", context)
+
+@login_required
+@require_POST
+def acknowledge_notification(request, notification_id):
+    try:
+        notification = TaskNotification.objects.get(id=notification_id, recipient=request.user)
+        notification.read = True
+        notification.save()
+        return JsonResponse({'status': 'success'})
+    except TaskNotification.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Notification not found'}, status=404)
+

@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'dal_select2',
     'django.contrib.sites',
     'todo',
+    'tasks',
 ]
 
 MIDDLEWARE = [

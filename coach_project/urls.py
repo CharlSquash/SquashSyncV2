@@ -42,6 +42,7 @@ urlpatterns = [
     # Custom Task Detail to fix permissions
     path('todo/task/<int:task_id>/', task_views.task_detail, name="custom_task_detail"),
     path('todo/toggle_done/<int:task_id>/', task_views.task_toggle_done, name="custom_task_toggle_done_v2"),
+    path('tasks/<int:notification_id>/acknowledge/', task_views.acknowledge_notification, name='acknowledge_task_notification'),
 
     path('todo/', include('todo.urls', namespace="todo")),
 

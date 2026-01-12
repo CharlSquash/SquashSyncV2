@@ -35,6 +35,7 @@ from finance.models import CoachSessionCompletion
 from awards.models import Prize
 from .services import SessionService
 from todo.models import Task
+from tasks.models import TaskNotification
 # --- End: Replacement block ---
 User = get_user_model()
 
@@ -111,6 +112,7 @@ def _admin_dashboard(request):
         'all_coach_assessments': all_coach_assessments,
         'recent_group_assessments': recent_group_assessments,
         'pending_tasks_count': Task.objects.filter(assigned_to=request.user, completed=False).count(),
+        'task_notifications': TaskNotification.objects.filter(recipient=request.user, read=False)[:10], # Limit to 10 for display
     }
     return render(request, 'scheduling/homepage.html', context)
 
