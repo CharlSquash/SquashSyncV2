@@ -83,7 +83,7 @@ def add_project(request):
                 return redirect("todo:list_detail", list_id=new_list.id, list_slug=new_list.slug)
                 
             except IntegrityError:
-                messages.error(request, "A list with this name already exists.")
+                messages.error(request, "A project with this name already exists.")
     else:
         form = AddProjectForm()
 
