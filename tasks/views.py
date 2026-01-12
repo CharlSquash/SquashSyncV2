@@ -128,20 +128,45 @@ def custom_list_detail(request, list_id=None, list_slug=None, view_completed=Fal
         )
 
         if form.is_valid():
-            new_task = form.save(commit=False)
-            new_task.created_by = request.user
-            new_task.note = bleach.clean(form.cleaned_data["note"], strip=True)
-            form.save()
+            assignees = form.cleaned_data.get('assignees', [])
+            
+            # If no assignees, we create one task with no assignee (or current user as default if logic dictates, 
+            # but form defaults usually handle that. Here we assume we just create one unassigned task).
+            # However, the form might still have 'assigned_to' in cleaned_data if we didn't fully rip it out?
+            # Actually, we removed it from the form fields.
+            
+            if not assignees:
+                # Create single unassigned task
+                new_task = form.save(commit=False)
+                new_task.created_by = request.user
+                new_task.note = bleach.clean(form.cleaned_data["note"], strip=True)
+                new_task.assigned_to = None 
+                new_task.save()
+                messages.success(request, 'New task "{t}" has been added.'.format(t=new_task.title))
+                
+            else:
+                # Create a task for EACH assignee
+                for assignee in assignees:
+                    new_task = form.save(commit=False)
+                    new_task.pk = None # Reset PK to ensure new instance
+                    new_task.created_by = request.user
+                    new_task.note = bleach.clean(form.cleaned_data["note"], strip=True)
+                    new_task.assigned_to = assignee
+                    new_task.save()
+                    
+                    # Notify logic
+                    if (
+                        "notify" in request.POST
+                        and new_task.assigned_to
+                        and new_task.assigned_to != request.user
+                    ):
+                        send_notify_mail(new_task)
 
-            # Send email alert only if Notify checkbox is checked AND assignee is not same as the submitter
-            if (
-                "notify" in request.POST
-                and new_task.assigned_to
-                and new_task.assigned_to != request.user
-            ):
-                send_notify_mail(new_task)
+                if len(assignees) == 1:
+                     messages.success(request, 'New task "{t}" has been added.'.format(t=new_task.title))
+                else:
+                    messages.success(request, '{n} tasks have been added for "{t}".'.format(n=len(assignees), t=new_task.title))
 
-            messages.success(request, 'New task "{t}" has been added.'.format(t=new_task.title))
             return redirect(request.path)
     else:
         # Don't allow adding new tasks on some views

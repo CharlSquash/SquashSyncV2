@@ -25,15 +25,20 @@ class CustomModelChoiceField(forms.ModelChoiceField):
 
 
 class CustomAddEditTaskForm(AddEditTaskForm):
-    assigned_to = CustomModelChoiceField(
+    assignees = forms.ModelMultipleChoiceField(
         queryset=User.objects.filter(is_active=True).filter(Q(is_staff=True) | Q(is_superuser=True)),
         required=False,
-        widget=forms.Select(attrs={'class': 'form-control'}),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
+        label="Assigned To"
     )
 
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
         
+        # Remove original assigned_to field if it exists to avoid confusion/conflict
+        if 'assigned_to' in self.fields:
+            del self.fields['assigned_to']
+
         task_list = self.initial.get('task_list')
         if not task_list and self.instance and hasattr(self.instance, 'task_list'):
             task_list = self.instance.task_list
@@ -42,6 +47,6 @@ class CustomAddEditTaskForm(AddEditTaskForm):
         if task_list and task_list.group:
             filters |= Q(groups__in=[task_list.group])
 
-        self.fields['assigned_to'].queryset = User.objects.filter(
+        self.fields['assignees'].queryset = User.objects.filter(
             is_active=True
         ).filter(filters).distinct()
