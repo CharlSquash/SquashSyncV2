@@ -851,6 +851,50 @@ def set_bulk_availability_view(request):
     # --- NEW: Fetch existing availability statuses ---
     start_date, end_date = get_month_start_end(selected_year, selected_month)
 
+
+    existing_availabilities = CoachAvailability.objects.filter(
+        coach=request.user,
+        session__generated_from_rule__in=scheduled_classes_qs,
+        session__session_date__range=[start_date, end_date]
+    ).values('session__generated_from_rule_id', 'status')
+
+    # Create a map of rule_id to the most common status for that rule in the month
+    rule_status_map = defaultdict(lambda: CoachAvailability.Status.PENDING)
+    status_counts = defaultdict(lambda: defaultdict(int))
+    for avail in existing_availabilities:
+        rule_id = avail['session__generated_from_rule_id']
+        status = avail['status']
+        if rule_id:
+            status_counts[rule_id][status] += 1
+
+    for rule_id, counts in status_counts.items():
+        # Find the status with the highest count for this rule
+        most_common_status = max(counts, key=counts.get)
+        rule_status_map[rule_id] = most_common_status
+    
+    grouped_classes = defaultdict(list)
+    for rule in scheduled_classes_qs:
+        rule.current_status = rule_status_map[rule.id] # Attach the status to the rule object
+        day_name = rule.get_day_of_week_display()
+        grouped_classes[day_name].append(rule)
+
+    context = {
+        'page_title': "Set Bulk Availability",
+        'grouped_classes': dict(grouped_classes),
+        'selected_year': selected_year,
+        'selected_month': selected_month,
+        'selected_month_display': calendar.month_name[selected_month],
+        'this_month_str': this_month_str,
+        'next_month_str': next_month_str,
+        'this_month_name': this_month.strftime('%B'),
+        'next_month_name': next_month_date.strftime('%B'),
+        'this_month_year': this_month.year,
+        'next_month_year': next_month_date.year,
+        'selected_month_str': selected_month_str,
+    }
+    return render(request, 'scheduling/set_bulk_availability.html', context)
+
+
 @require_POST
 @login_required
 def update_event_date(request):
@@ -941,47 +985,6 @@ def delete_event(request):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON.'}, status=400)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-    existing_availabilities = CoachAvailability.objects.filter(
-        coach=request.user,
-        session__generated_from_rule__in=scheduled_classes_qs,
-        session__session_date__range=[start_date, end_date]
-    ).values('session__generated_from_rule_id', 'status')
-
-    # Create a map of rule_id to the most common status for that rule in the month
-    rule_status_map = defaultdict(lambda: CoachAvailability.Status.PENDING)
-    status_counts = defaultdict(lambda: defaultdict(int))
-    for avail in existing_availabilities:
-        rule_id = avail['session__generated_from_rule_id']
-        status = avail['status']
-        if rule_id:
-            status_counts[rule_id][status] += 1
-
-    for rule_id, counts in status_counts.items():
-        # Find the status with the highest count for this rule
-        most_common_status = max(counts, key=counts.get)
-        rule_status_map[rule_id] = most_common_status
-    
-    grouped_classes = defaultdict(list)
-    for rule in scheduled_classes_qs:
-        rule.current_status = rule_status_map[rule.id] # Attach the status to the rule object
-        day_name = rule.get_day_of_week_display()
-        grouped_classes[day_name].append(rule)
-
-    context = {
-        'page_title': "Set Bulk Availability",
-        'grouped_classes': dict(grouped_classes),
-        'selected_year': selected_year,
-        'selected_month': selected_month,
-        'selected_month_display': calendar.month_name[selected_month],
-        'this_month_str': this_month_str,
-        'next_month_str': next_month_str,
-        'this_month_name': this_month.strftime('%B'),
-        'next_month_name': next_month_date.strftime('%B'),
-        'this_month_year': this_month.year,
-        'next_month_year': next_month_date.year,
-        'selected_month_str': selected_month_str,
-    }
-    return render(request, 'scheduling/set_bulk_availability.html', context)
 
 
 @login_required
