@@ -1,6 +1,7 @@
 # players/urls.py
 from django.urls import path, include
 from . import views
+from .webhook_views import GravityFormWebhookView
 
 
 
@@ -8,6 +9,7 @@ app_name = 'players'
 urlpatterns = [
     path('', views.players_list, name='players_list'),
     # We will add our app-specific URLs here later.
+    path('webhook/registration/', GravityFormWebhookView.as_view(), name='webhook_registration'),
     path('groups/', views.school_group_list, name='school_group_list'),
     path('groups/manage/', views.manage_school_groups, name='manage_school_groups'), # New visual manager
     path('api/update-group-membership/', views.update_player_group_membership, name='update_player_group_membership'),
