@@ -16,7 +16,7 @@ from .forms import (
 )
 from scheduling.models import Session, AttendanceTracking
 from assessments.models import SessionAssessment, GroupAssessment
-from django.db.models import Count, Q, Value
+from django.db.models import Count, Q, Value, Prefetch
 from django.db.models.functions import Concat
 import json
 
@@ -236,7 +236,11 @@ def player_profile(request, player_id):
 @login_required
 def players_list(request):
     # Start with all active players
-    player_list = Player.objects.filter(is_active=True).select_related()
+    # Start with all active players, prefetching active and past groups separately
+    player_list = Player.objects.filter(is_active=True).select_related().prefetch_related(
+        Prefetch('school_groups', queryset=SchoolGroup.objects.filter(is_active=True), to_attr='_active_groups_cache'),
+        Prefetch('school_groups', queryset=SchoolGroup.objects.filter(is_active=False).order_by('-year'), to_attr='_past_groups_cache')
+    )
 
     # Get filter parameters from the URL
     school_group_id = request.GET.get('school_group')

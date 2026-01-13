@@ -129,6 +129,26 @@ class Player(models.Model):
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
 
+    @property
+    def active_groups(self):
+        """
+        Returns a list of active school groups.
+        Uses prefetched data if available (via to_attr='_active_groups_cache').
+        """
+        if hasattr(self, '_active_groups_cache'):
+            return self._active_groups_cache
+        return self.school_groups.filter(is_active=True)
+
+    @property
+    def past_groups(self):
+        """
+        Returns a list of inactive school groups, ordered by year (descending).
+        Uses prefetched data if available (via to_attr='_past_groups_cache').
+        """
+        if hasattr(self, '_past_groups_cache'):
+            return self._past_groups_cache
+        return self.school_groups.filter(is_active=False).order_by('-year')
+
     def _format_for_whatsapp(self, number_str):
         if not number_str:
             return None

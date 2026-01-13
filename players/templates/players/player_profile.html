@@ -49,7 +49,17 @@
                             <strong>School:</strong> {{ player.school }}<br>
                         {% endif %}
                         <strong>Grade:</strong> {{ player.get_grade_display|default:"N/A" }}<br>
-                        <strong>Groups:</strong> {{ player.school_groups.all|join:", " }}
+                        <strong>Groups:</strong> {{ player.active_groups|join:", " }}
+                        {% if player.past_groups %}
+                            <details class="mt-1">
+                                <summary class="text-primary" style="cursor: pointer; font-size: 0.9em;">View Past Groups</summary>
+                                <ul class="list-unstyled mb-0 ms-3 small text-muted">
+                                    {% for group in player.past_groups %}
+                                        <li>{{ group.name }} {% if group.year %}({{ group.year }}){% endif %}</li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                        {% endif %}
                     </p>
                     {% if request.user.is_superuser %}
                     <a href="{% url 'admin:players_player_change' player.id %}" class="btn btn-primary">Edit Player</a>
