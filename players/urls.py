@@ -9,7 +9,7 @@ app_name = 'players'
 urlpatterns = [
     path('', views.players_list, name='players_list'),
     # We will add our app-specific URLs here later.
-    path('webhook/registration/', GravityFormWebhookView.as_view(), name='webhook_registration'),
+
     path('groups/', views.school_group_list, name='school_group_list'),
     path('groups/manage/', views.manage_school_groups, name='manage_school_groups'), # New visual manager
     path('api/update-group-membership/', views.update_player_group_membership, name='update_player_group_membership'),
@@ -21,6 +21,7 @@ urlpatterns = [
     path('reports/discrepancy/', views.discrepancy_report, name='discrepancy_report'),
 
     path('discrepancy/<int:discrepancy_id>/acknowledge/', views.acknowledge_discrepancy, name='acknowledge_discrepancy'),
+    path('webhook/registration/', webhook_views.GravityFormWebhookView.as_view(), name='webhook_registration'),
 
     #SoloSync path
     
