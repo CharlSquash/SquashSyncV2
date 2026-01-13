@@ -21,7 +21,7 @@ urlpatterns = [
     path('reports/discrepancy/', views.discrepancy_report, name='discrepancy_report'),
 
     path('discrepancy/<int:discrepancy_id>/acknowledge/', views.acknowledge_discrepancy, name='acknowledge_discrepancy'),
-    path('webhook/registration/', webhook_views.GravityFormWebhookView.as_view(), name='webhook_registration'),
+    path('webhook/registration/', GravityFormWebhookView.as_view(), name='webhook_registration'),
 
     #SoloSync path
     
