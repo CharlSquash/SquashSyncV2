@@ -244,7 +244,16 @@ def players_list(request):
 
     # Apply filters
     if school_group_id:
-        player_list = player_list.filter(school_groups__id=school_group_id)
+        if school_group_id == 'None':
+            player_list = player_list.filter(school_groups__isnull=True)
+            school_group_id = None # Set to None for context
+        else:
+            try:
+                player_list = player_list.filter(school_groups__id=school_group_id)
+                school_group_id = int(school_group_id) # Convert for context
+            except ValueError:
+                # Handle invalid ID gracefully
+                pass
 
     if search_query:
         # --- THIS IS THE FIX ---

@@ -1,5 +1,5 @@
 from django.test import TestCase, RequestFactory
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser
 from players.views import players_list
 from players.models import Player
 from django.urls import reverse
@@ -19,3 +19,6 @@ class PlayersListFilterTest(TestCase):
         response = players_list(request)
         
         self.assertEqual(response.status_code, 200)
+        # Check if the context contains players
+        # Note: testing response.context requires using the test client, but calling view directly returns HttpResponse
+        # So we can just check status code is 200, which means no 500 error.
