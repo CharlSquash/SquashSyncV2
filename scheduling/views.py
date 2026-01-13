@@ -103,6 +103,12 @@ def _admin_dashboard(request):
         superuser_reviewed=False
     ).select_related('session__school_group', 'assessing_coach__coach_profile').order_by('-assessment_datetime')
 
+    # --- NEW PLAYER CONCIERGE LOGIC ---
+    unassigned_players_qs = Player.objects.filter(is_active=True, school_groups__isnull=True).order_by('-id')
+    unassigned_count = unassigned_players_qs.count()
+    unassigned_players = unassigned_players_qs[:5]
+    all_school_groups = SchoolGroup.objects.filter(is_active=True).order_by('name')
+
     context = {
         'page_title': 'Dashboard',
         'upcoming_sessions_for_admin': upcoming_sessions_for_admin,
@@ -113,6 +119,10 @@ def _admin_dashboard(request):
         'recent_group_assessments': recent_group_assessments,
         'pending_tasks_count': Task.objects.filter(assigned_to=request.user, completed=False).count(),
         'task_notifications': TaskNotification.objects.filter(recipient=request.user, read=False)[:10], # Limit to 10 for display
+        # Concierge Context
+        'unassigned_players': unassigned_players,
+        'unassigned_count': unassigned_count,
+        'all_school_groups': all_school_groups,
     }
     return render(request, 'scheduling/homepage.html', context)
 

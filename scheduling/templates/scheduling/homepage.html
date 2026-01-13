@@ -192,6 +192,57 @@
         {% comment %} --- SECTION FOR SUPERUSERS --- {% endcomment %}
         {% if user.is_superuser %}
         
+        {# --- New Registrations Action Queue --- #}
+        {% if unassigned_players %}
+        <div class="dashboard-card" id="new-registrations-card">
+            <div class="card-header">
+                <h3><i class="bi bi-person-plus-fill"></i> New Registrations Action Queue</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <tbody>
+                            {% for player in unassigned_players %}
+                            <tr id="player-row-{{ player.id }}">
+                                <td>
+                                    <strong>{{ player.full_name }}</strong><br>
+                                    <small class="text-muted">
+                                        {% if player.grade %}
+                                            {{ player.get_grade_display }}
+                                        {% else %}
+                                            Grade: N/A
+                                        {% endif %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm school-group-select" id="group-select-{{ player.id }}">
+                                        <option value="" selected disabled>Assign Group...</option>
+                                        {% for group in all_school_groups %}
+                                        <option value="{{ group.id }}">{{ group.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary quick-assign-btn" data-player-id="{{ player.id }}">
+                                        Assign
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if unassigned_count > 5 %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'players:players_list' %}?school_group=None" class="small text-muted">
+                        View all {{ unassigned_count }} unassigned players...
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="dashboard-card">
             <div class="card-header">
                 <h3><i class="bi bi-calendar-event"></i> Upcoming Sessions (Today & Tomorrow)</h3>
@@ -538,6 +589,65 @@
         handleAcknowledgeClick('assessment-list', '.acknowledge-assessment-btn', '/assessments/assessment/', 'no-assessment-message');
         handleAcknowledgeClick('group-assessment-list', '.acknowledge-group-assessment-btn', '/assessments/group-assessment/', 'no-group-assessment-message');
         handleAcknowledgeClick('task-notification-list', '.acknowledge-notification-btn', '/tasks/', 'no-notifications-message');
+
+        // --- Quick Assign Functionality ---
+        const quickAssignButtons = document.querySelectorAll('.quick-assign-btn');
+        quickAssignButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const playerId = this.dataset.playerId;
+                const select = document.getElementById(`group-select-${playerId}`);
+                const groupId = select.value;
+
+                if (!groupId) {
+                    alert('Please select a school group.');
+                    return;
+                }
+
+                const url = `/players/assign-group/${playerId}/`;
+
+                // Disable button to prevent multiple clicks
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `group_id=${groupId}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const row = document.getElementById(`player-row-${playerId}`);
+                        row.style.transition = 'opacity 0.5s, transform 0.5s';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(20px)';
+                        
+                        setTimeout(() => {
+                            row.remove();
+                            // Check if table is empty
+                            const tableBody = document.querySelector('#new-registrations-card tbody');
+                            if (tableBody && tableBody.children.length === 0) {
+                                document.getElementById('new-registrations-card').style.display = 'none';
+                            }
+                        }, 500);
+                    } else {
+                        alert(data.message || 'Error processing request.');
+                        this.disabled = false;
+                        this.innerText = 'Assign';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred.');
+                    this.disabled = false;
+                    this.innerText = 'Assign';
+                });
+            });
+        });
+
     });
 </script>
 {% endblock %}

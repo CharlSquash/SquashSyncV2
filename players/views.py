@@ -408,3 +408,24 @@ def update_player_group_membership(request):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def quick_assign_group(request, player_id):
+    try:
+        player = get_object_or_404(Player, pk=player_id)
+        group_id = request.POST.get('group_id')
+        
+        if not group_id:
+             return JsonResponse({'status': 'error', 'message': 'Group ID is required.'}, status=400)
+
+        group = get_object_or_404(SchoolGroup, pk=group_id)
+        player.school_groups.add(group)
+        player.save()
+        
+        return JsonResponse({'status': 'success', 'message': 'Group assigned successfully'})
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
