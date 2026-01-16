@@ -141,10 +141,7 @@ class CoachProfileUpdateForm(forms.ModelForm):
                     Column('emergency_contact_number', css_class='form-group col-md-6 mb-0'),
                     css_class='form-row'
                 ),
-                 Row(
-                    Column('medical_conditions', css_class='form-group col-md-12 mb-0'),
-                    css_class='form-row'
-                ),
+
             ),
 
             # Group 4 (Logistics)
