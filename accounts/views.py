@@ -14,7 +14,7 @@ from django.db.models import Prefetch
 import calendar
 
 from .models import Coach, CoachInvitation
-from .forms import CoachInvitationForm, CoachRegistrationForm, MonthYearFilterForm
+from .forms import CoachInvitationForm, CoachRegistrationForm, MonthYearFilterForm, CoachProfileUpdateForm
 from scheduling.models import Session
 from assessments.models import SessionAssessment, GroupAssessment, AssessmentComment
 from assessments.forms import AssessmentCommentForm
@@ -90,11 +90,14 @@ def accept_invitation(request, token):
             user.is_staff = True  # Make them a coach
             user.save()
 
+            phone = form.cleaned_data.get('phone', '')
+
             # Create the corresponding Coach profile
             Coach.objects.create(
                 user=user,
                 name=user.get_full_name(),
                 email=user.email,
+                phone=phone,
                 is_active=True
             )
 
@@ -108,6 +111,30 @@ def accept_invitation(request, token):
         form = CoachRegistrationForm(initial={'email': invitation.email})
 
     return render(request, 'accounts/accept_invitation.html', {'form': form})
+
+@login_required
+def edit_coach_profile(request):
+    try:
+        coach = request.user.coach_profile
+    except Coach.DoesNotExist:
+        messages.error(request, "You do not have a coach profile to edit.")
+        return redirect('homepage')
+
+    if request.method == 'POST':
+        form = CoachProfileUpdateForm(request.POST, request.FILES, instance=coach)
+        if form.is_valid():
+            coach = form.save(commit=False)
+            coach.whatsapp_phone_number = coach.phone
+            coach.save()
+            messages.success(request, "Profile updated successfully.")
+            return redirect('accounts:my_profile')
+    else:
+        form = CoachProfileUpdateForm(instance=coach)
+
+    return render(request, 'accounts/edit_coach_profile.html', {
+        'form': form,
+        'coach': coach
+    })
 
 @login_required
 def coach_profile(request, coach_id=None):

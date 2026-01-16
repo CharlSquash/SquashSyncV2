@@ -25,10 +25,7 @@ class Coach(models.Model):
         null=True,
         help_text="WhatsApp enabled phone number in E.164 format (e.g., +14155238886)."
     )
-    whatsapp_opt_in = models.BooleanField(
-        default=False,
-        help_text="Has the coach opted-in to receive WhatsApp notifications?"
-    )
+    # whatsapp_opt_in removed as per requirements
     receive_weekly_schedule_email = models.BooleanField(
         default=True,
         verbose_name="Receive Weekly Schedule Email",
@@ -71,6 +68,71 @@ class Coach(models.Model):
         verbose_name="SSA Qualification Level",
         help_text="Squash South Africa coaching qualification level."
     )
+
+    # --- Personal Details ---
+    physical_address = models.TextField(blank=True, verbose_name="Physical Address")
+    id_number = models.CharField(max_length=20, blank=True, verbose_name="ID Number / DOB")
+    date_of_birth = models.DateField(null=True, blank=True, verbose_name="Date of Birth")
+    # Note: 'phone' already exists in the model.
+
+    # --- Logistics (Car) ---
+    car_registration_numbers = models.CharField(max_length=255, blank=True, help_text="If multiple, separate with commas.", verbose_name="Car Registration Number(s)")
+    car_make_model = models.CharField(max_length=100, blank=True, verbose_name="Car Make & Model", help_text="e.g. Kia Picanto")
+    car_color = models.CharField(max_length=50, blank=True, verbose_name="Car Color")
+
+    # --- Medical Information (SENSITIVE) ---
+    medical_aid_name = models.CharField(max_length=100, blank=True, verbose_name="Medical Aid Name")
+    medical_aid_number = models.CharField(max_length=100, blank=True, verbose_name="Medical Aid Number")
+    medical_conditions = models.TextField(blank=True, verbose_name="Medical Conditions", help_text="Any conditions we should be aware of (optional).")
+    emergency_contact_name = models.CharField(max_length=100, blank=True, verbose_name="Emergency Contact Person & Relationship")
+    emergency_contact_number = models.CharField(max_length=20, blank=True, verbose_name="Emergency Contact Number")
+    
+    class BloodType(models.TextChoices):
+        A_POS = 'A+', 'A+'
+        A_NEG = 'A-', 'A-'
+        B_POS = 'B+', 'B+'
+        B_NEG = 'B-', 'B-'
+        O_POS = 'O+', 'O+'
+        O_NEG = 'O-', 'O-'
+        AB_POS = 'AB+', 'AB+'
+        AB_NEG = 'AB-', 'AB-'
+        UNKNOWN = 'UNK', 'Unknown'
+
+    blood_type = models.CharField(max_length=5, choices=BloodType.choices, default=BloodType.UNKNOWN, blank=True, verbose_name="Blood Type")
+
+    # --- Clothing / Kit ---
+    class ShirtPreference(models.TextChoices):
+        GOLF = 'GOLF', 'Golf Shirt'
+        TSHIRT = 'TEE', 'T-Shirt'
+        NONE = 'NONE', 'No Preference'
+    
+    class ShirtSize(models.TextChoices):
+        L_XS = 'L_XS', 'Ladies XS'
+        L_S = 'L_S', 'Ladies S'
+        L_M = 'L_M', 'Ladies M'
+        L_L = 'L_L', 'Ladies L'
+        L_XL = 'L_XL', 'Ladies XL'
+        M_S = 'M_S', 'Mens S'
+        M_M = 'M_M', 'Mens M'
+        M_L = 'M_L', 'Mens L'
+        M_XL = 'M_XL', 'Mens XL'
+        M_XXL = 'M_XXL', 'Mens XXL'
+
+    shirt_preference = models.CharField(max_length=10, choices=ShirtPreference.choices, default=ShirtPreference.NONE, blank=True, verbose_name="T-Shirt Preference")
+    shirt_size = models.CharField(max_length=10, choices=ShirtSize.choices, blank=True, verbose_name="T-Shirt Size")
+
+    # --- Professional / Bio ---
+    occupation = models.CharField(max_length=255, blank=True, verbose_name="Occupation", help_text="What kind of work do you do and in what area?")
+    academic_credentials = models.TextField(blank=True, verbose_name="Academic & Professional Credentials")
+    currently_studying = models.CharField(max_length=255, blank=True, verbose_name="Current Studies", help_text="If student, what are you studying?")
+    highest_ranking = models.CharField(max_length=255, blank=True, verbose_name="Highest Squash Ranking", help_text="World, Provincial, or Club ranking")
+    league_participation = models.CharField(max_length=255, blank=True, verbose_name="League Participation", help_text="e.g. Men's League at [Club Name]")
+
+    # --- Coaching Preferences ---
+    accepts_private_coaching = models.BooleanField(default=False, verbose_name="Available for One-on-One Coaching?")
+    private_coaching_preferences = models.TextField(blank=True, verbose_name="Private Coaching Preferences", help_text="Preferred age group or skill level.")
+    private_coaching_area = models.TextField(blank=True, verbose_name="Private Coaching Area", help_text="Preferred area or club.")
+
 
     def __str__(self):
         if self.user and (self.user.get_full_name() or self.user.username):
