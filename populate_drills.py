@@ -92,35 +92,46 @@ def populate():
 
     difficulties = ['Beginner', 'Intermediate', 'Advanced']
     
-    # Generic stock squash/sports videos (using some placeholders or real looking generic youtube IDs)
-    # I'll use a few different ones so they don't all look identical if previewed
-    video_urls = [
-         "https://www.youtube.com/watch?v=dQw4w9WgXcQ", # Classic placeholder
-         "https://www.youtube.com/watch?v=lT6HX1g2tIY",
-         "https://www.youtube.com/watch?v=jNQXAC9IVRw",
-         "https://www.youtube.com/watch?v=L_jWHffIx5E",
-    ]
+    # NEW: Specific video URL requested by user
+    target_video_url = "https://www.youtube.com/shorts/Iw5M2ICIvuk"
 
     count = 0
+    updated_count = 0
+    
+    # 1. Ensure all drills exist
     for cat, drill_names in categories:
         for name in drill_names:
-            # Check if exists to avoid duplicates if run multiple times
-            if not Drill.objects.filter(name=name, category=cat).exists():
-                Drill.objects.create(
-                    name=name,
-                    category=cat,
-                    difficulty=random.choice(difficulties),
-                    description=f"This is a sample description for {name}. Focus on consistency and movement.",
-                    duration_minutes=random.randint(5, 20),
-                    video_url=random.choice(video_urls),
-                    is_approved=True 
-                )
+            drill, created = Drill.objects.get_or_create(
+                name=name,
+                category=cat,
+                defaults={
+                    'difficulty': random.choice(difficulties),
+                    'description': f"This is a sample description for {name}. Focus on consistency and movement.",
+                    'duration_minutes': random.randint(5, 20),
+                    'video_url': target_video_url,
+                    'is_approved': True
+                }
+            )
+            
+            if created:
                 print(f"Created: {name} ({cat})")
                 count += 1
             else:
-                print(f"Skipped: {name} (Already exists)")
+                # Update existing if needed (optional based on requirement "just like they are currently" 
+                # but we definitely need to update the URL)
+                if drill.video_url != target_video_url:
+                    drill.video_url = target_video_url
+                    drill.save()
+                    updated_count += 1
+                    print(f"Updated URL: {name}")
+
+    # 2. Update ALL drills in the database to have this URL (even those not in the list above, if any)
+    # The requirement is "add this url to all the drills's video url"
+    # This covers any drills that might have been created manually or exist from before.
+    total_updated = Drill.objects.update(video_url=target_video_url)
     
     print(f"Done. Created {count} new drills.")
+    print(f"Ensured video URL is set for {total_updated} drills.")
 
 if __name__ == '__main__':
     populate()
