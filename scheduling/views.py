@@ -29,7 +29,7 @@ from .forms import SessionForm, SessionFilterForm, CoachAvailabilityForm, Attend
 from players.models import Player, SchoolGroup, AttendanceDiscrepancy
 from . import notifications
 from .notifications import verify_confirmation_token, send_coach_decline_notification_email, verify_bulk_confirmation_token
-from accounts.models import Coach
+from accounts.models import Coach, ContractTemplate, CoachContract
 from assessments.models import SessionAssessment, GroupAssessment
 from finance.models import CoachSessionCompletion
 from awards.models import Prize
@@ -46,6 +46,29 @@ def is_staff(user):
     This will be used to protect the session detail page.
     """
     return user.is_staff
+
+
+def check_contract_requirement(request):
+    """
+    Checks if the user (if coach) has signed the active contract.
+    Returns a redirect response if they need to sign, else None.
+    """
+    if not hasattr(request.user, 'coach_profile'):
+        return None
+        
+    coach = request.user.coach_profile
+    active_template = ContractTemplate.objects.filter(is_active=True).first()
+    
+    if not active_template:
+        return None
+        
+    contract = CoachContract.objects.filter(coach=coach, template=active_template).first()
+    
+    if not contract or contract.status != CoachContract.Status.SIGNED:
+        messages.error(request, f"You must sign your {active_template.name} before you can set availability.")
+        return redirect('accounts:sign_contract')
+        
+    return None
 
 
 # scheduling/views.py
@@ -659,6 +682,11 @@ def session_calendar(request):
 
 @login_required
 def my_availability(request):
+    # Gating Check
+    redirect_resp = check_contract_requirement(request)
+    if redirect_resp:
+        return redirect_resp
+
     try:
         coach_profile = Coach.objects.get(user=request.user)
     except Coach.DoesNotExist:
@@ -809,6 +837,11 @@ def my_availability(request):
 
 @login_required
 def set_bulk_availability_view(request):
+    # Gating Check
+    redirect_resp = check_contract_requirement(request)
+    if redirect_resp:
+        return redirect_resp
+
     try:
         coach_profile = Coach.objects.get(user=request.user)
     except Coach.DoesNotExist:

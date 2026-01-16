@@ -86,6 +86,29 @@
             </div>
         </div>
 
+        <!-- Contract Status Section -->
+        {% if viewing_own_profile and active_contract_template %}
+        <div class="card shadow-sm mb-4 border-warning">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="card-title mb-1">
+                        <i class="bi bi-file-earmark-text"></i> {{ active_contract_template.name }}
+                    </h5>
+                    {% if is_contract_signed %}
+                        <span class="text-success"><i class="bi bi-check-circle-fill"></i> Signed on {{ coach_contract.date_signed|date:"d M Y" }}</span>
+                    {% else %}
+                        <span class="text-danger fw-bold"><i class="bi bi-exclamation-circle-fill"></i> Action Required: Not Signed</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <a href="{% url 'accounts:sign_contract' %}" class="btn {% if is_contract_signed %}btn-outline-secondary{% else %}btn-warning{% endif %}">
+                        {% if is_contract_signed %}View Contract{% else %}Sign Now{% endif %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="row">
             <div class="col-md-6">
 

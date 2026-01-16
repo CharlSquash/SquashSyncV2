@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Prefetch
 import calendar
 
-from .models import Coach, CoachInvitation
+from .models import Coach, CoachInvitation, ContractTemplate, CoachContract
 from .forms import CoachInvitationForm, CoachRegistrationForm, MonthYearFilterForm, CoachProfileUpdateForm
 from scheduling.models import Session
 from assessments.models import SessionAssessment, GroupAssessment, AssessmentComment
@@ -225,9 +225,24 @@ def coach_profile(request, coach_id=None):
             month=selected_month
         )
 
+    # --- Contract Context ---
+    # Check for active contract status for the "Action Required" button or "View Contract" link
+    contract_context = {}
+    if viewing_own_profile:
+        active_template = ContractTemplate.objects.filter(is_active=True).first()
+        if active_template:
+            # Check if a contract exists for this template
+            contract = CoachContract.objects.filter(coach=target_coach, template=active_template).first()
+            contract_context = {
+                'active_contract_template': active_template,
+                'coach_contract': contract,
+                'is_contract_signed': contract.status == CoachContract.Status.SIGNED if contract else False,
+            }
+
     context = {
         'coach': target_coach,
         'viewing_own_profile': viewing_own_profile,
+        **contract_context,
         'sessions_attended': sessions_attended,
         'player_assessments_made': player_assessments_made,
         'group_assessments_made': group_assessments_made,
@@ -243,4 +258,54 @@ def coach_profile(request, coach_id=None):
         'selected_coach_id': target_coach.id, # For the partial template
     }
     return render(request, 'accounts/coach_profile.html', context)
+
+
+@login_required
+def sign_contract(request):
+    try:
+        coach = request.user.coach_profile
+    except Coach.DoesNotExist:
+        messages.error(request, "Restricted to coaches.")
+        return redirect('scheduling:homepage')
+
+    active_template = ContractTemplate.objects.filter(is_active=True).first()
+    if not active_template:
+        messages.info(request, "No active contract template found.")
+        return redirect('accounts:my_profile')
+
+    # Get or create the contract
+    # If it doesn't exist, we create it in AWAITING_SIGNATURE so they can sign it immediately
+    # unless admin intervention is required for EVERY ONE.
+    # Assuming standard flow allows self-service if template is active.
+    contract, created = CoachContract.objects.get_or_create(
+        coach=coach,
+        template=active_template,
+        defaults={'status': CoachContract.Status.AWAITING_SIGNATURE}
+    )
+    
+    if created:
+        # Ensure it saves with the content if not done by logic (model save handles content)
+        # Status default in get_or_create handles the status
+        pass
+
+    if contract.status == CoachContract.Status.DRAFT:
+         messages.warning(request, "Your contract is currently being prepared by the administrator.")
+         return redirect('accounts:my_profile')
+
+    if request.method == 'POST':
+        if contract.status == CoachContract.Status.SIGNED:
+             messages.info(request, "You have already signed this contract.")
+             return redirect('accounts:my_profile')
+        
+        # Verify signature/acceptance
+        action = request.POST.get('action')
+        if action == 'accept':
+            contract.status = CoachContract.Status.SIGNED
+            contract.date_signed = timezone.now()
+            contract.ip_address = request.META.get('REMOTE_ADDR')
+            contract.save()
+            messages.success(request, f"You have successfully signed the {active_template.name}.")
+            return redirect('accounts:my_profile')
+
+    return render(request, 'accounts/sign_contract.html', {'contract': contract})
 

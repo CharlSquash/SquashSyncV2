@@ -129,3 +129,30 @@ class CoachInvitationAdmin(admin.ModelAdmin):
     list_filter = ('is_accepted', 'created_at')
     search_fields = ('email',)
     readonly_fields = ('token', 'created_at', 'expires_at')
+
+from .models import ContractTemplate, CoachContract
+
+@admin.register(ContractTemplate)
+class ContractTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'content')
+
+@admin.register(CoachContract)
+class CoachContractAdmin(admin.ModelAdmin):
+    list_display = ('coach', 'template', 'status', 'date_signed', 'created_at')
+    list_filter = ('status', 'template', 'date_signed')
+    search_fields = ('coach__name', 'coach__user__email', 'customized_content')
+    readonly_fields = ('date_signed', 'ip_address', 'created_at')
+    actions = ['send_to_coach']
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj and obj.status != CoachContract.Status.DRAFT:
+            return self.readonly_fields + ('customized_content', 'template', 'coach')
+        return self.readonly_fields
+
+    @admin.action(description="Send to Coach (Make visible for signing)")
+    def send_to_coach(self, request, queryset):
+        count = queryset.update(status=CoachContract.Status.AWAITING_SIGNATURE)
+        self.message_user(request, f"{count} contract(s) sent to coach.", messages.SUCCESS)
+

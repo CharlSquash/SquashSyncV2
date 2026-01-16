@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h4 mb-0">Sign Contract: {{ contract.template.name }}</h2>
+                </div>
+                <div class="card-body">
+                    {% if contract.status == 'SIGNED' %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            You signed this contract on {{ contract.date_signed|date:"F j, Y, g:i a" }}.
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Please read the contract carefully. You must scroll to the bottom to enable the "I Accept" button.
+                        </div>
+                    {% endif %}
+                    
+                    <div class="card mb-4">
+                        <div class="card-header" style="background-color: var(--container-light-bg); border-bottom: 1px solid var(--border-color);">
+                             <h5 class="mb-0" style="color: var(--heading-color);">Contract Terms</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <!-- Scrollable Contract Content -->
+                            <div id="contract-content-box" class="p-4" style="height: 500px; overflow-y: auto; border: 1px solid var(--border-color); background-color: var(--container-light-bg); color: var(--text-color); font-family: 'Times New Roman', serif; line-height: 1.6;">
+                                {{ contract.customized_content|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if contract.status != 'SIGNED' %}
+                    <form method="post" id="sign-contract-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="accept">
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" id="btn-accept" class="btn btn-success btn-lg" disabled>
+                                I Accept & Sign
+                            </button>
+                        </div>
+                        <div class="text-center mt-2 text-muted small">
+                            By clicking "I Accept & Sign", you agree to the terms above.
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-muted text-center small">
+                    Contract ID: {{ contract.id }} | Generated: {{ contract.created_at|date:"Y-m-d" }}
+                    {% if contract.status == 'SIGNED' %}
+                     | IP: {{ contract.ip_address }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentBox = document.getElementById('contract-content-box');
+        const acceptBtn = document.getElementById('btn-accept');
+
+        if (contentBox && acceptBtn) {
+            // Check if content is short enough to not need scrolling
+            if (contentBox.scrollHeight <= contentBox.clientHeight) {
+                acceptBtn.disabled = false;
+            }
+
+            contentBox.addEventListener('scroll', function() {
+                // Allow a small buffer (e.g. 5px)
+                if (contentBox.scrollTop + contentBox.clientHeight >= contentBox.scrollHeight - 5) {
+                    acceptBtn.disabled = false;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

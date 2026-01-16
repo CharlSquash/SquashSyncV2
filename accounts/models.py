@@ -200,3 +200,43 @@ class CoachInvitation(models.Model):
     def __str__(self):
         return f"Invitation for {self.email}"
 # Create your models here.
+
+class ContractTemplate(models.Model):
+    name = models.CharField(max_length=100, help_text="e.g. '2026 Service Agreement'")
+    content = models.TextField(help_text="Master text with placeholders if needed.")
+    is_active = models.BooleanField(default=False, help_text="Only one template should be active at a time.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({'Active' if self.is_active else 'Inactive'})"
+
+    def save(self, *args, **kwargs):
+        if self.is_active:
+            # Deactivate all others
+            ContractTemplate.objects.exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+class CoachContract(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft (Admin Editing)'
+        AWAITING_SIGNATURE = 'AWAITING_SIGNATURE', 'Awaiting Signature'
+        SIGNED = 'SIGNED', 'Signed'
+
+    coach = models.ForeignKey('Coach', on_delete=models.CASCADE, related_name='contracts')
+    template = models.ForeignKey(ContractTemplate, on_delete=models.PROTECT)
+    customized_content = models.TextField(help_text="Specific contract text for this coach.")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    date_signed = models.DateTimeField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('coach', 'template')
+
+    def __str__(self):
+        return f"{self.coach.name} - {self.template.name} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.customized_content:
+            self.customized_content = self.template.content
+        super().save(*args, **kwargs)
