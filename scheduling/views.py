@@ -205,16 +205,19 @@ def _coach_dashboard(request):
             else:
                 availability_success_message = "Your bulk availability for the current month is set."
 
-        # --- Logic for Upcoming Sessions Card (Today & Tomorrow) ---
+        # --- Logic for Upcoming Sessions Card (Next 7 Days) ---
         local_now = timezone.localtime(now)
+        seven_days_from_now = today + timedelta(days=7)
+        
         upcoming_coach_sessions = Session.objects.filter(
-            Q(session_date=today, session_start_time__gte=local_now.time()) | Q(session_date=tomorrow),
+            Q(session_date=today, session_start_time__gte=local_now.time()) | Q(session_date__gt=today),
+            session_date__lte=seven_days_from_now,
             coaches_attending=coach,
             is_cancelled=False
         ).prefetch_related(
             Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability'),
             Prefetch('sessioncoach_set', queryset=SessionCoach.objects.filter(coach=coach), to_attr='my_session_coach_assignment')
-        ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')
+        ).select_related('school_group', 'venue').order_by('session_date', 'session_start_time')[:10]  # Limit to 10
 
 
         for session in upcoming_coach_sessions:
@@ -225,6 +228,8 @@ def _coach_dashboard(request):
             if availability and availability.last_action:
                 status = availability.last_action
 
+            # Show actions ONLY for Today and Tomorrow (approx 48 hours window logic)
+            # Logic: If session is today (passed filter above) or tomorrow.
             show_actions = session.session_date <= (today + timedelta(days=1))
 
             sessions_for_coach_card.append({

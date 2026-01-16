@@ -44,9 +44,9 @@
                 {% if sessions_for_coach_card %}
                 <p class="text-muted small fst-italic">Click 'View Plan' to prepare for your session and take
                     attendance.</p>
-                <div class="upcoming-sessions-container">
+                <div class="upcoming-sessions-container" style="max-height: 500px; overflow-y: auto;">
                     {% for item in sessions_for_coach_card %}
-                    <div class="upcoming-session-card">
+                    <div class="upcoming-session-card" {% if not item.show_actions %}style="opacity: 0.75;"{% endif %}>
                         <div class="upcoming-session-header">
                             <h4 class="upcoming-session-title">{{ item.session.school_group.name|default:"General Session" }}</h4>
                             <div class="upcoming-session-status">
