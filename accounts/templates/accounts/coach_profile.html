@@ -54,11 +54,7 @@
                         <div class="contact-details">
                             <p><i class="bi bi-envelope-fill"></i> {{ coach.user.email|default:"No email provided" }}</p>
                             <p><i class="bi bi-telephone-fill"></i> {{ coach.phone|default:"No phone provided" }}</p>
-                            {% if coach.whatsapp_phone_number %}
-                            <p><i class="bi bi-whatsapp"></i> {{ coach.whatsapp_phone_number }}
-                                {% if coach.whatsapp_opt_in %}(Opted-in){% else %}(Not opted-in){% endif %}
-                            </p>
-                            {% endif %}
+
                         </div>
 
                         <p><strong>Status:</strong>
