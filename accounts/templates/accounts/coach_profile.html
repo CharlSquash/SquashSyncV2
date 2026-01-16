@@ -150,8 +150,8 @@
             </div>
 
             <div class="col-md-6">
-                <div class="card shadow-sm profile-section-card">
-                    <details>
+                <div class="card shadow-sm profile-section-card mb-3">
+                    <details open>
                         <summary>
                             <span class="summary-title"><i class="bi bi-person-check"></i>Recent Player Assessments ({{ player_assessments_made.count }})</span>
                             <span class="summary-arrow"></span>
@@ -197,8 +197,8 @@
                     </details>
                 </div>
 
-                <div class="card shadow-sm profile-section-card mt-3">
-                    <details>
+                <div class="card shadow-sm profile-section-card mb-3">
+                    <details open>
                         <summary>
                             <span class="summary-title"><i class="bi bi-journals"></i>Recent Group Assessments ({{ group_assessments_made.count }})</span>
                             <span class="summary-arrow"></span>
@@ -243,104 +243,148 @@
                         </div>
                     </details>
                 </div>
-                <div class="card shadow-sm profile-section-card mt-3">
-                    <details>
-                        <summary>
-                            <span class="summary-title"><i class="bi bi-award-fill"></i>Qualifications & Experience</span>
-                            <span class="summary-arrow"></span>
-                        </summary>
-                        <div class="details-content">
-                            <h5>WSF Level:</h5>
-                            <p>{{ coach.get_qualification_wsf_level_display|default:"Not specified" }}</p>
-                            <h5>SSA Level:</h5>
-                            <p>{{ coach.get_qualification_ssa_level_display|default:"Not specified" }}</p>
-                            <h5>Experience Notes:</h5>
-                            {% if coach.experience_notes %}
-                                <p style="white-space: pre-wrap;">{{ coach.experience_notes|linebreaksbr }}</p>
-                            {% else %}
-                                <p class="text-muted">No experience notes provided.</p>
-                            {% endif %}
-                        </div>
-                    </details>
-                </div>
+            </div>
+        </div>
 
-                <div class="card shadow-sm profile-section-card mt-3">
+        <!-- NEW: Consolidated Coach Information Section -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm profile-section-card mt-2">
                     <details>
                         <summary>
-                            <span class="summary-title"><i class="bi bi-person-badge"></i>Professional Bio</span>
+                            <span class="summary-title"><i class="bi bi-person-lines-fill"></i> Coach Information</span>
                             <span class="summary-arrow"></span>
                         </summary>
                         <div class="details-content">
-                             <p><strong>Occupation:</strong> {{ coach.occupation|default:"-" }}</p>
-                             <p><strong>Credentials:</strong> {{ coach.academic_credentials|default:"-" }}</p>
-                             <p><strong>Current Studies:</strong> {{ coach.currently_studying|default:"-" }}</p>
-                             <p><strong>Highest Ranking:</strong> {{ coach.highest_ranking|default:"-" }}</p>
-                             <p><strong>League Participation:</strong> {{ coach.league_participation|default:"-" }}</p>
-                        </div>
-                    </details>
-                </div>
+                            <div class="row">
+                                <!-- Col 1: Personal & Medical -->
+                                <div class="col-md-6 mb-4 mb-md-0">
+                                    <!-- Sub-Group 1: Personal -->
+                                    <h5 class="text-primary border-bottom pb-2 mb-3"><i class="bi bi-person"></i> Personal Details</h5>
+                                    <dl class="row mb-4">
+                                        <dt class="col-sm-4 text-muted">Full Name</dt>
+                                        <dd class="col-sm-8 fw-bold">{{ coach.user.get_full_name }}</dd>
 
-                <div class="card shadow-sm profile-section-card mt-3">
-                    <details>
-                        <summary>
-                            <span class="summary-title"><i class="bi bi-heart-pulse"></i>Personal & Medical (Private)</span>
-                            <span class="summary-arrow"></span>
-                        </summary>
-                        <div class="details-content">
-                             <p><strong>Physical Address:</strong><br>{{ coach.physical_address|linebreaksbr|default:"-" }}</p>
-                             <p><strong>ID Number / DOB:</strong> {{ coach.id_number|default:"-" }}</p>
-                             <p><strong>Date of Birth:</strong> {{ coach.date_of_birth|default:"-" }}</p>
-                             <hr>
-                             <h6 class="text-danger">Medical Information</h6>
-                             <p><strong>Medical Aid:</strong> {{ coach.medical_aid_name|default:"-" }} #{{ coach.medical_aid_number|default:"-" }}</p>
-                             <p><strong>Blood Type:</strong> {{ coach.get_blood_type_display|default:"Unknown" }}</p>
-                             <p><strong>Conditions:</strong> {{ coach.medical_conditions|default:"None listed" }}</p>
-                             <p><strong>Emergency Contact:</strong> {{ coach.emergency_contact_name|default:"-" }} ({{ coach.emergency_contact_number|default:"-" }})</p>
-                        </div>
-                    </details>
-                </div>
+                                        <dt class="col-sm-4 text-muted">Phone</dt>
+                                        <dd class="col-sm-8">{{ coach.phone|default:"-" }}</dd>
+                                        
+                                        <dt class="col-sm-4 text-muted">Email</dt>
+                                        <dd class="col-sm-8">{{ coach.user.email }}</dd>
 
-                <div class="card shadow-sm profile-section-card mt-3">
-                    <details>
-                        <summary>
-                            <span class="summary-title"><i class="bi bi-truck"></i>Logistics & Kit</span>
-                            <span class="summary-arrow"></span>
-                        </summary>
-                        <div class="details-content">
-                             <p><strong>Car Registration:</strong> {{ coach.car_registration_numbers|default:"-" }}</p>
-                             <p><strong>Car Make/Model:</strong> {{ coach.car_make_model|default:"-" }} ({{ coach.car_color|default:"-" }})</p>
-                             <hr>
-                             <p><strong>Shirt Preference:</strong> {{ coach.get_shirt_preference_display|default:"-" }}</p>
-                             <p><strong>Shirt Size:</strong> {{ coach.get_shirt_size_display|default:"-" }}</p>
-                        </div>
-                    </details>
-                </div>
+                                        <dt class="col-sm-4 text-muted">Address</dt>
+                                        <dd class="col-sm-8">{{ coach.physical_address|linebreaksbr|default:"-" }}</dd>
 
-                <div class="card shadow-sm profile-section-card mt-3">
-                    <details>
-                        <summary>
-                            <span class="summary-title"><i class="bi bi-person-video3"></i>Coaching Preferences (Private)</span>
-                            <span class="summary-arrow"></span>
-                        </summary>
-                        <div class="details-content">
-                             <p><strong>Accepts Private Coaching?</strong> {% if coach.accepts_private_coaching %}Yes{% else %}No{% endif %}</p>
-                             <p><strong>Preferences:</strong> {{ coach.private_coaching_preferences|default:"-" }}</p>
-                             <p><strong>Preferred Area:</strong> {{ coach.private_coaching_area|default:"-" }}</p>
-                        </div>
-                    </details>
-                </div>
-                 <div class="card shadow-sm profile-section-card mt-3">
-                    <details>
-                        <summary>
-                            <span class="summary-title"><i class="bi bi-calendar2-week"></i>Availability Summary</span>
-                            <span class="summary-arrow"></span>
-                        </summary>
-                        <div class="details-content">
-                             <p class="text-muted"><em>This feature is coming soon!</em></p>
+                                        <dt class="col-sm-4 text-muted">ID / DOB</dt>
+                                        <dd class="col-sm-8">{{ coach.id_number|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">Birth Date</dt>
+                                        <dd class="col-sm-8">{{ coach.date_of_birth|default:"-" }}</dd>
+                                    </dl>
+
+                                    <!-- Sub-Group 2: Medical -->
+                                    {% if viewing_own_profile or request.user.is_superuser %}
+                                        <h5 class="text-danger border-bottom pb-2 mb-3"><i class="bi bi-heart-pulse"></i> Medical Information <small class="text-muted fst-italic ms-2" style="font-size: 0.7em;">(Private)</small></h5>
+                                        <dl class="row mb-0">
+                                            <dt class="col-sm-4 text-muted">Medical Aid</dt>
+                                            <dd class="col-sm-8">
+                                                {{ coach.medical_aid_name|default:"-" }}
+                                                {% if coach.medical_aid_number %} #{{ coach.medical_aid_number }}{% endif %}
+                                            </dd>
+
+                                            <dt class="col-sm-4 text-muted">Blood Type</dt>
+                                            <dd class="col-sm-8">{{ coach.get_blood_type_display|default:"Unknown" }}</dd>
+
+                                            <dt class="col-sm-4 text-muted">Allergies/Conditions</dt>
+                                            <dd class="col-sm-8">{{ coach.medical_conditions|default:"None listed" }}</dd>
+
+                                            <dt class="col-sm-4 text-muted">Emergency Contact</dt>
+                                            <dd class="col-sm-8">
+                                                {{ coach.emergency_contact_name|default:"-" }}
+                                                {% if coach.emergency_contact_number %}<br><a href="tel:{{ coach.emergency_contact_number }}">{{ coach.emergency_contact_number }}</a>{% endif %}
+                                            </dd>
+                                        </dl>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Col 2: Professional & Logistics -->
+                                <div class="col-md-6">
+                                     <!-- Sub-Group 3: Logistics -->
+                                    <h5 class="text-primary border-bottom pb-2 mb-3"><i class="bi bi-truck"></i> Logistics & Kit</h5>
+                                    <dl class="row mb-4">
+                                        <dt class="col-sm-4 text-muted">Car</dt>
+                                        <dd class="col-sm-8">
+                                            {{ coach.car_make_model|default:"-" }} 
+                                            {% if coach.car_color %}({{ coach.car_color }}){% endif %}
+                                            {% if coach.car_registration_numbers %}<br><small class="text-muted">Reg: {{ coach.car_registration_numbers }}</small>{% endif %}
+                                        </dd>
+
+                                        <dt class="col-sm-4 text-muted">Kit Size</dt>
+                                        <dd class="col-sm-8">
+                                            {{ coach.get_shirt_size_display|default:"-" }}
+                                            {% if coach.shirt_preference != 'NONE' %}({{ coach.get_shirt_preference_display }}){% endif %}
+                                        </dd>
+                                    </dl>
+
+                                     <!-- Sub-Group 4: Professional -->
+                                    <h5 class="text-primary border-bottom pb-2 mb-3"><i class="bi bi-briefcase"></i> Professional Profile</h5>
+                                    <dl class="row mb-0">
+                                        <dt class="col-sm-4 text-muted">Occupation</dt>
+                                        <dd class="col-sm-8">{{ coach.occupation|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">Studies</dt>
+                                        <dd class="col-sm-8">{{ coach.currently_studying|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">Credentials</dt>
+                                        <dd class="col-sm-8">{{ coach.academic_credentials|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">WSF Level</dt>
+                                        <dd class="col-sm-8">{{ coach.get_qualification_wsf_level_display|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">SSA Level</dt>
+                                        <dd class="col-sm-8">{{ coach.get_qualification_ssa_level_display|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">Ranking</dt>
+                                        <dd class="col-sm-8">{{ coach.highest_ranking|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">League</dt>
+                                        <dd class="col-sm-8">{{ coach.league_participation|default:"-" }}</dd>
+
+                                        <dt class="col-sm-4 text-muted">Experience</dt>
+                                        <dd class="col-sm-8">{{ coach.experience_notes|linebreaksbr|default:"-" }}</dd>
+                                        
+                                        <dt class="col-sm-4 text-muted">Private Coaching</dt>
+                                        <dd class="col-sm-8">
+                                            {% if coach.accepts_private_coaching %}
+                                                <span class="badge bg-success">Available</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Not Available</span>
+                                            {% endif %}
+                                            {% if coach.private_coaching_preferences %}
+                                            <div class="small mt-1 text-muted">{{ coach.private_coaching_preferences }}</div>
+                                            {% endif %}
+                                            {% if coach.private_coaching_area %}
+                                            <div class="small text-muted">Area: {{ coach.private_coaching_area }}</div>
+                                            {% endif %}
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
                         </div>
                     </details>
                 </div>
             </div>
+        </div>
+
+        <div class="card shadow-sm profile-section-card mt-3">
+            <details>
+                <summary>
+                    <span class="summary-title"><i class="bi bi-calendar2-week"></i>Availability Summary</span>
+                    <span class="summary-arrow"></span>
+                </summary>
+                <div class="details-content">
+                     <p class="text-muted"><em>This feature is coming soon!</em></p>
+                </div>
+            </details>
         </div>
 
     {% else %}
