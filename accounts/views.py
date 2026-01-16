@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.contrib.auth import login
 from django.contrib.auth import get_user_model
 from django.db.models import Prefetch
+from django.db import transaction
 import calendar
 
 from .models import Coach, CoachInvitation, ContractTemplate, CoachContract
@@ -85,25 +86,27 @@ def accept_invitation(request, token):
     if request.method == 'POST':
         form = CoachRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user.email = invitation.email
-            user.is_staff = True  # Make them a coach
-            user.save()
+            with transaction.atomic():
+                user = form.save(commit=False)
+                user.email = invitation.email
+                user.is_staff = True  # Make them a coach
+                user.save()
 
-            phone = form.cleaned_data.get('phone', '')
+                phone = form.cleaned_data.get('phone', '')
 
-            # Create the corresponding Coach profile
-            Coach.objects.create(
-                user=user,
-                name=user.get_full_name(),
-                email=user.email,
-                phone=phone,
-                is_active=True
-            )
+                # Create the corresponding Coach profile
+                Coach.objects.create(
+                    user=user,
+                    name=user.get_full_name(),
+                    email=user.email,
+                    phone=phone,
+                    is_active=True
+                )
 
-            invitation.is_accepted = True
-            invitation.save()
+                invitation.is_accepted = True
+                invitation.save()
 
+            user.backend = 'django.contrib.auth.backends.ModelBackend'
             login(request, user)
             messages.success(request, "Welcome to SquashSync! Your account has been created.")
             return redirect('homepage')
