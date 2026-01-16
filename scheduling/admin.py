@@ -9,8 +9,9 @@ from .session_generation_service import generate_sessions_for_rules
 
 from .models import (
     Venue, Drill, DrillTag, Session, ScheduledClass,
-    CoachAvailability, Event, SessionCoach, 
+    CoachAvailability, Event, SessionCoach, SessionNote
 )
+
 from players.models import SchoolGroup
 
 @admin.register(Venue)

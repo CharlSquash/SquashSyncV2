@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Q
 from django.views.decorators.http import require_POST
-from scheduling.models import Session, AttendanceTracking
+from scheduling.models import Session, AttendanceTracking, SessionNote
 from accounts.models import Coach
 
 
@@ -258,12 +258,25 @@ def experimental_planner(request, session_id):
             current_plan = session.plan if isinstance(session.plan, dict) else json.loads(session.plan)
         except:
             current_plan = {}
+            
+    # Fetch Session Notes
+    session_notes_qs = session.session_notes.select_related('author').all()
+    notes_list = []
+    for note in session_notes_qs:
+        author_name = note.author.get_full_name() or note.author.username if note.author else "Unknown"
+        notes_list.append({
+            'id': note.id,
+            'author_name': author_name,
+            'text': note.text,
+            'created_at_formatted': note.created_at.strftime('%Y-%m-%d %H:%M')
+        })
 
     context = {
         'session_id': session.id,
         'drills_json': drills,
         'players_json': players_list,
         'current_plan_json': current_plan, # Add the existing plan
+        'notes_json': notes_list,
         'csrf_token': str(get_token(request)),
     }
     return render(request, 'live_session/planner_v2.html', context)
@@ -309,6 +322,44 @@ def create_custom_drill(request):
                 'duration_minutes': drill.duration_minutes,
                 'video_url': drill.video_url,
                 'created_by_id': coach.id if coach else None
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@login_required
+@require_POST
+def add_session_note(request, session_id):
+    """
+    API endpoint to add a note to a session.
+    Expects JSON: { "text": "My note content..." }
+    """
+    session = get_object_or_404(Session, pk=session_id)
+    
+    # Check permissions: Superuser or Coach
+    if not request.user.is_superuser and not Coach.objects.filter(user=request.user).exists():
+         return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        text = data.get('text', '').strip()
+        
+        if not text:
+             return JsonResponse({'status': 'error', 'message': 'Note text cannot be empty.'}, status=400)
+
+        note = SessionNote.objects.create(
+            session=session,
+            author=request.user,
+            text=text
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'note': {
+                'id': note.id,
+                'author_name': note.author.get_full_name() or note.author.username if note.author else "Unknown",
+                'text': note.text,
+                'created_at_formatted': note.created_at.strftime('%Y-%m-%d %H:%M')
             }
         })
     except Exception as e:

@@ -268,3 +268,20 @@ class AttendanceTracking(models.Model):
 
     def __str__(self):
         return f"{self.player.full_name} - {self.session.session_date} - Parent: {self.get_parent_response_display()}, Coach: {self.get_attended_display()}"
+
+# --- MODEL: SessionNote ---
+class SessionNote(models.Model):
+
+    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='session_notes')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Session Note"
+        verbose_name_plural = "Session Notes"
+
+    def __str__(self):
+        return f"Note by {self.author} on {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+

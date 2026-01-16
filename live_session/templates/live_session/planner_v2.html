@@ -53,6 +53,9 @@
     {% url 'scheduling:save_session_plan' session_id as save_plan_url %}
     {{ save_plan_url|json_script:"save-plan-url" }}
     {{ csrf_token|json_script:"csrf-token" }}
+    {{ notes_json|json_script:"notes-data" }}
+    {% url 'live_session:add_session_note' session_id as add_note_url %}
+    {{ add_note_url|json_script:"add-note-url" }}
 
     <!-- 4. Your Application Code -->
     <script type="text/babel" data-type="module">
@@ -63,7 +66,7 @@
             Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library, Info, X, Cloud, CloudLightning,
             Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move,
-            ChevronLeft, ChevronRight
+            ChevronLeft, ChevronRight, MessageSquare
         } from 'lucide-react';
 
         /**
@@ -84,6 +87,8 @@
         const CREATE_DRILL_URL = JSON.parse(document.getElementById('create-drill-url').textContent);
         const SAVE_PLAN_URL = JSON.parse(document.getElementById('save-plan-url').textContent);
         const CSRF_TOKEN = JSON.parse(document.getElementById('csrf-token').textContent);
+        const SERVER_NOTES = JSON.parse(document.getElementById('notes-data').textContent);
+        const ADD_NOTE_URL = JSON.parse(document.getElementById('add-note-url').textContent);
 
 
         const formatTime = (seconds) => {
@@ -261,6 +266,117 @@
             );
         };
 
+        const NotesModal = ({ onClose, notes, onAddNote }) => {
+            const [newNote, setNewNote] = useState('');
+            const [localNotes, setLocalNotes] = useState(notes);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const scrollRef = useRef(null);
+
+            useEffect(() => {
+                if (scrollRef.current) {
+                    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                }
+            }, [localNotes]);
+
+            // Sync with parent prop updates if any (though we manage locally mainly)
+            useEffect(() => {
+                setLocalNotes(notes);
+            }, [notes]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!newNote.trim()) return;
+
+                setIsSubmitting(true);
+                try {
+                    const response = await fetch(ADD_NOTE_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': CSRF_TOKEN
+                        },
+                        body: JSON.stringify({ text: newNote })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            const updatedNotes = [data.note, ...localNotes]; // Add to top or bottom? UI preference. Let's do top for recent. 
+                            // Actually, chat style usually has new at bottom.
+                            // But for "notes", newest first is often better.
+                            // Let's stick to newest-first (top) for list view.
+                            onAddNote(data.note);
+                            setNewNote('');
+                        } else {
+                            alert(data.message || 'Error adding note');
+                        }
+                    } else {
+                        alert('Failed to save note');
+                    }
+                } catch (error) {
+                    console.error("Error:", error);
+                    alert("Error saving note");
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-emerald-600" />
+                                Session Notes
+                            </h3>
+                            <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition"><X className="w-5 h-5 text-slate-500" /></button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-50/50 space-y-3">
+                            {localNotes.length === 0 ? (
+                                <div className="text-center py-10 text-slate-400">
+                                    <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                                    <p className="text-sm">No notes yet. Add important details below.</p>
+                                </div>
+                            ) : (
+                                localNotes.map(note => (
+                                    <div key={note.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="font-bold text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{note.author_name}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">{note.created_at_formatted}</span>
+                                        </div>
+                                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.text}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="p-4 bg-white border-t border-slate-100">
+                             <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+                                <textarea 
+                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm resize-none"
+                                    rows="3"
+                                    placeholder="Type a note here (e.g., 'Group beginner specific', 'Court 1 net broken')..."
+                                    value={newNote}
+                                    onChange={e => setNewNote(e.target.value)}
+                                ></textarea>
+                                <div className="flex justify-end">
+                                    <button 
+                                        type="submit" 
+                                        disabled={isSubmitting || !newNote.trim()}
+                                        className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                        Add Note
+                                    </button>
+                                </div>
+                             </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const MobileDrillPicker = ({ onClose, onAdd, onCreate, availableDrills, formatTime }) => {
             const [search, setSearch] = useState('');
             const [cat, setCat] = useState('All');
@@ -353,6 +469,10 @@
             const [isLibraryExpanded, setIsLibraryExpanded] = useState(false);
             const [showMobileDrillPicker, setShowMobileDrillPicker] = useState(false);
             const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+            
+            // Notes State
+            const [showNotesModal, setShowNotesModal] = useState(false);
+            const [notes, setNotes] = useState(SERVER_NOTES || []);
 
             useEffect(() => {
                 const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -785,7 +905,7 @@
                                 <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
                             </a>
                             {/* Mobile: Compact Logo */}
-                            <div className="md:hidden font-bold text-slate-800 text-lg">
+                            <div className="md:hidden font-bold text-slate-800 text-lg flex items-center gap-2">
                                 Planner
                             </div>
                             {/* Desktop: Full Logo */}
@@ -793,6 +913,20 @@
                                 <div className="bg-emerald-600 p-2 rounded-lg"><Activity className="w-6 h-6 text-white" /></div>
                                 <div><h1 className="text-xl font-bold text-slate-800 leading-tight">SquashSync</h1><p className="text-xs text-slate-500">Coach Dashboard</p></div>
                             </div>
+                        </div>
+
+                        {/* Top Right Actions */}
+                        <div className="flex items-center gap-2">
+                             <button 
+                                onClick={() => setShowNotesModal(true)}
+                                className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition group"
+                                title="Session Notes"
+                            >
+                                <MessageSquare className="w-6 h-6" />
+                                {notes.length > 0 && (
+                                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
+                                )}
+                            </button>
                         </div>
 
                         {/* Mobile Box: Court Selector + Go Live */}
@@ -1119,6 +1253,15 @@
                             <CreateDrillModal 
                                 onClose={() => setShowCreateDrillModal(false)}
                                 onCreated={(newDrill) => setAvailableDrills([...availableDrills, newDrill])}
+                            />
+                        )}
+
+                        {/* Notes Modal */}
+                        {showNotesModal && (
+                            <NotesModal 
+                                onClose={() => setShowNotesModal(false)} 
+                                notes={notes}
+                                onAddNote={(newNote) => setNotes([newNote, ...notes])}
                             />
                         )}
 
