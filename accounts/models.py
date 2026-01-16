@@ -224,7 +224,7 @@ class CoachContract(models.Model):
 
     coach = models.ForeignKey('Coach', on_delete=models.CASCADE, related_name='contracts')
     template = models.ForeignKey(ContractTemplate, on_delete=models.PROTECT)
-    customized_content = models.TextField(help_text="Specific contract text for this coach.")
+    customized_content = models.TextField(help_text="Specific contract text for this coach.", blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     date_signed = models.DateTimeField(null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
