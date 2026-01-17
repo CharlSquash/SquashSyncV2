@@ -51,6 +51,9 @@
                                 <i class="bi bi-info-circle-fill description-trigger" title="View group description"></i>
                                 <strong>{{ rule.start_time|time:"H:i" }}</strong>
                                 <span>{{ rule.school_group.name }}</span>
+                                {% if rule.default_venue %}
+                                    <small class="text-muted d-block">{{ rule.default_venue.name }}</small>
+                                {% endif %}
                                 </div>
                             <input type="hidden" name="availability_rule_{{ rule.id }}" id="input_rule_{{ rule.id }}" value="{{ rule.current_status }}">
                         {% endfor %}

@@ -56,6 +56,7 @@
                                 
                                 <strong>{{ item.session_obj.session_start_time|time:"H:i" }}</strong>
                                 <span>{{ item.session_obj.school_group.name }}</span>
+                                <small class="text-muted d-block">{{ item.session_obj.venue.name }}</small>
                                 {% if item.is_assigned %}
                                     <span class="assigned-indicator">
                                         {% if item.current_status == 'UNAVAILABLE' %}

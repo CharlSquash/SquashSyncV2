@@ -763,10 +763,10 @@ def my_availability(request):
         session_date__gte=target_week_start,
         session_date__lte=target_week_end,
         is_cancelled=False
-    ).select_related('school_group').prefetch_related(
+    ).select_related('school_group', 'venue').prefetch_related(
         'coaches_attending',
         my_availability_prefetch  # Use the pre-defined prefetch object
-    ).order_by('session_date', 'session_start_time')
+    ).order_by('session_date', 'venue__name', 'session_start_time')
 
     # 3. Now, if we are a coach, we can safely iterate to create missing records.
     #    The queryset is already final, so there's no risk of re-applying the prefetch.
@@ -904,7 +904,8 @@ def set_bulk_availability_view(request):
         selected_year, selected_month = this_month.year, this_month.month
 
     
-    scheduled_classes_qs = ScheduledClass.objects.filter(is_active=True).select_related('school_group').order_by('day_of_week', 'start_time')
+    
+    scheduled_classes_qs = ScheduledClass.objects.filter(is_active=True).select_related('school_group', 'default_venue').order_by('day_of_week', 'default_venue__name', 'start_time')
     
     # --- NEW: Fetch existing availability statuses ---
     start_date, end_date = get_month_start_end(selected_year, selected_month)
