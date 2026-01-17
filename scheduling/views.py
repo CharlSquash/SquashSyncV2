@@ -804,7 +804,13 @@ def my_availability(request):
 
         session_data = {
             'session_obj': session,
-            'current_status': availability_info.status if availability_info else CoachAvailability.Status.PENDING,
+            # FIX: If status is UNAVAILABLE but coach is NOT assigned, show as PENDING (Grey)
+            # This distinguishes "I'm busy" (Grey) from "I declined this assignment" (Red)
+            'current_status': (
+                CoachAvailability.Status.PENDING 
+                if (availability_info and availability_info.status == CoachAvailability.Status.UNAVAILABLE and not is_assigned)
+                else (availability_info.status if availability_info else CoachAvailability.Status.PENDING)
+            ),
             'is_assigned': is_assigned,
             'is_confirmed': is_confirmed,
             'is_imminent': is_imminent,
@@ -939,7 +945,8 @@ def set_bulk_availability_view(request):
         
         if total > 0 and unavailable == total:
             # If sessions exist and ALL are marked unavailable -> Unavailable
-            rule_status_map[rule.id] = CoachAvailability.Status.UNAVAILABLE
+            # FIX: Display as PENDING (Grey) instead of Red for bulk view
+            rule_status_map[rule.id] = CoachAvailability.Status.PENDING
         else:
             # Otherwise (Partial Unavailability, No Data, or All Available) -> Available
             rule_status_map[rule.id] = CoachAvailability.Status.AVAILABLE
