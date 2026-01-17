@@ -910,26 +910,39 @@ def set_bulk_availability_view(request):
     # --- NEW: Fetch existing availability statuses ---
     start_date, end_date = get_month_start_end(selected_year, selected_month)
 
+    # 1. Get total sessions count for each rule in this month
+    from django.db.models import Count
+    rule_session_counts = Session.objects.filter(
+        generated_from_rule__in=scheduled_classes_qs,
+        session_date__range=[start_date, end_date],
+        is_cancelled=False
+    ).values('generated_from_rule_id').annotate(total=Count('id'))
+    
+    total_sessions_map = {item['generated_from_rule_id']: item['total'] for item in rule_session_counts}
 
-    existing_availabilities = CoachAvailability.objects.filter(
+    # 2. Get unavailable sessions count for each rule
+    unavailable_counts = CoachAvailability.objects.filter(
         coach=request.user,
         session__generated_from_rule__in=scheduled_classes_qs,
-        session__session_date__range=[start_date, end_date]
-    ).values('session__generated_from_rule_id', 'status')
+        session__session_date__range=[start_date, end_date],
+        status=CoachAvailability.Status.UNAVAILABLE
+    ).values('session__generated_from_rule_id').annotate(unavailable=Count('id'))
 
-    # Create a map of rule_id to the most common status for that rule in the month
-    rule_status_map = defaultdict(lambda: CoachAvailability.Status.PENDING)
-    status_counts = defaultdict(lambda: defaultdict(int))
-    for avail in existing_availabilities:
-        rule_id = avail['session__generated_from_rule_id']
-        status = avail['status']
-        if rule_id:
-            status_counts[rule_id][status] += 1
+    unavailable_map = {item['session__generated_from_rule_id']: item['unavailable'] for item in unavailable_counts}
 
-    for rule_id, counts in status_counts.items():
-        # Find the status with the highest count for this rule
-        most_common_status = max(counts, key=counts.get)
-        rule_status_map[rule_id] = most_common_status
+    # 3. Determine status for map
+    # Logic: Default to AVAILABLE (Green). Only UNAVAILABLE if 100% of sessions are UNAVAILABLE.
+    rule_status_map = {}
+    for rule in scheduled_classes_qs:
+        total = total_sessions_map.get(rule.id, 0)
+        unavailable = unavailable_map.get(rule.id, 0)
+        
+        if total > 0 and unavailable == total:
+            # If sessions exist and ALL are marked unavailable -> Unavailable
+            rule_status_map[rule.id] = CoachAvailability.Status.UNAVAILABLE
+        else:
+            # Otherwise (Partial Unavailability, No Data, or All Available) -> Available
+            rule_status_map[rule.id] = CoachAvailability.Status.AVAILABLE
     
     grouped_classes = defaultdict(list)
     for rule in scheduled_classes_qs:
