@@ -188,21 +188,26 @@ def coach_profile(request, coach_id=None):
     sessions_attended = [comp.session for comp in completed_sessions]
     two_weeks_ago = timezone.now().date() - timedelta(weeks=2)
 
-    player_assessments_made = SessionAssessment.objects.filter(
-        submitted_by=target_coach.user
-    ).select_related(
-        'player', 'session'
-    ).prefetch_related(
-        Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
-    ).order_by('-date_recorded')
+    # Safely handle assessments queries if coach has no linked user
+    if target_coach.user:
+        player_assessments_made = SessionAssessment.objects.filter(
+            submitted_by=target_coach.user
+        ).select_related(
+            'player', 'session'
+        ).prefetch_related(
+            Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
+        ).order_by('-date_recorded')
 
-    group_assessments_made = GroupAssessment.objects.filter(
-        assessing_coach=target_coach.user
-    ).select_related(
-        'session__school_group'
-    ).prefetch_related(
-        Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
-    ).order_by('-assessment_datetime')
+        group_assessments_made = GroupAssessment.objects.filter(
+            assessing_coach=target_coach.user
+        ).select_related(
+            'session__school_group'
+        ).prefetch_related(
+            Prefetch('comments', queryset=AssessmentComment.objects.select_related('author').order_by('created_at'))
+        ).order_by('-assessment_datetime')
+    else:
+        player_assessments_made = SessionAssessment.objects.none()
+        group_assessments_made = GroupAssessment.objects.none()
 
     # --- NEW: Payslip data logic with filter ---
     payslip_data = None
@@ -241,6 +246,12 @@ def coach_profile(request, coach_id=None):
                 'coach_contract': contract,
                 'is_contract_signed': contract.status == CoachContract.Status.SIGNED if contract else False,
             }
+            
+    # Safely get a display name
+    if target_coach.user and target_coach.user.get_full_name():
+        profile_name = target_coach.user.get_full_name()
+    else:
+        profile_name = target_coach.name
 
     context = {
         'coach': target_coach,
@@ -251,7 +262,7 @@ def coach_profile(request, coach_id=None):
         'group_assessments_made': group_assessments_made,
         'two_weeks_ago': two_weeks_ago,
         'comment_form': comment_form,
-        'page_title': f"Coach Profile: {target_coach.user.get_full_name()}",
+        'page_title': f"Coach Profile: {profile_name}",
         
         # --- NEW: Add payslip context variables ---
         'payslip_data': payslip_data,

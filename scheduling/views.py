@@ -1088,8 +1088,12 @@ def session_staffing(request):
         
         processed_sessions = []
         for session in sessions_for_day:
-            availability_map = {avail.coach_id: avail for avail in session.coach_availabilities.all()}
-            
+            # Safely build availability map, skipping coaches without a user
+            availability_map = {}
+            for avail in session.coach_availabilities.all():
+                if avail.coach_id:
+                     availability_map[avail.coach_id] = avail
+
             coach_conflict_map = {}
             for coach in all_active_coaches:
                 conflict = check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, []))
@@ -1102,7 +1106,11 @@ def session_staffing(request):
             
             for session_coach in session.sessioncoach_set.all():
                 coach = session_coach.coach
-                avail = availability_map.get(coach.user.id)
+                # Safely access availability using coach's user id if it exists
+                avail = None
+                if coach.user:
+                    avail = availability_map.get(coach.user.id)
+
                 status = "Pending"
                 if avail:
                     if avail.status == CoachAvailability.Status.UNAVAILABLE:
@@ -1125,7 +1133,11 @@ def session_staffing(request):
             assigned_coach_ids = {sc.coach.id for sc in session.sessioncoach_set.all()}
             for coach in all_active_coaches:
                 if coach.id not in assigned_coach_ids:
-                    avail = availability_map.get(coach.user.id)
+                    # Safely access availability
+                    avail = None
+                    if coach.user:
+                        avail = availability_map.get(coach.user.id)
+
                     if avail and avail.status in [CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]:
                         available_coaches.append({
                             'coach': coach,
@@ -1229,7 +1241,11 @@ def assign_coaches_ajax(request):
             coach = all_active_coaches_dict.get(coach_id)
             if not coach: continue
 
-            avail = availability_map.get(coach.user.id)
+            # Safely access availability
+            avail = None
+            if coach.user:
+                avail = availability_map.get(coach.user.id)
+            
             status = "Pending"
             if avail:
                 if avail.status == CoachAvailability.Status.UNAVAILABLE:
@@ -1253,7 +1269,11 @@ def assign_coaches_ajax(request):
         assigned_coach_id_set = set(coach_ids)
         for coach in all_active_coaches:
             if coach.id not in assigned_coach_id_set:
-                avail = availability_map.get(coach.user.id)
+                # Safely access availability
+                avail = None
+                if coach.user:
+                    avail = availability_map.get(coach.user.id)
+
                 if avail and avail.status in [CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]:
                     available_coaches_data.append({
                         'id': coach.id,
