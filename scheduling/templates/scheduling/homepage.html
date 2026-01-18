@@ -63,6 +63,13 @@
                             {# UPDATED: Using start_datetime ensures timezone awareness #}
                             <li><i class="bi bi-clock"></i> {{ item.session.start_datetime|time:"H:i" }} ({{item.duration }} min)</li>
                             <li><i class="bi bi-geo-alt"></i> {{ item.session.venue.name|default:"No venue" }}</li>
+                            {% if item.confirmed_coaches %}
+                            <li><i class="bi bi-people-fill"></i> 
+                                {% for coach_name in item.confirmed_coaches %}
+                                    <span class="badge bg-light text-dark border">{{ coach_name }}</span>
+                                {% endfor %}
+                            </li>
+                            {% endif %}
                         </ul>
                         <div class="upcoming-session-actions">
                             {% if item.show_actions and item.status == 'PENDING' %}
