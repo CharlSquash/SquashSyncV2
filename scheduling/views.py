@@ -239,6 +239,7 @@ def _coach_dashboard(request):
             coaches_attending=coach,
             is_cancelled=False
         ).prefetch_related(
+            'coaches_attending', # Ensure we have the assigned coaches loaded
             Prefetch('coach_availabilities', queryset=CoachAvailability.objects.filter(coach=request.user), to_attr='my_availability'),
             Prefetch('sessioncoach_set', queryset=SessionCoach.objects.filter(coach=coach), to_attr='my_session_coach_assignment'),
             # NEW: Prefetch all confirmed availabilities for display
@@ -263,11 +264,16 @@ def _coach_dashboard(request):
             show_actions = session.session_date <= (today + timedelta(days=1))
             
             # Extract confirmed coaches names
+            # FIX: Only show confirmed coaches IF they are actually assigned to the session
             confirmed_coaches = []
             if hasattr(session, 'confirmed_coach_availabilities'):
+                # Get IDs of users who are assigned coaches
+                assigned_user_ids = set(c.user_id for c in session.coaches_attending.all() if c.user_id)
+                
                 confirmed_coaches = [
                     ca.coach.first_name if ca.coach.first_name else ca.coach.username 
                     for ca in session.confirmed_coach_availabilities
+                    if ca.coach_id in assigned_user_ids
                 ]
 
             sessions_for_coach_card.append({
