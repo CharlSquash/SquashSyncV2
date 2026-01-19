@@ -100,10 +100,10 @@
     }
 
     /* MODIFICATION: Adjusted Fixed column widths for 6 columns */
-    #staffing-overview-table th:nth-child(1), #staffing-overview-table td:nth-child(1) { width: 10%; } /* Day */
+    #staffing-overview-table th:nth-child(1), #staffing-overview-table td:nth-child(1) { width: 13%; } /* Day - Increased from 10% */
     #staffing-overview-table th:nth-child(2), #staffing-overview-table td:nth-child(2) { width: 8%; } /* Time */
-    #staffing-overview-table th:nth-child(3), #staffing-overview-table td:nth-child(3) { width: 25%; } /* Class */
-    #staffing-overview-table th:nth-child(4), #staffing-overview-table td:nth-child(4) { width: 32%; } /* Coach(es) */
+    #staffing-overview-table th:nth-child(3), #staffing-overview-table td:nth-child(3) { width: 23%; } /* Class - Decreased from 25% */
+    #staffing-overview-table th:nth-child(4), #staffing-overview-table td:nth-child(4) { width: 31%; } /* Coach(es) - Decreased from 32% */
     #staffing-overview-table th:nth-child(5), #staffing-overview-table td:nth-child(5) { width: 10%; } /* Duration */
     #staffing-overview-table th:nth-child(6), #staffing-overview-table td:nth-child(6) { width: 15%; } /* Venue */
 
@@ -120,6 +120,9 @@
         z-index: 1;
         /* Ensure border right is preserved */
         border-right: 1px solid #dee2e6;
+    }
+    .day-cell strong {
+        white-space: nowrap; /* Prevent day name from wrapping (e.g. Wednesday) */
     }
 
 </style>
