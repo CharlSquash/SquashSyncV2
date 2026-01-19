@@ -424,18 +424,13 @@
                             <div class="assessment-review-item">
                                 <div class="assessment-review-content">
                                     <div class="assessment-review-group">
-                                        <a
-                                            href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{
-                                            assessment.session.school_group.name|default:"N/A" }}</a>
+                                        <a href="{% url 'players:school_group_profile' assessment.session.school_group.id %}">{{ assessment.session.school_group.name|default:"N/A" }}</a>
                                     </div>
                                     {% if assessment.general_notes %}
-                                    <p class="assessment-review-notes">{{ assessment.general_notes|linebreaksbr
-                                        }}</p>
+                                    <p class="assessment-review-notes">{{ assessment.general_notes|linebreaksbr }}</p>
                                     {% endif %}
                                     <div class="assessment-review-meta">
-                                        by {{
-                                        assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username
-                                        }} on {{ assessment.assessment_datetime|date:"d M Y" }}
+                                        by {{ assessment.assessing_coach.get_full_name|default:assessment.assessing_coach.username }} on {{ assessment.assessment_datetime|date:"d M Y" }}
                                     </div>
                                 </div>
                                 <button class="btn btn-sm btn-outline-success ms-2 acknowledge-group-assessment-btn"
