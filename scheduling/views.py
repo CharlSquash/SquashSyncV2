@@ -1127,7 +1127,7 @@ def session_staffing(request):
         ).select_related('school_group', 'venue').prefetch_related(
             'sessioncoach_set__coach__user',
             'coach_availabilities'
-        ).order_by('session_start_time')
+        ).order_by('venue__name', 'session_start_time')
         
         processed_sessions = []
         for session in sessions_for_day:
