@@ -494,6 +494,7 @@
                 if (CURRENT_PLAN && CURRENT_PLAN.courtPlans) return CURRENT_PLAN.courtPlans;
                 return [ [], [], [] ]; // Default if nothing
             });
+            const [masterSequence, setMasterSequence] = useState([]); // Master Plan Staging
 
             const [planningTab, setPlanningTab] = useState('all');
             const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
@@ -586,19 +587,42 @@
             const getTargetCourts = () => planningTab === 'all' ? Array.from({ length: numCourts }, (_, i) => i) : [planningTab];
 
             const addDrillToPlan = (drill) => {
-                const targets = getTargetCourts();
-                const newPlans = [...courtPlans];
-                targets.forEach(courtIdx => {
-                    if (!newPlans[courtIdx]) newPlans[courtIdx] = [];
-                    newPlans[courtIdx] = [...newPlans[courtIdx], { 
+                if (planningTab === 'all') {
+                    // 1. Add to Master Sequence
+                    const masterBlock = {
+                        ...drill,
+                        uid: Math.random().toString(36).substr(2, 9),
+                        customName: drill.name,
+                        duration: drill.defaultDuration,
+                        isRest: false
+                    };
+                    setMasterSequence(prev => [...prev, masterBlock]);
+
+                    // 2. Propagate to All Courts
+                    const newPlans = [...courtPlans];
+                    newPlans.forEach((_, courtIdx) => {
+                        const courtCopy = {
+                            ...masterBlock,
+                            uid: Math.random().toString(36).substr(2, 9),
+                            masterSourceId: masterBlock.uid
+                        };
+                        newPlans[courtIdx] = [...newPlans[courtIdx], courtCopy];
+                    });
+                    setCourtPlans(newPlans);
+
+                } else {
+                    // Add only to specific court
+                    const newPlans = [...courtPlans];
+                    newPlans[planningTab] = [...newPlans[planningTab], { 
                         ...drill, 
                         uid: Math.random().toString(36).substr(2, 9),
                         customName: drill.name,
                         duration: drill.defaultDuration,
                         isRest: false
                     }];
-                });
-                setCourtPlans(newPlans);
+                    setCourtPlans(newPlans);
+                }
+
                 // On mobile, switch back to plan view after adding to see the result
                 if (window.innerWidth < 768) {
                     setActiveMobileTab('plan');
@@ -606,11 +630,33 @@
             };
 
             const addRestPeriod = () => {
-                const targets = getTargetCourts();
-                const newPlans = [...courtPlans];
-                targets.forEach(courtIdx => {
-                     if (!newPlans[courtIdx]) newPlans[courtIdx] = [];
-                    newPlans[courtIdx] = [...newPlans[courtIdx], {
+                if (planningTab === 'all') {
+                    // 1. Add to Master Sequence
+                    const masterBlock = {
+                        uid: Math.random().toString(36).substr(2, 9),
+                        name: "Water Break / Rotation",
+                        customName: "Water Break",
+                        type: "Rest",
+                        duration: 60,
+                        isRest: true,
+                        videoId: null
+                    };
+                    setMasterSequence(prev => [...prev, masterBlock]);
+
+                    // 2. Propagate to All Courts
+                    const newPlans = [...courtPlans];
+                    newPlans.forEach((_, courtIdx) => {
+                         const courtCopy = {
+                            ...masterBlock,
+                            uid: Math.random().toString(36).substr(2, 9),
+                            masterSourceId: masterBlock.uid
+                        };
+                        newPlans[courtIdx] = [...newPlans[courtIdx], courtCopy];
+                    });
+                    setCourtPlans(newPlans);
+                } else {
+                    const newPlans = [...courtPlans];
+                    newPlans[planningTab] = [...newPlans[planningTab], {
                         uid: Math.random().toString(36).substr(2, 9),
                         name: "Water Break / Rotation",
                         customName: "Water Break",
@@ -619,43 +665,48 @@
                         isRest: true,
                         videoId: null
                     }];
-                });
-                setCourtPlans(newPlans);
+                    setCourtPlans(newPlans);
+                }
             };
 
             const removeBlock = (courtIndex, blockUid) => {
-                const newPlans = [...courtPlans];
-                if (planningTab === 'all') {
-                    const refIndex = courtPlans[0].findIndex(b => b.uid === blockUid);
-                    if (refIndex !== -1) {
-                        newPlans.forEach((plan, cIdx) => {
-                            if (plan[refIndex]) newPlans[cIdx] = plan.filter((_, i) => i !== refIndex);
-                        });
-                    }
+                if (planningTab === 'all') { // courtIndex passed as 0 but ignored mostly
+                    // 1. Remove from Master Sequence
+                    // Filter masterSequence using blockUid as the master UID
+                    setMasterSequence(prev => prev.filter(b => b.uid !== blockUid));
+
+                    // 2. Remove from All Courts where masterSourceId matches
+                    const newPlans = [...courtPlans];
+                    newPlans.forEach((plan, cIdx) => {
+                        newPlans[cIdx] = plan.filter(item => item.masterSourceId !== blockUid);
+                    });
+                    setCourtPlans(newPlans);
                 } else {
+                    const newPlans = [...courtPlans];
                     newPlans[courtIndex] = newPlans[courtIndex].filter(item => item.uid !== blockUid);
+                    setCourtPlans(newPlans);
                 }
-                setCourtPlans(newPlans);
             };
 
             const updateDuration = (courtIndex, blockUid, newDuration) => {
-                const newPlans = [...courtPlans];
                 const duration = parseInt(newDuration) || 0;
+                
                 if (planningTab === 'all') {
-                    const refIndex = courtPlans[0].findIndex(b => b.uid === blockUid);
-                    if (refIndex !== -1) {
-                        newPlans.forEach((plan, cIdx) => {
-                            if (plan[refIndex]) {
-                                const updated = [...plan];
-                                updated[refIndex] = { ...updated[refIndex], duration };
-                                newPlans[cIdx] = updated;
-                            }
-                        });
-                    }
+                    // 1. Update Master Sequence
+                    setMasterSequence(prev => prev.map(b => b.uid === blockUid ? { ...b, duration } : b));
+
+                    // 2. Update All Courts
+                    const newPlans = [...courtPlans];
+                    newPlans.forEach((plan, cIdx) => {
+                         newPlans[cIdx] = plan.map(item => item.masterSourceId === blockUid ? { ...item, duration } : item);
+                    });
+                    setCourtPlans(newPlans);
+
                 } else {
+                    const newPlans = [...courtPlans];
                     newPlans[courtIndex] = newPlans[courtIndex].map(item => item.uid === blockUid ? { ...item, duration } : item);
+                    setCourtPlans(newPlans);
                 }
-                setCourtPlans(newPlans);
             };
 
             const loadTemplate = () => {
@@ -664,13 +715,32 @@
                     { uid: 'r1', name: "Rotate", customName: "Quick Rotate", type: "Rest", duration: 30, isRest: true, videoId: null },
                     { ...availableDrills[2], uid: 't2', customName: "Volley Kill Progression", duration: 180, isRest: false },
                 ];
-                const targets = getTargetCourts();
-                const newPlans = [...courtPlans];
-                targets.forEach(courtIdx => {
+                
+                if (planningTab === 'all') {
+                     // 1. Set Master Sequence (fresh UIDs)
+                     const newMasterItems = template.map(t => ({ ...t, uid: Math.random().toString(36).substr(2, 9) }));
+                     setMasterSequence(prev => [...prev, ...newMasterItems]);
+
+                     // 2. Append to All Courts
+                     const newPlans = [...courtPlans];
+                     newPlans.forEach((_, cIdx) => {
+                         const courtCopies = newMasterItems.map(m => ({
+                             ...m,
+                             uid: Math.random().toString(36).substr(2, 9),
+                             masterSourceId: m.uid
+                         }));
+                         newPlans[cIdx] = [...newPlans[cIdx], ...courtCopies];
+                     });
+                     setCourtPlans(newPlans);
+
+                } else {
+                    // Keep old behavior for single court? Or maybe disable for single court? 
+                    // Let's allow loading into single court w/o master sync
+                    const newPlans = [...courtPlans];
                     const specificTemplate = template.map(t => ({ ...t, uid: Math.random().toString(36).substr(2, 9) }));
-                    newPlans[courtIdx] = specificTemplate;
-                });
-                setCourtPlans(newPlans);
+                     newPlans[planningTab] = [...newPlans[planningTab], ...specificTemplate];
+                     setCourtPlans(newPlans);
+                }
             };
 
             const startSession = () => {
@@ -758,7 +828,7 @@
                 return () => clearInterval(timerRef.current);
             }, [isPlaying, courtPlans]);
 
-            const planToRender = planningTab === 'all' ? courtPlans[0] : courtPlans[planningTab];
+            const planToRender = planningTab === 'all' ? masterSequence : courtPlans[planningTab];
             const activeCourtColor = planningTab === 'all' ? 'border-emerald-500' : 'border-blue-500';
 
             // --- LIVE VIEW REMAINS LARGELY UNTOUCHED BUT RESPONSIVE ---
