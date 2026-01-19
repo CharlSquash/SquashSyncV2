@@ -1121,16 +1121,38 @@ def session_staffing(request):
     for i in range(7):
         current_day = target_week_start + timedelta(days=i)
         
-        sessions_for_day = Session.objects.filter(
+        # Custom Sorting Logic: Group by Venue -> Sort by Earliest Start Time
+        sessions_qs = Session.objects.filter(
             session_date=current_day,
             is_cancelled=False
         ).select_related('school_group', 'venue').prefetch_related(
             'sessioncoach_set__coach__user',
             'coach_availabilities'
-        ).order_by('venue__name', 'session_start_time')
+        )
+
+        sessions_by_venue = defaultdict(list)
+        for session in sessions_qs:
+            sessions_by_venue[session.venue].append(session)
+        
+        # Sort sessions within each venue by time and prepare groups
+        venue_groups = []
+        for venue, sessions in sessions_by_venue.items():
+            # Sort sessions in this venue by time
+            sessions.sort(key=lambda s: s.session_start_time)
+            # Determine the group's sort key (earliest time)
+            earliest_time = sessions[0].session_start_time
+            venue_groups.append((earliest_time, sessions))
+        
+        # Sort the groups by their earliest start time
+        venue_groups.sort(key=lambda x: x[0])
+
+        # Flatten the list
+        sessions_for_day_sorted = []
+        for _, sessions in venue_groups:
+            sessions_for_day_sorted.extend(sessions)
         
         processed_sessions = []
-        for session in sessions_for_day:
+        for session in sessions_for_day_sorted:
             # Safely build availability map, skipping coaches without a user
             availability_map = {}
             for avail in session.coach_availabilities.all():

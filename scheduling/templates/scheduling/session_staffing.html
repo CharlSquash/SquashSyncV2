@@ -111,6 +111,15 @@
     .day-cell {
         background-color: #f8f9fa !important; /* Light grey/white */
         color: #212529;
+        /* Fix: Text Clipping */
+        padding-bottom: 12px;
+        line-height: 1.4;
+        /* Fix: Grid Lines Striking Through via z-index and clip */
+        background-clip: padding-box;
+        position: relative;
+        z-index: 1;
+        /* Ensure border right is preserved */
+        border-right: 1px solid #dee2e6;
     }
 
 </style>
