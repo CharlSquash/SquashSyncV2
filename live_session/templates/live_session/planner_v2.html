@@ -66,7 +66,7 @@
             Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library, Info, X, Cloud, CloudLightning,
             Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move,
-            ChevronLeft, ChevronRight, MessageSquare
+            ChevronLeft, ChevronRight, MessageSquare, Coffee
         } from 'lucide-react';
 
         /**
@@ -95,6 +95,38 @@
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
             return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        };
+
+        const getCategoryStyle = (category, isRest) => {
+            if (isRest) return { 
+                icon: Coffee, 
+                color: 'bg-amber-50', 
+                border: 'border-amber-200', 
+                accent: 'text-amber-500', 
+                leftBorder: 'border-l-amber-400' 
+            };
+
+            switch (category) {
+                case 'Warmups':
+                    return { icon: Flame, color: 'bg-orange-50', border: 'border-orange-200', accent: 'text-orange-500', leftBorder: 'border-l-orange-500' };
+                case 'Conditioning':
+                case 'Fitness':
+                    return { icon: Dumbbell, color: 'bg-emerald-50', border: 'border-emerald-200', accent: 'text-emerald-500', leftBorder: 'border-l-emerald-500' };
+                case 'Hand-Eye Coordination':
+                case 'Drills - Racketwork':
+                case 'Feeding Drills':
+                    return { icon: Target, color: 'bg-blue-50', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' };
+                case 'Fun Games':
+                case 'Condition Games':
+                    return { icon: Trophy, color: 'bg-purple-50', border: 'border-purple-200', accent: 'text-purple-500', leftBorder: 'border-l-purple-500' };
+                case 'Ghosting':
+                case 'Movement':
+                    return { icon: Footprints, color: 'bg-slate-100', border: 'border-slate-300', accent: 'text-slate-500', leftBorder: 'border-l-slate-500' };
+                case 'Circuits (Score/Time)':
+                    return { icon: Timer, color: 'bg-red-50', border: 'border-red-200', accent: 'text-red-500', leftBorder: 'border-l-red-500' };
+                default:
+                    return { icon: Activity, color: 'bg-white', border: 'border-slate-200', accent: 'text-slate-400', leftBorder: 'border-l-slate-500' };
+            }
         };
 
         const getYouTubeId = (url) => {
@@ -626,13 +658,17 @@
             const [isResizing, setIsResizing] = useState(false);
             const itemRef = useRef(null);
             
-            // 1 min = 3px. Min height for visibility ~ 50px (approx 15 mins).
-            // Let's enforce min height of 48px.
-            const height = Math.max(48, Math.round((drill.duration / 60) * 4)); 
+            // 1 min = 12px (previously 4). Min height 60px covers 5 mins.
+            // This ensures drills > 5 mins start growing immediately.
+            const height = Math.max(60, Math.round((drill.duration / 60) * 12)); 
+            const isTall = height > 80;
+
+            const styles = getCategoryStyle(drill.type, isRest);
+            const WatermarkIcon = styles.icon;
 
             const handleMouseDown = (e) => {
                 if (isMaster) return; 
-                e.stopPropagation(); // Prevent drag start
+                e.stopPropagation(); 
                 e.preventDefault();
                 setIsResizing(true);
                 
@@ -641,7 +677,7 @@
                 
                 const handleMouseMove = (moveEvent) => {
                     const deltaY = moveEvent.clientY - startY;
-                    const deltaMinutes = deltaY / 4;
+                    const deltaMinutes = deltaY / 12; // Match scale factor
                     const newDurationSeconds = Math.max(60, startDuration + (deltaMinutes * 60));
                     onUpdateDuration(drill.uid, newDurationSeconds, drill.masterSourceId);
                 };
@@ -673,46 +709,70 @@
                         e.dataTransfer.effectAllowed = "move";
                     }}
                     style={itemStyle}
-                    className={`relative flex flex-col justify-between bg-white rounded-lg shadow-sm border p-2 mb-2 transition-all select-none overflow-hidden ${isRest ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-200'} border-l-4 ${isRest ? 'border-l-amber-400' : 'border-l-emerald-500'} ${isResizing ? 'ring-2 ring-emerald-400 z-10' : ''}`}
+                    className={`relative flex flex-col justify-between rounded-lg shadow-sm border p-2 mb-2 transition-all select-none overflow-hidden 
+                    ${styles.color} ${styles.border} border-l-4 ${styles.leftBorder}
+                    ${isResizing ? 'ring-2 ring-emerald-400 z-20' : ''}`}
                 >
-                    <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-slate-800 text-sm md:text-sm leading-tight line-clamp-2">{drill.customName}</h4>
-                        <div className="flex gap-1 shrink-0 -mr-1">
-                            <button onClick={(e) => { e.stopPropagation(); onInfo(drill); }} className="text-slate-400 hover:text-blue-500 p-1 rounded-full hover:bg-slate-100 transition" title="View Details">
-                                <Info className="w-4 h-4" />
-                            </button>
-                            {!isMaster && (
-                                <button onClick={(e) => { e.stopPropagation(); onRemove(drill.uid); }} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
+                    {/* Watermark */}
+                    <div className="absolute -right-4 -bottom-4 z-0 opacity-10 transform -rotate-12 pointer-events-none">
+                        <WatermarkIcon className="w-24 h-24 text-slate-900" /> 
                     </div>
-                    
-                    <div className="flex items-end justify-between text-xs text-slate-500 mt-auto gap-2">
-                        <span className="uppercase tracking-wider font-bold truncate flex-1 text-left" title={drill.type}>{drill.type}</span>
-                        <div className="flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
-                            <Clock className="w-3.5 h-3.5" />
-                            {!isMaster ? (
-                                <input 
-                                    type="number" 
-                                    className="w-8 bg-transparent text-center focus:outline-none font-mono font-bold text-slate-700 p-0 text-xs"
-                                    value={Math.round(drill.duration / 60)} 
-                                    onChange={(e) => onUpdateDuration(drill.uid, Math.max(0.5, parseFloat(e.target.value)) * 60, drill.masterSourceId)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onMouseDown={(e) => e.stopPropagation()} 
-                                /> 
-                            ) : (
-                                <span className="font-mono font-bold text-slate-700">{Math.round(drill.duration / 60)}</span>
-                            )}
-                            <span className="text-[10px]">m</span>
+
+                    {/* Content */}
+                    <div className={`relative z-10 flex flex-col h-full ${isTall ? 'justify-between' : 'justify-between'}`}>
+                        
+                        {/* Header Row: Title & Actions */}
+                        <div className={`flex justify-between items-start w-full ${isTall ? 'absolute top-0 left-0 p-2 w-full' : ''}`}>
+                             {/* If Short, title is here. If Tall, title is centered below. */}
+                             {!isTall && (
+                                <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2 pr-6">{drill.customName}</h4>
+                             )}
+                             {/* Spacer if not tall to push buttons right, or absolute buttons */}
+                             <div className={`flex gap-1 shrink-0 ml-auto ${isTall ? '' : '-mr-1'}`}>
+                                <button onClick={(e) => { e.stopPropagation(); onInfo(drill); }} className="text-slate-400 hover:text-blue-500 p-1 rounded-full hover:bg-black/5 transition" title="View Details">
+                                    <Info className="w-3.5 h-3.5" />
+                                </button>
+                                {!isMaster && (
+                                    <button onClick={(e) => { e.stopPropagation(); onRemove(drill.uid); }} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-black/5 transition">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Centered Title for Tall Cards */}
+                        {isTall && (
+                            <div className="flex-1 flex items-center justify-center p-4">
+                                <h4 className="font-bold text-slate-800 text-lg text-center leading-tight drop-shadow-sm">{drill.customName}</h4>
+                            </div>
+                        )}
+
+                        {/* Footer Row: Type & Duration */}
+                         <div className={`flex items-end justify-between text-xs text-slate-500 gap-2 mt-auto w-full ${isTall ? 'absolute bottom-0 left-0 p-2' : ''}`}>
+                            <span className="uppercase tracking-wider font-bold truncate flex-1 text-left opacity-70" title={drill.type}>{drill.type}</span>
+                            <div className="flex items-center gap-1 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 rounded shrink-0 border border-black/5 shadow-sm">
+                                <Clock className="w-3.5 h-3.5" />
+                                {!isMaster ? (
+                                    <input 
+                                        type="number" 
+                                        className="w-8 bg-transparent text-center focus:outline-none font-mono font-bold text-slate-700 p-0 text-xs"
+                                        value={Math.round(drill.duration / 60)} 
+                                        onChange={(e) => onUpdateDuration(drill.uid, Math.max(0.5, parseFloat(e.target.value)) * 60, drill.masterSourceId)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onMouseDown={(e) => e.stopPropagation()} 
+                                    /> 
+                                ) : (
+                                    <span className="font-mono font-bold text-slate-700">{Math.round(drill.duration / 60)}</span>
+                                )}
+                                <span className="text-[10px]">m</span>
+                            </div>
                         </div>
                     </div>
                     
                     {/* Resize Handle */}
                     {!isMaster && (
                         <div 
-                            className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-slate-200 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                            className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-black/10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20"
                             onMouseDown={handleMouseDown}
                         >
                             <div className="w-8 h-0.5 bg-slate-400 rounded-full"></div>
@@ -824,6 +884,7 @@
             const [availableDrills, setAvailableDrills] = useState(SERVER_DRILLS);
             const [showCreateDrillModal, setShowCreateDrillModal] = useState(false);
             const [selectedCategory, setSelectedCategory] = useState('All');
+            const [searchQuery, setSearchQuery] = useState('');
             const [expandedDrillId, setExpandedDrillId] = useState(null); // For Quick Preview
             const [isLibraryExpanded, setIsLibraryExpanded] = useState(false);
             const [showMobileDrillPicker, setShowMobileDrillPicker] = useState(false);
@@ -1662,7 +1723,16 @@
                             </button>
                             <div className="p-4 border-b border-slate-100 flex flex-col gap-3">
                                 <h3 className="font-bold text-slate-700">Drill Library</h3>
-                                <div className="relative"><Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" /><input type="text" placeholder="Search drills..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-emerald-500" /></div>
+                                <div className="relative">
+                                    <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search drills..." 
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-emerald-500" 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
                                 
                                 {/* Category Filter */}
                                 <div className={`flex gap-2 ${isLibraryExpanded ? 'flex-wrap' : 'overflow-x-auto pb-2 -mx-4 px-4 custom-scrollbar'}`}>
@@ -1683,7 +1753,11 @@
                                 </div>
                             </div>
                             <div className={`flex-1 overflow-y-auto p-2 ${isLibraryExpanded ? 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 content-start' : 'space-y-2'}`}>
-                                {availableDrills.filter(d => selectedCategory === 'All' || d.type === selectedCategory).map(drill => (
+                                {availableDrills.filter(d => {
+                                    const matchCat = selectedCategory === 'All' || d.type === selectedCategory;
+                                    const matchSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                    return matchCat && matchSearch;
+                                }).map(drill => (
                                     <div key={drill.id} className="group p-3 rounded-md border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition cursor-pointer bg-white shadow-sm relative" onClick={() => setExpandedDrillId(expandedDrillId === drill.id ? null : drill.id)}>
                                         <div className="flex justify-between items-start"><h4 className="font-medium text-sm text-slate-800">{drill.name}</h4>
                                         <div className="flex gap-1">
