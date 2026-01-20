@@ -482,7 +482,7 @@
                     if (data.status === 'success') {
                         onSave();
                         onClose();
-                        alert("Template saved successfully!");
+                        // alert("Template saved successfully!"); // Removed per user request
                     } else {
                         alert(data.message || 'Failed to save template.');
                     }
@@ -511,10 +511,7 @@
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
                                     <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px]" placeholder="Brief description of the session plan..."></textarea>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" id="isPublic" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500" />
-                                    <label htmlFor="isPublic" className="text-sm font-medium text-slate-700">Public (Visible to all coaches)</label>
-                                </div>
+                                {/* Checkbox removed to enforce private templates by default */}
                             </form>
                         </div>
                         <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
@@ -679,27 +676,27 @@
                     className={`relative flex flex-col justify-between bg-white rounded-lg shadow-sm border p-2 mb-2 transition-all select-none overflow-hidden ${isRest ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-200'} border-l-4 ${isRest ? 'border-l-amber-400' : 'border-l-emerald-500'} ${isResizing ? 'ring-2 ring-emerald-400 z-10' : ''}`}
                 >
                     <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-slate-800 text-xs leading-tight line-clamp-2">{drill.customName}</h4>
-                        <div className="flex gap-1 shrink-0">
-                            <button onClick={(e) => { e.stopPropagation(); onInfo(drill); }} className="text-slate-400 hover:text-blue-500 p-0.5" title="View Details">
-                                <Info className="w-3 h-3" />
+                        <h4 className="font-bold text-slate-800 text-sm md:text-sm leading-tight line-clamp-2">{drill.customName}</h4>
+                        <div className="flex gap-1 shrink-0 -mr-1">
+                            <button onClick={(e) => { e.stopPropagation(); onInfo(drill); }} className="text-slate-400 hover:text-blue-500 p-1 rounded-full hover:bg-slate-100 transition" title="View Details">
+                                <Info className="w-4 h-4" />
                             </button>
                             {!isMaster && (
-                                <button onClick={(e) => { e.stopPropagation(); onRemove(drill.uid); }} className="text-slate-400 hover:text-red-500 p-0.5">
-                                    <Trash2 className="w-3 h-3" />
+                                <button onClick={(e) => { e.stopPropagation(); onRemove(drill.uid); }} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition">
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             )}
                         </div>
                     </div>
                     
-                    <div className="flex items-end justify-between text-[10px] text-slate-500 mt-auto">
-                        <span className="uppercase tracking-wider font-bold truncate max-w-[60px]">{drill.type}</span>
-                        <div className="flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded">
-                            <Clock className="w-3 h-3" />
+                    <div className="flex items-end justify-between text-xs text-slate-500 mt-auto gap-2">
+                        <span className="uppercase tracking-wider font-bold truncate flex-1 text-left" title={drill.type}>{drill.type}</span>
+                        <div className="flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                            <Clock className="w-3.5 h-3.5" />
                             {!isMaster ? (
                                 <input 
                                     type="number" 
-                                    className="w-8 bg-transparent text-center focus:outline-none font-mono font-bold text-slate-700 p-0 text-[10px]"
+                                    className="w-8 bg-transparent text-center focus:outline-none font-mono font-bold text-slate-700 p-0 text-xs"
                                     value={Math.round(drill.duration / 60)} 
                                     onChange={(e) => onUpdateDuration(drill.uid, Math.max(0.5, parseFloat(e.target.value)) * 60, drill.masterSourceId)}
                                     onClick={(e) => e.stopPropagation()}
@@ -708,7 +705,7 @@
                             ) : (
                                 <span className="font-mono font-bold text-slate-700">{Math.round(drill.duration / 60)}</span>
                             )}
-                            <span>m</span>
+                            <span className="text-[10px]">m</span>
                         </div>
                     </div>
                     
@@ -1122,7 +1119,7 @@
                 // Usually templates are just drills. Players are per session.
                 // So we keep current groups.
                 
-                alert("Template loaded successfully.");
+                // alert("Template loaded successfully."); // Removed per user request
             };
 
             const startSession = () => {
@@ -1148,6 +1145,14 @@
                     return { ...state, currentBlockIndex: newIndex, timeLeft: plan[newIndex].duration, isFinished: false };
                 }));
                 setIsPlaying(false);
+            };
+
+            const clearAll = () => {
+                if (window.confirm("Are you sure you want to clear the entire session plan? This will remove all drills from all courts.")) {
+                    const emptyPlans = Array.from({ length: numCourts }, () => []);
+                    setCourtPlans(emptyPlans);
+                    setMasterSequence([]);
+                }
             };
 
             // Drag and Drop Handlers
@@ -1418,6 +1423,13 @@
                                     <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
                                 )}
                             </button>
+                            <button 
+                                onClick={clearAll}
+                                className="md:hidden p-2 text-red-500 hover:bg-red-50 rounded-full transition"
+                                title="Clear All"
+                            >
+                                <Trash2 className="w-6 h-6" />
+                            </button>
                         </div>
 
                         {/* Mobile Box: Court Selector + Go Live */}
@@ -1546,6 +1558,7 @@
                                     <button onClick={() => setShowLoadTemplateModal(true)} className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 transition">Load Template</button>
                                     <button onClick={() => setShowSaveTemplateModal(true)} className="flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200 transition"><Save className="w-4 h-4" /> Save Template</button>
                                     <button onClick={addRestPeriod} className="flex items-center gap-2 text-sm font-bold text-amber-700 hover:text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 transition"><Clock className="w-4 h-4" /> Add Rest All</button>
+                                    <button onClick={clearAll} className="flex items-center gap-2 text-sm font-bold text-red-600 hover:text-red-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200 transition"><Trash2 className="w-4 h-4" /> Clear All</button>
                                 </div>
                             </div>
                             
@@ -1682,7 +1695,7 @@
                                                 <Info className="w-3 h-3" />
                                             </button>
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); addDrillToPlan(drill); }}
+                                                onClick={(e) => { e.stopPropagation(); addDrillToPlan(drill); setIsLibraryExpanded(false); }}
                                                 className="md:opacity-0 md:group-hover:opacity-100 p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition" 
                                                 title={planningTab === 'all' ? "Add to ALL courts" : `Add to Court ${planningTab + 1}`}
                                             >
