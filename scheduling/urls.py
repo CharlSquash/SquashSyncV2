@@ -1,6 +1,6 @@
 # squashsyncv2/scheduling/urls.py
 from django.urls import path, include
-from . import views
+from . import views, feeds
 
 app_name = 'scheduling'
 urlpatterns = [
@@ -27,4 +27,6 @@ urlpatterns = [
     path('api/session/update/', views.update_session_ajax, name='update_session_ajax'),
     path('api/session/create/', views.create_session_ajax, name='create_session_ajax'),
     path('api/session/delete/', views.delete_session_ajax, name='delete_session_ajax'),
+    # Feeds
+    path('feed/calendar/<str:token>/', feeds.coach_calendar_feed, name='coach_calendar_feed'),
 ]

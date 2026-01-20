@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 
 from collections import defaultdict
 
-from django.core.signing import BadSignature, SignatureExpired
+from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
@@ -313,6 +313,15 @@ def _coach_dashboard(request):
         # --- TODO APP INTEGRATION ---
         pending_tasks_count = Task.objects.filter(assigned_to=request.user, completed=False).count()
 
+        # --- CALENDAR SYNC ---
+        signer = TimestampSigner()
+        # Sign the user ID to create a stable token
+        calendar_token = signer.sign(request.user.id)
+        feed_path = reverse('scheduling:coach_calendar_feed', args=[calendar_token])
+        full_feed_url = request.build_absolute_uri(feed_path)
+        # Convert to webcal protocol
+        calendar_sync_url = full_feed_url.replace('https://', 'webcal://').replace('http://', 'webcal://')
+
     except Coach.DoesNotExist:
         pass
 
@@ -327,6 +336,7 @@ def _coach_dashboard(request):
         'bulk_availability_url': bulk_availability_url,
         'show_awards_voting_card': show_awards_voting_card,
         'pending_tasks_count': pending_tasks_count,
+        'calendar_sync_url': calendar_sync_url if 'calendar_sync_url' in locals() else None,
     }
     return render(request, 'scheduling/homepage.html', context)
 
