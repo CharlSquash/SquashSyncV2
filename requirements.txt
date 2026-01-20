@@ -49,3 +49,4 @@ django-todo
 bleach
 pyngrok
 rapidfuzz>=3.0.0
+icalendar
