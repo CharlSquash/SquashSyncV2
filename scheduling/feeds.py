@@ -3,7 +3,7 @@ from django.http import HttpResponse, Http404
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.utils import timezone
 from .models import Session
-from datetime import timedelta
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.urls import reverse
 import icalendar
@@ -50,7 +50,7 @@ def coach_calendar_feed(request, token):
         
         # DTSTART / DTEND
         # Combine date and time
-        start_dt = timezone.datetime.combine(session.session_date, session.session_start_time)
+        start_dt = datetime.combine(session.session_date, session.session_start_time)
         if timezone.is_naive(start_dt):
             start_dt = timezone.make_aware(start_dt)
             
