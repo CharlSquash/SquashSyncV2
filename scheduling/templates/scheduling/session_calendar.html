@@ -720,10 +720,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (copySyncBtn) {
         copySyncBtn.addEventListener('click', function() {
             const copyText = document.getElementById("calendarSyncLink");
+            
+            // Select the text field
             copyText.select();
             copyText.setSelectionRange(0, 99999); /* For mobile devices */
-            
-            navigator.clipboard.writeText(copyText.value).then(function() {
+
+            function showSuccess() {
                 const originalText = copySyncBtn.innerHTML;
                 copySyncBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
                 copySyncBtn.classList.remove('btn-outline-secondary');
@@ -734,10 +736,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     copySyncBtn.classList.remove('btn-success');
                     copySyncBtn.classList.add('btn-outline-secondary');
                 }, 2000);
-            }, function(err) {
-                console.error('Async: Could not copy text: ', err);
-                alert("Failed to copy. Please manually select and copy the link.");
-            });
+            }
+
+            function showFailure(err) {
+                console.error('Copy failed: ', err);
+                // Try fallback
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showSuccess();
+                    } else {
+                        alert("Failed to copy. Please manually select and copy the link.");
+                    }
+                } catch (fallbackErr) {
+                    alert("Failed to copy. Please manually select and copy the link.");
+                }
+            }
+            
+            // Try Modern API first
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                 navigator.clipboard.writeText(copyText.value).then(showSuccess, showFailure);
+            } else {
+                // Fallback for older browsers or non-secure contexts
+                showFailure('Clipboard API unavailable');
+            }
         });
     }
 });
