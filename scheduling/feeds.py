@@ -28,7 +28,7 @@ def coach_calendar_feed(request, token):
     # User is in coaches_attending.
     # Future OR past 3 months.
     sessions = Session.objects.filter(
-        coaches_attending__id=user_id,
+        coaches_attending__user__id=user_id,
         session_date__gte=cutoff_past.date()
     ).select_related('venue', 'school_group')
 
