@@ -39,11 +39,13 @@
         <div class="dashboard-card" id="coach-upcoming-sessions-card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h3><i class="bi bi-calendar-event"></i> My Upcoming Sessions</h3>
+                {% comment %}
                 {% if calendar_sync_url %}
                 <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#calendarSyncModal">
                     <i class="bi bi-arrow-repeat"></i> Sync Calendar
                 </button>
                 {% endif %}
+                {% endcomment %}
             </div>
             <div class="card-body">
                 {% if sessions_for_coach_card %}
