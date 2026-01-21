@@ -313,15 +313,6 @@ def _coach_dashboard(request):
         # --- TODO APP INTEGRATION ---
         pending_tasks_count = Task.objects.filter(assigned_to=request.user, completed=False).count()
 
-        # --- CALENDAR SYNC ---
-        signer = TimestampSigner()
-        # Sign the user ID to create a stable token
-        calendar_token = signer.sign(request.user.id)
-        feed_path = reverse('scheduling:coach_calendar_feed', args=[calendar_token])
-        full_feed_url = request.build_absolute_uri(feed_path)
-        # Convert to webcal protocol
-        calendar_sync_url = full_feed_url.replace('https://', 'webcal://').replace('http://', 'webcal://')
-
     except Coach.DoesNotExist:
         pass
 
@@ -336,7 +327,6 @@ def _coach_dashboard(request):
         'bulk_availability_url': bulk_availability_url,
         'show_awards_voting_card': show_awards_voting_card,
         'pending_tasks_count': pending_tasks_count,
-        'calendar_sync_url': calendar_sync_url if 'calendar_sync_url' in locals() else None,
     }
     return render(request, 'scheduling/homepage.html', context)
 
@@ -777,6 +767,22 @@ def session_calendar(request):
             }
         })
 
+    # --- CALENDAR SYNC URL (Coaches Only) ---
+    calendar_sync_url = None
+    if request.user.is_staff and not request.user.is_superuser:
+        try:
+            # Check if user has a coach profile
+            _ = request.user.coach_profile
+            signer = TimestampSigner()
+            # Sign the user ID to create a stable token
+            calendar_token = signer.sign(request.user.id)
+            feed_path = reverse('scheduling:coach_calendar_feed', args=[calendar_token])
+            full_feed_url = request.build_absolute_uri(feed_path)
+            # Convert to webcal protocol
+            calendar_sync_url = full_feed_url.replace('https://', 'webcal://').replace('http://', 'webcal://')
+        except Coach.DoesNotExist:
+            pass
+
     context = {
         'page_title': "Session Calendar",
         'events_json': json.dumps(events),
@@ -784,6 +790,7 @@ def session_calendar(request):
         'special_events_json': json.dumps(special_events_data), # Add special events data
         'can_view_all': can_view_all,
         'is_all_view': view_mode == 'all' and can_view_all,
+        'calendar_sync_url': calendar_sync_url, # Added sync URL
         # DATA FOR MANAGEMENT MODE
         'all_school_groups': SchoolGroup.objects.filter(is_active=True).order_by('name'),
         'all_venues': Venue.objects.filter(is_active=True).order_by('name'),

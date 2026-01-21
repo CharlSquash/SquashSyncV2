@@ -54,6 +54,16 @@
         {% endif %}
         {# --- END OF NEW TOGGLE --- #}
 
+        {# --- END OF NEW TOGGLE --- #}
+
+        {# --- SYNC CALENDAR BUTTON --- #}
+        {% if calendar_sync_url %}
+        <div class="ms-2">
+            <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#calendarSyncModal">
+                <i class="bi bi-arrow-repeat"></i> Sync Calendar
+            </button>
+        </div>
+        {% endif %}
     </div>
     <div class="d-flex align-items-center mb-3 flex-wrap">
         <span class="me-3 fw-bold">Layers:</span>
@@ -192,6 +202,33 @@
     </form>
   </div>
 </div>
+
+
+
+<!-- Calendar Sync Modal -->
+<div class="modal fade" id="calendarSyncModal" tabindex="-1" aria-labelledby="calendarSyncModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="calendarSyncModalLabel">Sync to Your Calendar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Copy the link below and add it to your calendar app as a 'Subscription' or 'URL' calendar.</p>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" value="{{ calendar_sync_url }}" id="calendarSyncLink" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="copySyncLinkBtn">Copy to Clipboard</button>
+                </div>
+                <small class="text-muted">This feed includes your sessions for the future and the past 3 months.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 
 {% endblock %}
 
@@ -677,6 +714,32 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('An error occurred while deleting the event.');
         });
     });
+
+    // --- Calendar Sync Copy Functionality ---
+    const copySyncBtn = document.getElementById('copySyncLinkBtn');
+    if (copySyncBtn) {
+        copySyncBtn.addEventListener('click', function() {
+            const copyText = document.getElementById("calendarSyncLink");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); /* For mobile devices */
+            
+            navigator.clipboard.writeText(copyText.value).then(function() {
+                const originalText = copySyncBtn.innerHTML;
+                copySyncBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                copySyncBtn.classList.remove('btn-outline-secondary');
+                copySyncBtn.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    copySyncBtn.innerHTML = originalText;
+                    copySyncBtn.classList.remove('btn-success');
+                    copySyncBtn.classList.add('btn-outline-secondary');
+                }, 2000);
+            }, function(err) {
+                console.error('Async: Could not copy text: ', err);
+                alert("Failed to copy. Please manually select and copy the link.");
+            });
+        });
+    }
 });
 </script>
 {% endblock %}
