@@ -716,13 +716,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // --- Calendar Sync Copy Functionality ---
+    // --- Calendar Sync Copy Functionality ---
+    // --- Calendar Sync Copy Functionality ---
     const copySyncBtn = document.getElementById('copySyncLinkBtn');
     if (copySyncBtn) {
         copySyncBtn.addEventListener('click', function() {
             const copyText = document.getElementById("calendarSyncLink");
-            const textToCopy = copyText.value;
-
-            function showSuccess() {
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); /* For mobile devices */
+            
+            navigator.clipboard.writeText(copyText.value).then(function() {
                 const originalText = copySyncBtn.innerHTML;
                 copySyncBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
                 copySyncBtn.classList.remove('btn-outline-secondary');
@@ -733,47 +736,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     copySyncBtn.classList.remove('btn-success');
                     copySyncBtn.classList.add('btn-outline-secondary');
                 }, 2000);
-            }
-
-            // Fallback strategy using temporary textarea
-            function fallbackCopyTextToClipboard(text) {
-                var textArea = document.createElement("textarea");
-                textArea.value = text;
-                
-                // Ensure textarea is not visible but part of DOM
-                textArea.style.top = "0";
-                textArea.style.left = "0";
-                textArea.style.position = "fixed";
-
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-
-                try {
-                    var successful = document.execCommand('copy');
-                    if (successful) {
-                        showSuccess();
-                    } else {
-                        alert("Failed to copy. Please manually select and copy the link.");
-                    }
-                } catch (err) {
-                    console.error('Fallback: Oops, unable to copy', err);
-                    alert("Failed to copy. Please manually select and copy the link.");
-                }
-
-                document.body.removeChild(textArea);
-            }
-
-            if (!navigator.clipboard) {
-                fallbackCopyTextToClipboard(textToCopy);
-                return;
-            }
-
-            navigator.clipboard.writeText(textToCopy).then(function() {
-                showSuccess();
             }, function(err) {
                 console.error('Async: Could not copy text: ', err);
-                fallbackCopyTextToClipboard(textToCopy);
+                alert("Failed to copy. Please manually select and copy the link.");
             });
         });
     }
