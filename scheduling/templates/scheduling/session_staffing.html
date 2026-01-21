@@ -181,7 +181,7 @@
                     {% for day in display_week %}
                         {% if day.sessions %}
                             {% for item in day.sessions %}
-                                <tr {% if forloop.last %}class="day-group-end"{% endif %} data-day="{{ day.day_name }}" data-venue="{{ item.session_obj.venue.name|default:'Unknown Venue' }}">
+                                <tr {% if forloop.last %}class="day-group-end"{% endif %} data-day="{{ day.day_name }}" data-venue="{{ item.session_obj.venue.name|default:'Unknown Venue' }}" style="background-color: {{ item.bg_color }}; color: {{ item.text_color }};">
                                     {% if forloop.first %}
                                         <td rowspan="{{ day.sessions|length }}" style="vertical-align: middle; text-align: center;" class="day-cell">
                                             <strong>{{ day.day_name }}</strong><br>{{ item.session_obj.session_date|date:"d M" }}
@@ -237,7 +237,7 @@
                         {% for item in day.sessions %}
                             <details class="session-staffing-item">
                                 <summary>
-                                    <div class="session-summary-info">
+                                    <div class="session-summary-info" style="background-color: {{ item.bg_color }}; color: {{ item.text_color }}; padding: 0.5rem; border-radius: 4px;">
                                         <h3>
                                             {{ item.session_obj.school_group.name|default:"General Session" }}
                                             <a href="{% url 'scheduling:session_detail' item.session_obj.id %}" title="View Session Plan" class="view-plan-link">(View Plan)</a>
@@ -695,48 +695,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    function applyVenueColors() {
-        // Distinct Pastel Palette
-        const palette = [
-            '#e3f2fd', // Blue 50
-            '#fff9c4', // Yellow 50
-            '#e8f5e9', // Green 50
-            '#f3e5f5', // Purple 50
-            '#ffebee', // Red 50
-            '#e0f2f1', // Teal 50
-            '#fff3e0', // Orange 50
-            '#f1f8e9', // Light Green 50
-        ];
-        
-        const venueColors = {};
-        let colorIndex = 0;
-
-        document.querySelectorAll('#staffing-overview-table tbody tr').forEach(row => {
-            const venue = row.dataset.venue;
-            if (!venue) return;
-
-            if (!venueColors[venue]) {
-                venueColors[venue] = palette[colorIndex % palette.length];
-                colorIndex++;
-            }
-
-            const color = venueColors[venue];
-            // Apply color to all cells in this row EXCEPT the one with class 'day-cell'
-            // Since we can't easily target "not day cell" with simple row background,
-            // we iterate over children tds.
-            Array.from(row.children).forEach(cell => {
-                if (!cell.classList.contains('day-cell')) {
-                    cell.style.backgroundColor = color;
-                }
-            });
-        });
-    }
-
-    // Run coloring on load
-    applyVenueColors();
-
-    // Ensure colors persist or re-apply if needed (though static table shouldn't change much on client side)
-     // --- END NEW FEATURE ---
+    // --- END NEW FEATURE ---
 });
 </script>
 {% endblock %}

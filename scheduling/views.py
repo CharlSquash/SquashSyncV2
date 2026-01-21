@@ -1193,6 +1193,23 @@ def session_staffing(request):
 
     all_active_coaches = list(Coach.objects.filter(is_active=True).select_related('user').order_by('name'))
 
+    # --- COLORING LOGIC ---
+    # Pastel Palette with Paired Darker Text Colors for Contrast
+    PASTEL_PALETTE = [
+        {'bg': '#e3f2fd', 'text': '#1565c0'}, # Blue 50 -> Blue 800
+        {'bg': '#fff9c4', 'text': '#f57f17'}, # Yellow 50 -> Yellow 900
+        {'bg': '#e8f5e9', 'text': '#2e7d32'}, # Green 50 -> Green 800
+        {'bg': '#f3e5f5', 'text': '#6a1b9a'}, # Purple 50 -> Purple 800
+        {'bg': '#e0f7fa', 'text': '#006064'}, # Cyan 50 -> Cyan 900
+        {'bg': '#fff3e0', 'text': '#e65100'}, # Orange 50 -> Orange 900
+        {'bg': '#fce4ec', 'text': '#880e4f'}, # Pink 50 -> Pink 800
+        {'bg': '#f1f8e9', 'text': '#33691e'}, # Light Green 50 -> Light Green 800
+        {'bg': '#e8eaf6', 'text': '#283593'}, # Indigo 50 -> Indigo 800
+        {'bg': '#ffebee', 'text': '#b71c1c'}, # Red 50 -> Red 800
+    ]
+    # Neutral color for no venue
+    NEUTRAL_COLOR = {'bg': '#f5f5f5', 'text': '#424242'} # Grey 100 -> Grey 800
+
     # Pre-fetch all session assignments for the week for all active coaches
     coach_sessions_for_week = {
         coach.id: list(Session.objects.filter(
@@ -1209,7 +1226,7 @@ def session_staffing(request):
     for i in range(7):
         current_day = target_week_start + timedelta(days=i)
         
-        # Custom Sorting Logic: Group by Venue -> Sort by Earliest Start Time
+        # --- START: UPDATED GROUPING LOGIC ---
         sessions_qs = Session.objects.filter(
             session_date=current_day,
             is_cancelled=False
@@ -1218,26 +1235,34 @@ def session_staffing(request):
             'coach_availabilities'
         )
 
+        # 1. Group by Venue ID
         sessions_by_venue = defaultdict(list)
         for session in sessions_qs:
-            sessions_by_venue[session.venue].append(session)
+            # Use ID for grouping consistency
+            # Default to 'no_venue' if None (though venues should exist)
+            venue_id = session.venue.id if session.venue else 'no_venue'
+            sessions_by_venue[venue_id].append(session)
         
-        # Sort sessions within each venue by time and prepare groups
-        venue_groups = []
-        for venue, sessions in sessions_by_venue.items():
-            # Sort sessions in this venue by time
-            sessions.sort(key=lambda s: s.session_start_time)
-            # Determine the group's sort key (earliest time)
-            earliest_time = sessions[0].session_start_time
-            venue_groups.append((earliest_time, sessions))
-        
-        # Sort the groups by their earliest start time
-        venue_groups.sort(key=lambda x: x[0])
+        # 2. Sort sessions WITHIN each venue by time
+        for vid in sessions_by_venue:
+            sessions_by_venue[vid].sort(key=lambda s: s.session_start_time)
 
-        # Flatten the list
+        # 3. Sort Venue Groups by the start time of their EARLIEST session
+        venue_groups = []
+        for vid, s_list in sessions_by_venue.items():
+            if not s_list:
+                continue
+            earliest_start = s_list[0].session_start_time
+            venue_groups.append((vid, s_list, earliest_start))
+        
+        # Sort the groups by earliest_start
+        venue_groups.sort(key=lambda x: x[2])
+
+        # 4. Flatten for this day
         sessions_for_day_sorted = []
-        for _, sessions in venue_groups:
-            sessions_for_day_sorted.extend(sessions)
+        for _, s_list, _ in venue_groups:
+            sessions_for_day_sorted.extend(s_list)
+        # --- END: UPDATED GROUPING LOGIC ---
         
         processed_sessions = []
         for session in sessions_for_day_sorted:
@@ -1306,6 +1331,16 @@ def session_staffing(request):
             total_coaches = len(assigned_coach_ids)
             confirmed_coaches = sum(1 for c in assigned_coaches_status if c['status'] == "Confirmed")
 
+            # Determine Color
+            if session.venue:
+                color_index = session.venue.id % len(PASTEL_PALETTE)
+                palette_entry = PASTEL_PALETTE[color_index]
+                bg_color = palette_entry['bg']
+                text_color = palette_entry['text']
+            else:
+                bg_color = NEUTRAL_COLOR['bg']
+                text_color = NEUTRAL_COLOR['text']
+
             processed_sessions.append({
                 'session_obj': session,
                 'coach_conflict_map': coach_conflict_map,
@@ -1317,6 +1352,8 @@ def session_staffing(request):
                 'confirmed_players_count': confirmed_players,
                 'total_coaches_assigned': total_coaches,
                 'confirmed_coaches_count': confirmed_coaches,
+                'bg_color': bg_color,
+                'text_color': text_color,
             })
             
         display_week.append({
