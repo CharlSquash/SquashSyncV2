@@ -629,14 +629,75 @@ def session_calendar(request):
     )
 
     # Annotate the queryset with an 'attendance_taken' boolean field
-    # *** FIX 1: Assign to a new variable and use it in the loop ***
     sessions_annotated = sessions.select_related('school_group', 'venue').prefetch_related('coaches_attending').annotate(
         attendance_taken=Exists(attendance_taken_subquery)
     )
 
+    # --- SORTING LOGIC ---
+    # 1. Fetch all sessions
+    all_sessions = list(sessions_annotated)
+
+    # 2. Group by Date
+    sessions_by_date = defaultdict(list)
+    for session in all_sessions:
+        sessions_by_date[session.session_date].append(session)
+
+    # 3. Process each day to apply Venue Grouping & Sorting
+    sorted_sessions = []
+    
+    # Sort dates to ensure chronological order first
+    sorted_dates = sorted(sessions_by_date.keys())
+
+    for date in sorted_dates:
+        day_sessions = sessions_by_date[date]
+        
+        # Group by Venue ID (handle None venue)
+        sessions_by_venue = defaultdict(list)
+        for session in day_sessions:
+            venue_id = session.venue.id if session.venue else 'no_venue'
+            sessions_by_venue[venue_id].append(session)
+        
+        # Sort sessions WITHIN each venue by start time
+        for vid in sessions_by_venue:
+            sessions_by_venue[vid].sort(key=lambda s: s.session_start_time)
+
+        # Sort Venue Groups by the start time of their EARLIEST session
+        # We create a list of (venue_id, sessions_list) tuples
+        venue_groups = []
+        for vid, s_list in sessions_by_venue.items():
+            if not s_list:
+                continue
+            earliest_start = s_list[0].session_start_time
+            venue_groups.append((vid, s_list, earliest_start))
+        
+        # Sort the groups by earliest_start
+        venue_groups.sort(key=lambda x: x[2])
+
+        # Flatten for this day
+        for _, s_list, _ in venue_groups:
+            sorted_sessions.extend(s_list)
+
+    # --- COLORING LOGIC ---
+    # --- COLORING LOGIC ---
+    # Pastel Palette with Paired Darker Text Colors for Contrast
+    PASTEL_PALETTE = [
+        {'bg': '#e3f2fd', 'text': '#1565c0'}, # Blue 50 -> Blue 800
+        {'bg': '#fff9c4', 'text': '#f57f17'}, # Yellow 50 -> Yellow 900
+        {'bg': '#e8f5e9', 'text': '#2e7d32'}, # Green 50 -> Green 800
+        {'bg': '#f3e5f5', 'text': '#6a1b9a'}, # Purple 50 -> Purple 800
+        {'bg': '#e0f7fa', 'text': '#006064'}, # Cyan 50 -> Cyan 900
+        {'bg': '#fff3e0', 'text': '#e65100'}, # Orange 50 -> Orange 900
+        {'bg': '#fce4ec', 'text': '#880e4f'}, # Pink 50 -> Pink 800
+        {'bg': '#f1f8e9', 'text': '#33691e'}, # Light Green 50 -> Light Green 800
+        {'bg': '#e8eaf6', 'text': '#283593'}, # Indigo 50 -> Indigo 800
+        {'bg': '#ffebee', 'text': '#b71c1c'}, # Red 50 -> Red 800
+    ]
+    # Neutral color for no venue
+    NEUTRAL_COLOR = {'bg': '#f5f5f5', 'text': '#424242'} # Grey 100 -> Grey 800
+
     # Build the rich event data for FullCalendar
     events = []
-    for session in sessions_annotated: # *** Iterate over the correct variable ***
+    for index, session in enumerate(sorted_sessions):
         class_names = []
         if session.is_cancelled:
             class_names.append('cancelled-session')
@@ -644,18 +705,36 @@ def session_calendar(request):
         if session.attendance_taken:
             class_names.append('fc-event-attendance-taken')
 
+        # Determine Color
+        if session.venue:
+            color_index = session.venue.id % len(PASTEL_PALETTE)
+            palette_entry = PASTEL_PALETTE[color_index]
+            event_bg_color = palette_entry['bg']
+            event_text_color = palette_entry['text']
+            border_color = event_bg_color 
+        else:
+            event_bg_color = NEUTRAL_COLOR['bg']
+            event_text_color = NEUTRAL_COLOR['text']
+            border_color = '#cccccc'
+
         events.append({
             'title': session.school_group.name if session.school_group else 'General Session',
             'start': f'{session.session_date}T{session.session_start_time}',
             'id': session.id,
             'url': reverse('scheduling:session_detail', args=[session.id]),
+            'url': reverse('scheduling:session_detail', args=[session.id]),
+            'backgroundColor': event_bg_color,
+            'borderColor': border_color,
+            'textColor': event_text_color,
             'extendedProps': {
                 'venue_name': session.venue.name if session.venue else 'N/A',
                 'coaches_attending': [coach.name for coach in session.coaches_attending.all()],
+                'contrastColor': event_text_color, # Explicitly pass for frontend JS usage if needed
                 'status_display': "Cancelled" if session.is_cancelled else "Confirmed",
                 'school_group_name': session.school_group.name if session.school_group else "N/A",
                 'session_time_str': session.session_start_time.strftime('%H:%M'),
-                'admin_url': reverse('admin:scheduling_session_change', args=[session.id])
+                'admin_url': reverse('admin:scheduling_session_change', args=[session.id]),
+                'sortIndex': index # CRITICAL for FullCalendar sorting
             },
             'classNames': class_names
         })
@@ -698,7 +777,6 @@ def session_calendar(request):
             }
         })
 
-    # *** FIX 2: Add the necessary variables to the context for the template ***
     context = {
         'page_title': "Session Calendar",
         'events_json': json.dumps(events),

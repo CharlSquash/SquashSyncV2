@@ -262,6 +262,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
         height: 'auto',
 
+        // Sort events by custom sortIndex (calculated in backend for venue grouping)
+        eventOrder: function(a, b) {
+            return (a.extendedProps.sortIndex || 0) - (b.extendedProps.sortIndex || 0);
+        },
+
+        eventDisplay: 'block', // Force all events to render as blocks (not dots) in Month view
+
+        eventDidMount: function(info) {
+             // Handle List View Coloring
+            if (info.view.type === 'listWeek' || info.view.type === 'listDay' || info.view.type === 'listMonth') {
+                const titleEl = info.el.querySelector('.fc-list-event-title');
+                if (titleEl) {
+                    // Use the contrast color sent from backend, fallback to textColor, then dark grey
+                    const color = info.event.extendedProps.contrastColor || info.event.textColor || '#333333';
+                    titleEl.style.color = color;
+                    titleEl.style.fontWeight = 'bold'; 
+                }
+            } else {
+                // Ensure colors are applied in Block views (Month/TimeGrid)
+                if (info.event.backgroundColor) {
+                     info.el.style.backgroundColor = info.event.backgroundColor;
+                }
+                if (info.event.borderColor) {
+                     info.el.style.borderColor = info.event.borderColor; 
+                }
+                if (info.event.textColor) {
+                     info.el.style.color = info.event.textColor;
+                }
+            }
+        },
+
         // Start with ONLY sessions by default (as per requirement)
         eventSources: [ sessionsSource, tasksSource ],
 
