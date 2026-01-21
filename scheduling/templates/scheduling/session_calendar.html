@@ -720,10 +720,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (copySyncBtn) {
         copySyncBtn.addEventListener('click', function() {
             const copyText = document.getElementById("calendarSyncLink");
-            
-            // Select the text field
-            copyText.select();
-            copyText.setSelectionRange(0, 99999); /* For mobile devices */
+            const textToCopy = copyText.value;
 
             function showSuccess() {
                 const originalText = copySyncBtn.innerHTML;
@@ -738,28 +735,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 2000);
             }
 
-            function showFailure(err) {
-                console.error('Copy failed: ', err);
-                // Try fallback
+            // Fallback strategy using temporary textarea
+            function fallbackCopyTextToClipboard(text) {
+                var textArea = document.createElement("textarea");
+                textArea.value = text;
+                
+                // Ensure textarea is not visible but part of DOM
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.position = "fixed";
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
                 try {
-                    const successful = document.execCommand('copy');
+                    var successful = document.execCommand('copy');
                     if (successful) {
                         showSuccess();
                     } else {
                         alert("Failed to copy. Please manually select and copy the link.");
                     }
-                } catch (fallbackErr) {
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
                     alert("Failed to copy. Please manually select and copy the link.");
                 }
+
+                document.body.removeChild(textArea);
             }
-            
-            // Try Modern API first
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                 navigator.clipboard.writeText(copyText.value).then(showSuccess, showFailure);
-            } else {
-                // Fallback for older browsers or non-secure contexts
-                showFailure('Clipboard API unavailable');
+
+            if (!navigator.clipboard) {
+                fallbackCopyTextToClipboard(textToCopy);
+                return;
             }
+
+            navigator.clipboard.writeText(textToCopy).then(function() {
+                showSuccess();
+            }, function(err) {
+                console.error('Async: Could not copy text: ', err);
+                fallbackCopyTextToClipboard(textToCopy);
+            });
         });
     }
 });
