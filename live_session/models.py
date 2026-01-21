@@ -47,3 +47,15 @@ class SessionPlan(models.Model):
 
     def __str__(self):
         return f"Plan for {self.session}"
+
+class PlanTemplate(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey('accounts.Coach', on_delete=models.SET_NULL, null=True, blank=True)
+    is_public = models.BooleanField(default=False, help_text="Visible to all coaches")
+    court_count = models.PositiveIntegerField(default=3, help_text="Number of courts this plan was designed for")
+    plan_data = models.JSONField(help_text="The full courtPlans JSON structure")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.created_by})"

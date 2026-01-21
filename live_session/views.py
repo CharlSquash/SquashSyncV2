@@ -2,7 +2,7 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.middleware.csrf import get_token
-from live_session.models import Drill
+from live_session.models import Drill, PlanTemplate
 from players.models import Player
 import json
 from django.shortcuts import get_object_or_404
@@ -362,5 +362,99 @@ def add_session_note(request, session_id):
                 'created_at_formatted': note.created_at.strftime('%Y-%m-%d %H:%M')
             }
         })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@login_required
+@require_POST
+def save_template_api(request):
+    try:
+        data = json.loads(request.body)
+        
+        # Check permissions: Coach or Superuser
+        coach = None
+        try:
+            coach = Coach.objects.get(user=request.user)
+        except Coach.DoesNotExist:
+            if not request.user.is_superuser:
+                 return JsonResponse({'status': 'error', 'message': 'Permission denied. Only coaches can save templates.'}, status=403)
+
+        name = data.get('name')
+        if not name:
+             return JsonResponse({'status': 'error', 'message': 'Template name is required.'}, status=400)
+
+        # Only superusers can set templates as Public
+        is_public = data.get('is_public', False)
+        if not request.user.is_superuser:
+            is_public = False
+
+        PlanTemplate.objects.create(
+            name=name,
+            description=data.get('description', ''),
+            created_by=coach,
+            is_public=is_public,
+            court_count=data.get('court_count', 3),
+            plan_data=data.get('plan_data', {})
+        )
+        
+        return JsonResponse({'status': 'success', 'message': 'Template saved successfully.'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@login_required
+def list_templates_api(request):
+    try:
+        coach = None
+        try:
+            coach = Coach.objects.get(user=request.user)
+        except Coach.DoesNotExist:
+            pass
+
+        # Filter: Public OR Created by this coach
+        if request.user.is_superuser:
+             templates = PlanTemplate.objects.all()
+        elif coach:
+            templates = PlanTemplate.objects.filter(Q(is_public=True) | Q(created_by=coach))
+        else:
+             # Regular user / Player (shouldn't really happen here but safe fallback)
+             templates = PlanTemplate.objects.filter(is_public=True)
+
+        templates_data = []
+        for t in templates.order_by('-created_at'):
+            templates_data.append({
+                'id': t.id,
+                'name': t.name,
+                'description': t.description,
+                'created_by': str(t.created_by) if t.created_by else 'System',
+                'court_count': t.court_count,
+                # We don't send plan_data in list to save bandwidth, unless needed? 
+                # Let's send it for now as it makes "preview" easier if client-side.
+                'plan_data': t.plan_data, 
+                'is_owner': (coach and t.created_by == coach) or request.user.is_superuser
+            })
+
+        return JsonResponse({'status': 'success', 'templates': templates_data})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@login_required
+@require_POST
+def delete_template_api(request, template_id):
+    try:
+        template = get_object_or_404(PlanTemplate, id=template_id)
+        
+        # Check ownership
+        coach = None
+        try:
+             coach = Coach.objects.get(user=request.user)
+        except Coach.DoesNotExist:
+            pass
+            
+        if request.user.is_superuser or (coach and template.created_by == coach):
+            template.delete()
+            return JsonResponse({'status': 'success', 'message': 'Template deleted.'})
+        else:
+             return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)

@@ -66,7 +66,7 @@
             Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library, Info, X, Cloud, CloudLightning,
             Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move,
-            ChevronLeft, ChevronRight, MessageSquare
+            ChevronLeft, ChevronRight, MessageSquare, Coffee
         } from 'lucide-react';
 
         /**
@@ -95,6 +95,38 @@
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
             return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        };
+
+        const getCategoryStyle = (category, isRest) => {
+            if (isRest) return { 
+                icon: Coffee, 
+                color: 'bg-amber-50', 
+                border: 'border-amber-200', 
+                accent: 'text-amber-500', 
+                leftBorder: 'border-l-amber-400' 
+            };
+
+            switch (category) {
+                case 'Warmups':
+                    return { icon: Flame, color: 'bg-orange-50', border: 'border-orange-200', accent: 'text-orange-500', leftBorder: 'border-l-orange-500' };
+                case 'Conditioning':
+                case 'Fitness':
+                    return { icon: Dumbbell, color: 'bg-emerald-50', border: 'border-emerald-200', accent: 'text-emerald-500', leftBorder: 'border-l-emerald-500' };
+                case 'Hand-Eye Coordination':
+                case 'Drills - Racketwork':
+                case 'Feeding Drills':
+                    return { icon: Target, color: 'bg-blue-50', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' };
+                case 'Fun Games':
+                case 'Condition Games':
+                    return { icon: Trophy, color: 'bg-purple-50', border: 'border-purple-200', accent: 'text-purple-500', leftBorder: 'border-l-purple-500' };
+                case 'Ghosting':
+                case 'Movement':
+                    return { icon: Footprints, color: 'bg-slate-100', border: 'border-slate-300', accent: 'text-slate-500', leftBorder: 'border-l-slate-500' };
+                case 'Circuits (Score/Time)':
+                    return { icon: Timer, color: 'bg-red-50', border: 'border-red-200', accent: 'text-red-500', leftBorder: 'border-l-red-500' };
+                default:
+                    return { icon: Activity, color: 'bg-white', border: 'border-slate-200', accent: 'text-slate-400', leftBorder: 'border-l-slate-500' };
+            }
         };
 
         const getYouTubeId = (url) => {
@@ -452,6 +484,393 @@
                 </div>
             );
         };
+        
+        const SaveTemplateModal = ({ onClose, onSave, planData, courtCount }) => {
+            const [name, setName] = useState('');
+            const [description, setDescription] = useState('');
+            const [isPublic, setIsPublic] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setIsSubmitting(true);
+                try {
+                    const response = await fetch('/live-session/api/templates/save/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': CSRF_TOKEN
+                        },
+                        body: JSON.stringify({
+                            name,
+                            description,
+                            is_public: isPublic,
+                            court_count: courtCount,
+                            plan_data: planData
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        onSave();
+                        onClose();
+                        // alert("Template saved successfully!"); // Removed per user request
+                    } else {
+                        alert(data.message || 'Failed to save template.');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert("Error saving template.");
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-800 text-lg">Save as Template</h3>
+                            <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition"><X className="w-5 h-5 text-slate-500" /></button>
+                        </div>
+                        <div className="p-6">
+                            <form id="save-template-form" onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Template Name</label>
+                                    <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g., Elite Squad Tuesday" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
+                                    <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px]" placeholder="Brief description of the session plan..."></textarea>
+                                </div>
+                                {/* Checkbox removed to enforce private templates by default */}
+                            </form>
+                        </div>
+                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                             <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg transition">Cancel</button>
+                             <button type="submit" form="save-template-form" disabled={isSubmitting} className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm disabled:opacity-50 flex items-center gap-2">
+                                {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Save Template
+                             </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const LoadTemplateModal = ({ onClose, onLoad }) => {
+            const [templates, setTemplates] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const fetchTemplates = async () => {
+                    try {
+                        const res = await fetch('/live-session/api/templates/list/');
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            setTemplates(data.templates);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchTemplates();
+            }, []);
+
+            const handleDelete = async (id, e) => {
+                e.stopPropagation();
+                if (!confirm("Are you sure you want to delete this template?")) return;
+                
+                try {
+                    const res = await fetch(`/live-session/api/templates/delete/${id}/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': CSRF_TOKEN }
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        setTemplates(prev => prev.filter(t => t.id !== id));
+                    } else {
+                        alert(data.message);
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert("Error deleting template");
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-800 text-lg">Load Template</h3>
+                            <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition"><X className="w-5 h-5 text-slate-500" /></button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-50/50 space-y-3">
+                            {loading ? (
+                                <div className="text-center py-10 text-slate-400 flex flex-col items-center">
+                                    <RefreshCw className="w-8 h-8 animate-spin mb-2" />
+                                    Loading templates...
+                                </div>
+                            ) : templates.length === 0 ? (
+                                <div className="text-center py-10 text-slate-400">
+                                    <p>No templates found.</p>
+                                </div>
+                            ) : (
+                                templates.map(t => (
+                                    <button 
+                                        key={t.id}
+                                        onClick={() => { onLoad(t.plan_data); onClose(); }}
+                                        className="w-full bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-400 hover:shadow-md transition text-left group relative"
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                                                    {t.name}
+                                                    {t.court_count && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono">{t.court_count} Courts</span>}
+                                                </h4>
+                                                <p className="text-xs text-slate-500 mt-1 lines-clamp-2">{t.description || "No description"}</p>
+                                                <div className="mt-2 text-[10px] text-slate-400 font-medium bg-slate-50 inline-block px-2 py-1 rounded">
+                                                    Created by {t.created_by}
+                                                </div>
+                                            </div>
+                                            {t.is_owner && (
+                                                <div 
+                                                    onClick={(e) => handleDelete(t.id, e)}
+                                                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-red-500 transition"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        const DrillItem = ({ drill, index, isRest, onRemove, onUpdateDuration, onUpdateName, isMaster, onInfo }) => {
+            const [isResizing, setIsResizing] = useState(false);
+            const itemRef = useRef(null);
+            
+            // 1 min = 12px (previously 4). Min height 60px covers 5 mins.
+            // This ensures drills > 5 mins start growing immediately.
+            const height = Math.max(60, Math.round((drill.duration / 60) * 12)); 
+            const isTall = height > 80;
+
+            const styles = getCategoryStyle(drill.type, isRest);
+            const WatermarkIcon = styles.icon;
+
+            const handleMouseDown = (e) => {
+                if (isMaster) return; 
+                e.stopPropagation(); 
+                e.preventDefault();
+                setIsResizing(true);
+                
+                const startY = e.clientY;
+                const startDuration = drill.duration;
+                
+                const handleMouseMove = (moveEvent) => {
+                    const deltaY = moveEvent.clientY - startY;
+                    const deltaMinutes = deltaY / 12; // Match scale factor
+                    const newDurationSeconds = Math.max(60, startDuration + (deltaMinutes * 60));
+                    onUpdateDuration(drill.uid, newDurationSeconds, drill.masterSourceId);
+                };
+                
+                const handleMouseUp = () => {
+                    setIsResizing(false);
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseup', handleMouseUp);
+                    document.body.style.cursor = 'default';
+                };
+                
+                document.body.style.cursor = 'ns-resize';
+                window.addEventListener('mousemove', handleMouseMove);
+                window.addEventListener('mouseup', handleMouseUp);
+            };
+
+            const itemStyle = { height: `${height}px` };
+                
+            return (
+                <div 
+                    ref={itemRef}
+                    draggable={!isMaster && !isResizing}
+                    onDragStart={(e) => {
+                        e.dataTransfer.setData('application/json', JSON.stringify({ 
+                            type: 'DRILL', 
+                            drillUid: drill.uid, 
+                            sourceCourtIndex: index 
+                        }));
+                        e.dataTransfer.effectAllowed = "move";
+                    }}
+                    style={itemStyle}
+                    className={`relative flex flex-col justify-between rounded-lg shadow-sm border p-2 mb-2 transition-all select-none overflow-hidden 
+                    ${styles.color} ${styles.border} border-l-4 ${styles.leftBorder}
+                    ${isResizing ? 'ring-2 ring-emerald-400 z-20' : ''}`}
+                >
+                    {/* Watermark */}
+                    <div className="absolute -right-4 -bottom-4 z-0 opacity-10 transform -rotate-12 pointer-events-none">
+                        <WatermarkIcon className="w-24 h-24 text-slate-900" /> 
+                    </div>
+
+                    {/* Content */}
+                    <div className={`relative z-10 flex flex-col h-full ${isTall ? 'justify-between' : 'justify-between'}`}>
+                        
+                        {/* Header Row: Title & Actions */}
+                        <div className={`flex justify-between items-start w-full ${isTall ? 'absolute top-0 left-0 p-2 w-full' : ''}`}>
+                             {/* If Short, title is here. If Tall, title is centered below. */}
+                             {!isTall && (
+                                <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2 pr-6">{drill.customName}</h4>
+                             )}
+                             {/* Spacer if not tall to push buttons right, or absolute buttons */}
+                             <div className={`flex gap-1 shrink-0 ml-auto ${isTall ? '' : '-mr-1'}`}>
+                                <button onClick={(e) => { e.stopPropagation(); onInfo(drill); }} className="text-slate-400 hover:text-blue-500 p-1 rounded-full hover:bg-black/5 transition" title="View Details">
+                                    <Info className="w-3.5 h-3.5" />
+                                </button>
+                                {!isMaster && (
+                                    <button onClick={(e) => { e.stopPropagation(); onRemove(drill.uid); }} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-black/5 transition">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Centered Title for Tall Cards */}
+                        {isTall && (
+                            <div className="flex-1 flex items-center justify-center p-4">
+                                <h4 className="font-bold text-slate-800 text-lg text-center leading-tight drop-shadow-sm">{drill.customName}</h4>
+                            </div>
+                        )}
+
+                        {/* Footer Row: Type & Duration */}
+                         <div className={`flex items-end justify-between text-xs text-slate-500 gap-2 mt-auto w-full ${isTall ? 'absolute bottom-0 left-0 p-2' : ''}`}>
+                            <span className="uppercase tracking-wider font-bold truncate flex-1 text-left opacity-70" title={drill.type}>{drill.type}</span>
+                            <div className="flex items-center gap-1 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 rounded shrink-0 border border-black/5 shadow-sm">
+                                <Clock className="w-3.5 h-3.5" />
+                                {!isMaster ? (
+                                    <input 
+                                        type="number" 
+                                        className="w-8 bg-transparent text-center focus:outline-none font-mono font-bold text-slate-700 p-0 text-xs"
+                                        value={Math.round(drill.duration / 60)} 
+                                        onChange={(e) => onUpdateDuration(drill.uid, Math.max(0.5, parseFloat(e.target.value)) * 60, drill.masterSourceId)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onMouseDown={(e) => e.stopPropagation()} 
+                                    /> 
+                                ) : (
+                                    <span className="font-mono font-bold text-slate-700">{Math.round(drill.duration / 60)}</span>
+                                )}
+                                <span className="text-[10px]">m</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Resize Handle */}
+                    {!isMaster && (
+                        <div 
+                            className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-black/10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20"
+                            onMouseDown={handleMouseDown}
+                        >
+                            <div className="w-8 h-0.5 bg-slate-400 rounded-full"></div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const CourtColumn = ({ courtIndex, courtName, drills, players, onDropPlayer, onRemovePlayer, onAddDrill, onRemoveDrill, onUpdateDrill, isMaster, onDropDrill, onDragPlayerStart, onDrillInfo }) => {
+            const [isdragOver, setIsDragOver] = useState(false);
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+            };
+
+            const handleDragLeave = () => setIsDragOver(false);
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                setIsDragOver(false);
+                
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+                    if (data.type === 'DRILL') {
+                        onDropDrill(e, courtIndex, data);
+                        return;
+                    }
+                } catch(e) {}
+                
+                onDropPlayer(e, courtIndex);
+            };
+
+            return (
+                <div 
+                    className={`flex flex-col h-full bg-slate-50 border-r border-slate-200 last:border-r-0 flex-1 min-w-[300px] ${isdragOver ? 'bg-indigo-50/50' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
+                    {/* Header */}
+                    <div className="p-3 border-b border-slate-200 bg-white sticky top-0 z-10">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <span className="bg-slate-800 text-white text-xs px-2 py-0.5 rounded uppercase tracking-wider">{courtName}</span>
+                                <span className="text-xs text-slate-400 font-normal">{drills.length} drills</span>
+                            </h3>
+                            <button onClick={onAddDrill} className="p-1 hover:bg-slate-100 rounded text-emerald-600 transition" title="Add Drill">
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Player/Group Drop Zone */}
+                        <div className="min-h-[40px] border border-dashed border-slate-300 rounded-lg bg-slate-50 p-1 flex flex-wrap gap-1 content-start transition-colors hover:border-emerald-400 hover:bg-emerald-50/30">
+                            {players.length === 0 ? (
+                                <div className="w-full text-center py-2 text-[10px] text-slate-400 uppercase tracking-wide font-medium">Drop Players Here</div>
+                            ) : (
+                                players.map((p, idx) => (
+                                    <span key={p.id} draggable onDragStart={(e) => onDragPlayerStart(e, p, courtIndex, idx)} className="text-xs font-bold text-slate-700 bg-white px-2 py-1 rounded shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing flex items-center gap-1 group">
+                                        {p.name}
+                                        <button onClick={(e) => { e.stopPropagation(); onRemovePlayer(courtIndex, idx); }} className="text-slate-300 hover:text-red-500 hidden group-hover:block"><X className="w-3 h-3"/></button>
+                                    </span>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Body - Drills List */}
+                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                         {drills.length === 0 ? (
+                             <div className="h-32 flex items-center justify-center text-slate-400 text-xs italic">No drills yet</div>
+                         ) : (
+                             drills.map((drill, idx) => (
+                                 <DrillItem 
+                                    key={drill.uid} 
+                                    drill={drill} 
+                                    index={courtIndex} // Pass court index for source info
+                                    isRest={drill.isRest}
+                                    onRemove={onRemoveDrill}
+                                    onUpdateDuration={onUpdateDrill}
+                                    isMaster={isMaster}
+                                    onInfo={onDrillInfo}
+                                 />
+                             ))
+                         )}
+                         <button onClick={onAddDrill} className="w-full py-2 mt-2 border border-dashed border-slate-300 rounded text-slate-400 text-xs font-bold hover:bg-slate-50 hover:text-emerald-600 transition flex items-center justify-center gap-1">
+                            <Plus className="w-3 h-3" /> Add Drill
+                         </button>
+                    </div>
+                    
+                    {/* Footer Summary */}
+                    <div className="p-2 border-t border-slate-200 bg-slate-50 text-xs font-mono text-slate-500 text-center">
+                        Total: {Math.round(drills.reduce((acc, d) => acc + d.duration, 0) / 60)}m
+                    </div>
+                </div>
+            );
+        };
 
         function SquashSyncPlanner() {
             // App State
@@ -465,10 +884,15 @@
             const [availableDrills, setAvailableDrills] = useState(SERVER_DRILLS);
             const [showCreateDrillModal, setShowCreateDrillModal] = useState(false);
             const [selectedCategory, setSelectedCategory] = useState('All');
+            const [searchQuery, setSearchQuery] = useState('');
             const [expandedDrillId, setExpandedDrillId] = useState(null); // For Quick Preview
             const [isLibraryExpanded, setIsLibraryExpanded] = useState(false);
             const [showMobileDrillPicker, setShowMobileDrillPicker] = useState(false);
             const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+            
+            // Template Modals State
+            const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+            const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
             
             // Notes State
             const [showNotesModal, setShowNotesModal] = useState(false);
@@ -487,8 +911,12 @@
                 return 3;
             });
             const [groups, setGroups] = useState(() => {
-                if (CURRENT_PLAN && CURRENT_PLAN.groups) return CURRENT_PLAN.groups;
-                return [];
+                let initialGroups = [];
+                if (CURRENT_PLAN && CURRENT_PLAN.groups) initialGroups = CURRENT_PLAN.groups;
+                // Pad with empty arrays if needed to match numCourts (default 3 if not yet known, or use numCourts state logic)
+                const targetLen = (CURRENT_PLAN && CURRENT_PLAN.numCourts) ? Number(CURRENT_PLAN.numCourts) : 3;
+                while(initialGroups.length < targetLen) initialGroups.push([]);
+                return initialGroups;
             });
             const [courtPlans, setCourtPlans] = useState(() => {
                 if (CURRENT_PLAN && CURRENT_PLAN.courtPlans) return CURRENT_PLAN.courtPlans;
@@ -528,6 +956,12 @@
                     while(newStates.length < numCourts) newStates.push({ currentBlockIndex: 0, timeLeft: 0 });
                     while(newStates.length > numCourts) newStates.pop();
                     return newStates;
+                });
+                setGroups(prev => {
+                    const newGroups = [...prev];
+                    while(newGroups.length < numCourts) newGroups.push([]);
+                    while(newGroups.length > numCourts) newGroups.pop();
+                    return newGroups;
                 });
             }, [numCourts]);
 
@@ -669,8 +1103,8 @@
                 }
             };
 
-            const removeBlock = (courtIndex, blockUid) => {
-                if (planningTab === 'all') { // courtIndex passed as 0 but ignored mostly
+            const removeBlock = (courtIndex, blockUid, isCourtSpecific = false) => {
+                if (planningTab === 'all' && !isCourtSpecific) { 
                     // 1. Remove from Master Sequence
                     // Filter masterSequence using blockUid as the master UID
                     setMasterSequence(prev => prev.filter(b => b.uid !== blockUid));
@@ -688,17 +1122,20 @@
                 }
             };
 
-            const updateDuration = (courtIndex, blockUid, newDuration) => {
+            const updateDuration = (courtIndex, blockUid, newDuration, masterSourceId) => {
                 const duration = parseInt(newDuration) || 0;
                 
                 if (planningTab === 'all') {
+                    // Use masterSourceId if available to find the master block, otherwise use blockUid (if it is a master block)
+                    const targetMasterUid = masterSourceId || blockUid;
+
                     // 1. Update Master Sequence
-                    setMasterSequence(prev => prev.map(b => b.uid === blockUid ? { ...b, duration } : b));
+                    setMasterSequence(prev => prev.map(b => b.uid === targetMasterUid ? { ...b, duration } : b));
 
                     // 2. Update All Courts
                     const newPlans = [...courtPlans];
                     newPlans.forEach((plan, cIdx) => {
-                         newPlans[cIdx] = plan.map(item => item.masterSourceId === blockUid ? { ...item, duration } : item);
+                         newPlans[cIdx] = plan.map(item => (item.masterSourceId === targetMasterUid || item.uid === targetMasterUid) ? { ...item, duration } : item);
                     });
                     setCourtPlans(newPlans);
 
@@ -709,38 +1146,41 @@
                 }
             };
 
-            const loadTemplate = () => {
-                const template = [
-                    { ...availableDrills[0], uid: 't1', customName: "Warmup: Boast & Drive", duration: 120, isRest: false },
-                    { uid: 'r1', name: "Rotate", customName: "Quick Rotate", type: "Rest", duration: 30, isRest: true, videoId: null },
-                    { ...availableDrills[2], uid: 't2', customName: "Volley Kill Progression", duration: 180, isRest: false },
-                ];
+            const handleTemplateLoaded = (loadedPlanData) => {
+                // Determine if loaded plan is object (full plan) or array (simple list of drills)
+                // Our API saves 'plan_data' which is the courtPlans array usually, or an object with groups etc.
+                // Let's assume it saves the courtPlans structure.
                 
-                if (planningTab === 'all') {
-                     // 1. Set Master Sequence (fresh UIDs)
-                     const newMasterItems = template.map(t => ({ ...t, uid: Math.random().toString(36).substr(2, 9) }));
-                     setMasterSequence(prev => [...prev, ...newMasterItems]);
-
-                     // 2. Append to All Courts
-                     const newPlans = [...courtPlans];
-                     newPlans.forEach((_, cIdx) => {
-                         const courtCopies = newMasterItems.map(m => ({
-                             ...m,
-                             uid: Math.random().toString(36).substr(2, 9),
-                             masterSourceId: m.uid
-                         }));
-                         newPlans[cIdx] = [...newPlans[cIdx], ...courtCopies];
-                     });
-                     setCourtPlans(newPlans);
-
+                let newCourtPlans = [];
+                if (Array.isArray(loadedPlanData)) {
+                    // It's likely courtPlans array
+                    newCourtPlans = loadedPlanData;
+                } else if (loadedPlanData.courtPlans) {
+                    newCourtPlans = loadedPlanData.courtPlans;
                 } else {
-                    // Keep old behavior for single court? Or maybe disable for single court? 
-                    // Let's allow loading into single court w/o master sync
-                    const newPlans = [...courtPlans];
-                    const specificTemplate = template.map(t => ({ ...t, uid: Math.random().toString(36).substr(2, 9) }));
-                     newPlans[planningTab] = [...newPlans[planningTab], ...specificTemplate];
-                     setCourtPlans(newPlans);
+                    console.error("Unknown template format", loadedPlanData);
+                    return;
                 }
+
+                // If court counts differ, we might need to adjust.
+                // For now, simple replacement or filling.
+                // Let's replace current plans with loaded plans, up to current numCourts.
+                
+                const adaptedPlans = Array.from({ length: numCourts }).map((_, i) => {
+                    return newCourtPlans[i] || []; // Use loaded plan or empty if not enough courts
+                });
+                
+                setCourtPlans(adaptedPlans);
+                // Also reset master sequence? 
+                // If template didn't have master sequence specific data, maybe clear it or try to derive.
+                // For now, clear master
+                setMasterSequence([]);
+                
+                // If template had groups/players, maybe load them?
+                // Usually templates are just drills. Players are per session.
+                // So we keep current groups.
+                
+                // alert("Template loaded successfully."); // Removed per user request
             };
 
             const startSession = () => {
@@ -766,6 +1206,14 @@
                     return { ...state, currentBlockIndex: newIndex, timeLeft: plan[newIndex].duration, isFinished: false };
                 }));
                 setIsPlaying(false);
+            };
+
+            const clearAll = () => {
+                if (window.confirm("Are you sure you want to clear the entire session plan? This will remove all drills from all courts.")) {
+                    const emptyPlans = Array.from({ length: numCourts }, () => []);
+                    setCourtPlans(emptyPlans);
+                    setMasterSequence([]);
+                }
             };
 
             // Drag and Drop Handlers
@@ -799,13 +1247,52 @@
                 const newGroups = [...groups];
                 
                 // Remove from source
-                newGroups[sourceGroupIndex] = newGroups[sourceGroupIndex].filter((_, i) => i !== sourcePlayerIndex);
+                // Remove from source if it was in a group
+                if (sourceGroupIndex > -1) {
+                    newGroups[sourceGroupIndex] = newGroups[sourceGroupIndex].filter((_, i) => i !== sourcePlayerIndex);
+                }
                 
                 // Add to target
                 newGroups[targetGroupIndex] = [...newGroups[targetGroupIndex], player];
                 
                 setGroups(newGroups);
                 setDraggedPlayer(null);
+            };
+
+            const handleDropDrill = (e, targetCourtIndex, data) => {
+                e.preventDefault();
+                const { drillUid, sourceCourtIndex } = data;
+                
+                // If dropping on same court, we might want to reorder (handled by sortable usually, but here we append to bottom if dropped on column generally)
+                // For detailed reordering we need drop targets between items. 
+                // For now, let's assume dropping on column means "move to this court" (append) or "reorder to bottom".
+                
+                if (sourceCourtIndex === targetCourtIndex) {
+                    // Same court - effectively no-op unless we implement specific index targeting
+                    return; 
+                }
+
+                const isCopy = e.ctrlKey || e.metaKey; // Support Ctrl or Command (Mac)
+
+                // Move from Source to Target
+                const newPlans = [...courtPlans];
+                
+                // Find drill in source
+                const drillToMove = newPlans[sourceCourtIndex].find(d => d.uid === drillUid);
+                if (!drillToMove) return;
+
+                if (!isCopy) {
+                    // Remove from source ONLY if not copying
+                    newPlans[sourceCourtIndex] = newPlans[sourceCourtIndex].filter(d => d.uid !== drillUid);
+                }
+                
+                // Add to target
+                // If copying, we MUST generate a new UID to avoid key conflicts
+                const drillToAdd = isCopy ? { ...drillToMove, uid: Date.now() + Math.random().toString(36).substr(2, 9) } : drillToMove;
+                
+                newPlans[targetCourtIndex] = [...newPlans[targetCourtIndex], drillToAdd];
+                
+                setCourtPlans(newPlans);
             };
 
             useEffect(() => {
@@ -997,6 +1484,13 @@
                                     <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
                                 )}
                             </button>
+                            <button 
+                                onClick={clearAll}
+                                className="md:hidden p-2 text-red-500 hover:bg-red-50 rounded-full transition"
+                                title="Clear All"
+                            >
+                                <Trash2 className="w-6 h-6" />
+                            </button>
                         </div>
 
                         {/* Mobile Box: Court Selector + Go Live */}
@@ -1038,119 +1532,187 @@
                     </header>
                     
                     <main className="flex-1 flex overflow-hidden relative">
-                        {/* LEFT: Players & Groups */}
-                        { (!isMobile || activeMobileTab === 'players') && (
-                            <aside className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col overflow-y-auto z-10 animate-in fade-in duration-200">
-                                <div className="p-4 md:p-5 border-b border-slate-100">
-                                    <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-slate-700 flex items-center gap-2"><Users className="w-4 h-4" /> Players</h2><span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-600">{availablePlayers.length} Active</span></div>
-                                    <button onClick={autoGroupPlayers} className="w-full mb-4 flex items-center justify-center gap-2 text-sm bg-indigo-50 text-indigo-700 py-2 rounded-md hover:bg-indigo-100 transition border border-indigo-200"><RefreshCw className="w-3 h-3" /> Auto-Assign</button>
-                                    {groups.length > 0 ? (
-                                        <div className="space-y-3">{groups.map((group, idx) => (
-                                            <div 
-                                                key={idx} 
-                                                className={`p-3 rounded-md border transition-colors ${dragOverGroup === idx ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-200' : 'bg-slate-50 border-slate-200'}`}
-                                                onDragOver={(e) => handleDragOver(e, idx)}
-                                                onDragLeave={handleDragLeave}
-                                                onDrop={(e) => handleDrop(e, idx)}
-                                            >
-                                                <div className="flex justify-between items-center mb-2"><div className="text-xs font-bold text-slate-400 uppercase">Court {idx + 1}</div><div className="text-xs text-slate-400">{group.length} players</div></div>
-                                                <div className="flex flex-wrap gap-2 min-h-[30px]">
-                                                    {group.map((p, pIdx) => (
-                                                        <span 
-                                                            key={p.id} 
-                                                            draggable="true"
-                                                            onDragStart={(e) => handleDragStart(e, p, idx, pIdx)}
-                                                            className="text-sm font-medium text-slate-700 bg-white px-2 py-1 rounded shadow-sm border border-slate-100 cursor-move hover:border-emerald-300 active:cursor-grabbing select-none"
-                                                        >
-                                                            {p.name}
-                                                        </span>
-                                                    ))}
-                                                    {group.length === 0 && <span className="text-xs text-slate-400 italic py-1">Drop players here</span>}
-                                                </div>
+                        {/* LEFT SIDEBAR: Players & Groups - MOBILE ONLY */}
+                        {isMobile && activeMobileTab === 'players' && (
+                            <aside className="w-full absolute z-20 bg-white flex flex-col overflow-y-auto h-full">
+                                <div className="p-4 border-b border-slate-100 flex-shrink-0">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="font-bold text-slate-700 flex items-center gap-2">
+                                            <Users className="w-4 h-4" /> Players
+                                        </h2>
+                                        <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-600">
+                                            {availablePlayers.filter(p => !groups.flat().some(gp => gp.id === p.id)).length} Unassigned
+                                        </span>
+                                    </div>
+                                    <button onClick={autoGroupPlayers} className="w-full mb-2 flex items-center justify-center gap-2 text-xs font-bold bg-indigo-50 text-indigo-700 py-2 rounded-md hover:bg-indigo-100 transition border border-indigo-200">
+                                        <RefreshCw className="w-3 h-3" /> Auto-Assign All
+                                    </button>
+                                </div>
+                                
+                                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Unassigned</h3>
+                                    {availablePlayers.filter(p => !groups.flat().some(gp => gp.id === p.id)).map((p, idx) => (
+                                        <div 
+                                            key={p.id}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                setDraggedPlayer({ player: p, sourceGroupIndex: -1, sourcePlayerIndex: idx });
+                                                e.dataTransfer.effectAllowed = "move";
+                                            }}
+                                            className="bg-white border border-slate-200 rounded-lg p-2 shadow-sm hover:border-emerald-400 hover:shadow-md cursor-grab active:cursor-grabbing flex items-center gap-2"
+                                        >
+                                            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                                                {p.name.charAt(0)}
                                             </div>
-                                        ))}</div>
-                                    ) : <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-200"><p className="text-sm text-slate-500">No Groups Assigned</p></div>}
+                                            <span className="text-sm font-medium text-slate-700 truncate">{p.name}</span>
+                                        </div>
+                                    ))}
+                                    {availablePlayers.filter(p => !groups.flat().some(gp => gp.id === p.id)).length === 0 && (
+                                        <div className="text-center py-8 text-slate-400 text-xs italic">
+                                            All players assigned.
+                                        </div>
+                                    )}
                                 </div>
                             </aside>
                         )}
                         
-                        {/* CENTER: Plan Timeline */}
+                        {/* CENTER: Plan Timeline (Desktop Grid / Mobile List) */}
                         { (!isMobile || activeMobileTab === 'plan') && (
-                        <div className="flex-1 bg-slate-50/50 flex flex-col overflow-hidden w-full">
-                            {/* Desktop Tabs (Hidden on Mobile) */}
-                            <div className="hidden md:flex bg-white px-6 pt-4 border-b border-slate-200 gap-2 shrink-0">
-                                <button onClick={() => setPlanningTab('all')} className={`px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === 'all' ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>All Courts</button>
+                        <div className="flex-1 bg-slate-50/50 flex flex-col overflow-hidden w-full relative">
+                            {/* THE BENCH (Desktop Top Bar) */}
+                            {!isMobile && (
+                                <div className="bg-white px-6 py-2 border-b border-slate-200 flex items-center gap-4 shrink-0 overflow-x-auto custom-scrollbar min-h-[50px]">
+                                    <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase tracking-wider shrink-0 mr-2 border-r border-slate-100 pr-4">
+                                        <Users className="w-4 h-4" /> Bench
+                                        <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full">{availablePlayers.filter(p => !groups.flat().some(gp => gp.id === p.id)).length}</span>
+                                    </div>
+                                    {availablePlayers.filter(p => !groups.flat().some(gp => gp.id === p.id)).map((p, idx) => (
+                                        <div 
+                                            key={p.id}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                setDraggedPlayer({ player: p, sourceGroupIndex: -1, sourcePlayerIndex: idx });
+                                                e.dataTransfer.effectAllowed = "move";
+                                            }}
+                                            className="flex items-center gap-2 bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-sm px-2 py-1 rounded-full cursor-grab active:cursor-grabbing transition shrink-0"
+                                        >
+                                            <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                                {p.name.charAt(0)}
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-700">{p.name}</span>
+                                        </div>
+                                    ))}
+                                    <button onClick={autoGroupPlayers} className="ml-auto flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition shrink-0">
+                                        <RefreshCw className="w-3 h-3" /> Auto-Assign
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Desktop: Grid View Header */}
+                            <div className="hidden md:flex bg-white px-6 py-4 border-b border-slate-200 justify-between items-center shrink-0">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">Session Plan</h2>
+                                    <p className="text-slate-500 text-sm">Drag players and drills to organize.</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setShowNotesModal(true)} className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-emerald-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 transition"><MessageSquare className="w-4 h-4" /> Notes</button>
+                                    <button onClick={() => setShowLoadTemplateModal(true)} className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 transition">Load Template</button>
+                                    <button onClick={() => setShowSaveTemplateModal(true)} className="flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200 transition"><Save className="w-4 h-4" /> Save Template</button>
+                                    <button onClick={addRestPeriod} className="flex items-center gap-2 text-sm font-bold text-amber-700 hover:text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 transition"><Clock className="w-4 h-4" /> Add Rest All</button>
+                                    <button onClick={clearAll} className="flex items-center gap-2 text-sm font-bold text-red-600 hover:text-red-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200 transition"><Trash2 className="w-4 h-4" /> Clear All</button>
+                                </div>
+                            </div>
+                            
+                            {/* Mobile Tabs (Hidden on Desktop) */}
+                            <div className="md:hidden bg-white px-6 pt-4 border-b border-slate-200 gap-2 shrink-0 flex overflow-x-auto">
+                                <button onClick={() => setPlanningTab('all')} className={`px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === 'all' ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Master</button>
                                 {Array.from({ length: numCourts }).map((_, idx) => <button key={idx} onClick={() => setPlanningTab(idx)} className={`px-4 py-2 text-sm font-bold border-b-2 transition ${planningTab === idx ? 'border-blue-500 text-blue-700 bg-blue-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Court {idx + 1}</button>)}
                             </div>
                             
-                            <div className="p-4 md:p-6 pb-2 shrink-0">
-                                <div className="flex flex-col md:flex-row justify-between md:items-end mb-4 md:mb-6 gap-3 md:gap-0">
-                                    <div className="hidden md:block">
-                                        <h2 className="text-xl md:text-2xl font-bold text-slate-800">{planningTab === 'all' ? "Master Session Plan" : `Court ${planningTab + 1} Plan`}</h2>
-                                        <p className="text-slate-500 text-xs md:text-sm mt-1 flex items-center gap-2">{planningTab === 'all' ? <><Copy className="w-3 h-3" /> Changes here apply to ALL courts.</> : "Customize drills specifically for this court."}</p>
-                                    </div>
-                                    <div className="flex gap-2 w-full md:w-auto">
-                                        <button onClick={loadTemplate} className="flex-1 md:flex-none text-xs md:text-sm text-slate-600 hover:text-slate-900 px-3 py-2 bg-white border border-slate-300 rounded shadow-sm">Load Template</button>
-                                        <button onClick={addRestPeriod} className="flex-1 md:flex-none text-xs md:text-sm text-amber-700 hover:text-amber-800 px-3 py-2 bg-amber-50 border border-amber-200 rounded shadow-sm flex items-center justify-center gap-2"><Clock className="w-4 h-4" /> Add Rest</button>
-                                    </div>
+                            {/* Desktop GRID Layout */}
+                            <div className="hidden md:flex flex-1 overflow-x-auto overflow-y-hidden bg-slate-100/50">
+                                <div className={`flex flex-1 h-full ${numCourts === 1 ? 'max-w-4xl mx-auto border-x border-slate-200 shadow-sm' : ''}`}>
+                                {Array.from({ length: numCourts }).map((_, i) => (
+                                    <CourtColumn 
+                                        key={i}
+                                        courtIndex={i}
+                                        courtName={`Court ${i + 1}`}
+                                        drills={courtPlans[i] || []}
+                                        players={groups[i] || []}
+                                        onDropPlayer={handleDrop}
+                                        onDragPlayerStart={handleDragStart}
+                                        onDropDrill={handleDropDrill}
+                                        onDrillInfo={setSelectedDrill}
+                                        onRemovePlayer={(cIdx, pIdx) => {
+                                            const newGroups = [...groups];
+                                            newGroups[cIdx] = newGroups[cIdx].filter((_, idx) => idx !== pIdx);
+                                            setGroups(newGroups);
+                                        }}
+                                        onAddDrill={() => {
+                                            setPlanningTab(i);
+                                            setIsLibraryExpanded(true);
+                                        }}
+                                        onRemoveDrill={(uid) => removeBlock(i, uid, true)}
+                                        onUpdateDrill={(uid, dur, masterId) => updateDuration(i, uid, dur, masterId)}
+                                        isMaster={false}
+                                    />
+                                ))}
                                 </div>
-                                <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider"><div className="col-span-1">Seq</div><div className="col-span-5">Drill Name</div><div className="col-span-2">Duration (Min)</div><div className="col-span-2">Type</div><div className="col-span-2 text-right">Actions</div></div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-32 md:pb-6 custom-scrollbar relative">
-                                {!planToRender || planToRender.length === 0 ? (
-                                    <div className="h-48 md:h-64 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 bg-slate-100/50">
-                                        <Layout className="w-10 h-10 md:w-12 md:h-12 mb-3 opacity-50" />
-                                        <p className="text-center px-4">No drills planned.</p>
-                                        <button onClick={() => setShowMobileDrillPicker(true)} className="md:hidden mt-4 text-emerald-600 font-bold text-sm bg-white px-4 py-2 rounded border border-emerald-200 shadow-sm">Add Drill</button>
+                            {/* Mobile List Layout (Original) */}
+                            <div className="md:hidden flex-1 overflow-y-auto px-4 pb-32 custom-scrollbar relative bg-white">
+                                <div className="py-4">
+                                     <div className="flex justify-between items-end mb-4">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-800">{planningTab === 'all' ? "Master Session Plan" : `Court ${planningTab + 1} Plan`}</h2>
+                                            <p className="text-slate-500 text-xs mt-1">{planningTab === 'all' ? "Applies to all courts." : "Custom plan."}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setShowLoadTemplateModal(true)} className="text-xs text-slate-600 px-3 py-2 bg-slate-50 border rounded">Load</button>
+                                            <button onClick={addRestPeriod} className="text-xs text-amber-700 px-3 py-2 bg-amber-50 border border-amber-200 rounded flex gap-1"><Clock className="w-3 h-3" /> Rest</button>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="space-y-3 md:space-y-2">
-                                        {planToRender.map((block, index) => (
-                                            <div key={block.uid} className={`bg-white rounded-lg shadow-sm border p-3 md:grid md:grid-cols-12 md:gap-4 md:items-center md:p-4 transition-all ${block.isRest ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-200'} ${activeCourtColor}`}>
-                                                {/* Mobile Layout: Flex Column */}
-                                                <div className="flex items-center justify-between mb-2 md:mb-0 md:col-span-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">{index + 1}</span>
-                                                        <button onClick={() => setSelectedDrill(block)} className="text-slate-400 hover:text-blue-500 transition" title="View Details"><Info className="w-4 h-4" /></button>
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium md:hidden ${block.isRest ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{block.type}</span>
+                                    
+                                    {!planToRender || planToRender.length === 0 ? (
+                                        <div className="h-48 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+                                            <Layout className="w-10 h-10 mb-3 opacity-50" />
+                                            <p className="text-center px-4">No drills planned.</p>
+                                            <button onClick={() => setShowMobileDrillPicker(true)} className="mt-4 text-emerald-600 font-bold text-sm bg-white px-4 py-2 rounded border border-emerald-200 shadow-sm">Add Drill</button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {planToRender.map((block, index) => (
+                                                <div key={block.uid} className={`bg-white rounded-lg shadow-sm border p-3 transition-all ${block.isRest ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-200'} ${activeCourtColor}`}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">{index + 1}</span>
+                                                            <button onClick={() => setSelectedDrill(block)} className="text-slate-400 hover:text-blue-500"><Info className="w-4 h-4" /></button>
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${block.isRest ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{block.type}</span>
+                                                        </div>
+                                                        <button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                                                     </div>
-                                                    <button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="md:hidden p-2 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-
-                                                <div className="md:col-span-5 mb-2 md:mb-0">
-                                                    <input type="text" value={block.customName} onChange={(e) => { if (planningTab !== 'all') { const newPlans = [...courtPlans]; newPlans[planningTab][index].customName = e.target.value; setCourtPlans(newPlans); } }} disabled={planningTab === 'all'} className="w-full bg-transparent font-medium text-slate-700 text-sm md:text-base focus:outline-none focus:underline disabled:text-slate-500 truncate" />
-                                                </div>
-
-                                                <div className="flex items-center justify-between md:col-span-2 md:justify-start">
+                                                    <div className="mb-2">
+                                                        <input type="text" value={block.customName} onChange={(e) => { if (planningTab !== 'all') { const newPlans = [...courtPlans]; newPlans[planningTab][index].customName = e.target.value; setCourtPlans(newPlans); } }} disabled={planningTab === 'all'} className="w-full bg-transparent font-medium text-slate-700 text-sm focus:outline-none focus:underline disabled:text-slate-500 truncate" />
+                                                    </div>
                                                     <div className="flex items-center gap-2">
-                                                        <Clock className="w-3 h-3 text-slate-400 md:hidden" />
-                                                        <input type="number" step="0.5" min="0.5" value={block.duration / 60} onChange={(e) => updateDuration(planningTab === 'all' ? 0 : planningTab, block.uid, Math.round(parseFloat(e.target.value) * 60))} className="w-16 p-1 text-sm border border-slate-300 rounded text-center focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                                        <Clock className="w-3 h-3 text-slate-400" />
+                                                        <input type="number" step="0.5" min="0.5" value={block.duration / 60} onChange={(e) => updateDuration(planningTab === 'all' ? 0 : planningTab, block.uid, Math.round(parseFloat(e.target.value) * 60))} className="w-16 p-1 text-sm border border-slate-300 rounded text-center focus:outline-none" />
                                                         <span className="text-xs text-slate-400">min</span>
                                                     </div>
                                                 </div>
-
-                                                <div className="hidden md:block md:col-span-2"><span className={`text-xs px-2 py-1 rounded-full font-medium ${block.isRest ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{block.type}</span></div>
-                                                
-                                                <div className="hidden md:block md:col-span-2 text-right"><button onClick={() => removeBlock(planningTab === 'all' ? 0 : planningTab, block.uid)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition"><Trash2 className="w-4 h-4" /></button></div>
-                                            </div>
-                                        ))}
-                                        {/* Mobile Add Drill FAB Area */}
-                                        <button 
-                                            onClick={() => setShowMobileDrillPicker(true)}
-                                            className="md:hidden w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition"
-                                        >
-                                            <Plus className="w-5 h-5" /> Add New Drill
-                                        </button>
-                                        <div className="mt-4 p-4 text-right text-sm font-medium text-slate-500">Total: <span className="text-slate-900 font-bold">{formatTime(planToRender.reduce((acc, curr) => acc + curr.duration, 0))}</span></div>
-                                    </div>
-                                )}
+                                            ))}
+                                            <button onClick={() => setShowMobileDrillPicker(true)} className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition"><Plus className="w-5 h-5" /> Add New Drill</button>
+                                            <div className="mt-4 p-4 text-right text-sm font-medium text-slate-500">Total: <span className="text-slate-900 font-bold">{formatTime(planToRender.reduce((acc, curr) => acc + curr.duration, 0))}</span></div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         )}
 
                         {/* RIGHT: Drill Library */}
-                        <aside className={`hidden md:flex absolute inset-0 bg-white z-10 ${isLibraryExpanded ? 'md:absolute md:left-auto md:right-0 md:w-3/4 md:shadow-2xl border-l-2' : 'md:relative md:w-72 border-l'} border-slate-200 flex-col transition-all duration-300 group/sidebar`}>
+                        <aside className={`hidden md:flex absolute inset-0 bg-white z-10 ${isLibraryExpanded ? 'md:absolute md:left-auto md:right-0 md:w-3/4 md:shadow-2xl border-l-2' : (numCourts <= 3 ? 'md:relative md:w-[450px] lg:w-[550px] border-l' : 'md:relative md:w-72 border-l')} border-slate-200 flex-col transition-all duration-300 group/sidebar`}>
                             {/* Toggle Button - Desktop Only */}
                             <button 
                                 onClick={() => setIsLibraryExpanded(!isLibraryExpanded)}
@@ -1161,7 +1723,16 @@
                             </button>
                             <div className="p-4 border-b border-slate-100 flex flex-col gap-3">
                                 <h3 className="font-bold text-slate-700">Drill Library</h3>
-                                <div className="relative"><Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" /><input type="text" placeholder="Search drills..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-emerald-500" /></div>
+                                <div className="relative">
+                                    <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search drills..." 
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:outline-none focus:border-emerald-500" 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
                                 
                                 {/* Category Filter */}
                                 <div className={`flex gap-2 ${isLibraryExpanded ? 'flex-wrap' : 'overflow-x-auto pb-2 -mx-4 px-4 custom-scrollbar'}`}>
@@ -1182,7 +1753,11 @@
                                 </div>
                             </div>
                             <div className={`flex-1 overflow-y-auto p-2 ${isLibraryExpanded ? 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 content-start' : 'space-y-2'}`}>
-                                {availableDrills.filter(d => selectedCategory === 'All' || d.type === selectedCategory).map(drill => (
+                                {availableDrills.filter(d => {
+                                    const matchCat = selectedCategory === 'All' || d.type === selectedCategory;
+                                    const matchSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
+                                    return matchCat && matchSearch;
+                                }).map(drill => (
                                     <div key={drill.id} className="group p-3 rounded-md border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition cursor-pointer bg-white shadow-sm relative" onClick={() => setExpandedDrillId(expandedDrillId === drill.id ? null : drill.id)}>
                                         <div className="flex justify-between items-start"><h4 className="font-medium text-sm text-slate-800">{drill.name}</h4>
                                         <div className="flex gap-1">
@@ -1194,7 +1769,7 @@
                                                 <Info className="w-3 h-3" />
                                             </button>
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); addDrillToPlan(drill); }}
+                                                onClick={(e) => { e.stopPropagation(); addDrillToPlan(drill); setIsLibraryExpanded(false); }}
                                                 className="md:opacity-0 md:group-hover:opacity-100 p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition" 
                                                 title={planningTab === 'all' ? "Add to ALL courts" : `Add to Court ${planningTab + 1}`}
                                             >
@@ -1349,6 +1924,22 @@
                                     setShowMobileDrillPicker(false);
                                     setShowCreateDrillModal(true);
                                 }}
+                            />
+                        )}
+                        {/* Save/Load Template Modals */}
+                        {showLoadTemplateModal && (
+                            <LoadTemplateModal 
+                                onClose={() => setShowLoadTemplateModal(false)}
+                                onLoad={handleTemplateLoaded}
+                            />
+                        )}
+
+                        {showSaveTemplateModal && (
+                            <SaveTemplateModal 
+                                onClose={() => setShowSaveTemplateModal(false)}
+                                onSave={() => console.log("Template Saved")}
+                                planData={courtPlans}
+                                courtCount={numCourts}
                             />
                         )}
                     </main>
