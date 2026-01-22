@@ -659,9 +659,9 @@
             const [isDragOver, setIsDragOver] = useState(false);
             const itemRef = useRef(null);
             
-            // 1 min = 12px (previously 4). Min height 60px covers 5 mins.
-            // This ensures drills > 5 mins start growing immediately.
-            const height = Math.max(60, Math.round((drill.duration / 60) * 12)); 
+            // 1 min = 10px (previously 12). Min height 60px covers 6 mins.
+            // This ensures drills > 6 mins start growing immediately.
+            const height = Math.max(60, Math.round((drill.duration / 60) * 10)); 
             const isTall = height > 80;
 
             const styles = getCategoryStyle(drill.type, isRest);
@@ -678,7 +678,7 @@
                 
                 const handleMouseMove = (moveEvent) => {
                     const deltaY = moveEvent.clientY - startY;
-                    const deltaMinutes = deltaY / 12; // Match scale factor
+                    const deltaMinutes = deltaY / 10; // Match scale factor
                     const newDurationSeconds = Math.max(60, startDuration + (deltaMinutes * 60));
                     onUpdateDuration(drill.uid, newDurationSeconds, drill.masterSourceId);
                 };
