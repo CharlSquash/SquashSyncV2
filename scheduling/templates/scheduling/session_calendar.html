@@ -214,10 +214,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Copy the link below and add it to your calendar app as a 'Subscription' or 'URL' calendar.</p>
+                <p>Click the link below to select it, then copy it manually (Ctrl+C) and add it to your calendar app as a 'Subscription' or 'URL' calendar.</p>
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" value="{{ calendar_sync_url }}" id="calendarSyncLink" readonly>
-                    <button class="btn btn-outline-secondary" type="button" id="copySyncLinkBtn">Copy to Clipboard</button>
+                    <input type="text" class="form-control" value="{{ calendar_sync_url }}" id="calendarSyncLink" readonly onclick="this.select()">
                 </div>
                 <small class="text-muted">This feed includes your sessions for the future and the past 3 months.</small>
             </div>
@@ -715,63 +714,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // --- Calendar Sync Copy Functionality (Robust with Fallback) ---
-    const copySyncBtn = document.getElementById('copySyncLinkBtn');
-    if (copySyncBtn) {
-        copySyncBtn.addEventListener('click', function() {
-            const copyText = document.getElementById("calendarSyncLink");
-            
-            // 1. Ensure element is selected (Critical for execCommand fallback)
-            copyText.focus();
-            copyText.select();
-            copyText.setSelectionRange(0, 99999); /* For mobile devices */
 
-            // Helper: Visual Success Feedback
-            const showSuccess = () => {
-                const originalText = copySyncBtn.innerHTML;
-                const originalClass = copySyncBtn.className; 
-                
-                copySyncBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
-                copySyncBtn.className = 'btn btn-success'; // Switch to green
-                
-                setTimeout(() => {
-                    copySyncBtn.innerHTML = originalText;
-                    copySyncBtn.className = originalClass; // Restore
-                }, 2000);
-            };
-
-            // Helper: Fallback method using execCommand
-            const tryFallbackCopy = () => {
-                try {
-                    const successful = document.execCommand('copy');
-                    if (successful) {
-                        showSuccess();
-                    } else {
-                        console.error('Fallback copy command failed.');
-                        alert("Your browser prevented the copy. Please manually select and copy the link.");
-                    }
-                } catch (err) {
-                    console.error('Fallback copy error:', err);
-                    alert("Unable to copy. Please manually select and copy the link.");
-                }
-            };
-
-            // 2. Attempt Copy
-            // Check if navigator.clipboard exists (it is often undefined on HTTP)
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(copyText.value).then(function() {
-                    showSuccess();
-                }).catch(function(err) {
-                    console.warn('Navigator Clipboard API failed (likely modal focus), trying fallback...', err);
-                    tryFallbackCopy();
-                });
-            } else {
-                // If HTTP or API missing, go straight to fallback
-                console.log('Insecure context or API missing, using fallback.');
-                tryFallbackCopy();
-            }
-        });
-    }
 });
 </script>
 {% endblock %}
