@@ -66,10 +66,10 @@
                             <li><i class="bi bi-geo-alt"></i> {{ item.session.venue.name|default:"No venue" }}</li>
                             {% if item.confirmed_coaches %}
                             <li><i class="bi bi-people-fill"></i> 
-                                {% for coach_name in item.confirmed_coaches %}
+                                {% for coach in item.confirmed_coaches %}
                                     <span class="badge bg-light text-dark border">
-                                        {{ coach_name }}
-                                        {% if item.is_head_coach and coach_name == user.coach_profile.first_name|default:user.coach_profile.name %}
+                                        {{ coach.name }}
+                                        {% if coach.is_head_coach %}
                                             <i class="bi bi-star-fill text-warning" title="Head Coach"></i>
                                         {% endif %}
                                     </span>

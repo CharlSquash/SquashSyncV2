@@ -181,7 +181,7 @@
                     {% for day in display_week %}
                         {% if day.sessions %}
                             {% for item in day.sessions %}
-                                <tr class="{% if forloop.last %}day-group-end{% endif %}" data-day="{{ day.day_name }}" data-venue="{{ item.session_obj.venue.name|default:'Unknown Venue' }}" style="background-color: {{ item.bg_color }}; color: {{ item.text_color }};">
+                                <tr class="{% if forloop.last %}day-group-end{% endif %}" data-day="{{ day.day_name }}" data-venue="{{ item.session_obj.venue.name|default:'Unknown Venue' }}" data-bg-color="{{ item.bg_color }}" data-text-color="{{ item.text_color }}">
                                     {% if forloop.first %}
                                         <td rowspan="{{ day.sessions|length }}" style="vertical-align: middle; text-align: center;" class="day-cell">
                                             <strong>{{ day.day_name }}</strong><br>{{ item.session_obj.session_date|date:"d M" }}
@@ -237,7 +237,7 @@
                         {% for item in day.sessions %}
                             <details class="session-staffing-item">
                                 <summary>
-                                    <div class="session-summary-info" style="background-color: {{ item.bg_color }}; color: {{ item.text_color }}; padding: 0.5rem; border-radius: 4px;">
+                                    <div class="session-summary-info" data-bg-color="{{ item.bg_color }}" data-text-color="{{ item.text_color }}" style="padding: 0.5rem; border-radius: 4px;">
                                         <h3>
                                             {{ item.session_obj.school_group.name|default:"General Session" }}
                                             <a href="{% url 'scheduling:session_detail' item.session_obj.id %}" title="View Session Plan" class="view-plan-link">(View Plan)</a>
@@ -399,6 +399,14 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Apply dynamic colors from data attributes to fix template syntax errors in style tags
+    document.querySelectorAll('[data-bg-color]').forEach(el => {
+        if (el.dataset.bgColor) el.style.backgroundColor = el.dataset.bgColor;
+    });
+    document.querySelectorAll('[data-text-color]').forEach(el => {
+        if (el.dataset.textColor) el.style.color = el.dataset.textColor;
+    });
+
     // ... existing JS for getCookie, assignment form, duration update ...
     function getCookie(name) {
         let cookieValue = null;

@@ -266,23 +266,30 @@ def _coach_dashboard(request):
             # Extract confirmed coaches names
             # FIX: Only show confirmed coaches IF they are actually assigned to the session
             confirmed_coaches = []
+            head_coach = session.get_head_coach()
             if hasattr(session, 'confirmed_coach_availabilities'):
                 # Get IDs of users who are assigned coaches
                 assigned_user_ids = set(c.user_id for c in session.coaches_attending.all() if c.user_id)
                 
-                confirmed_coaches = [
-                    ca.coach.first_name if ca.coach.first_name else ca.coach.username 
-                    for ca in session.confirmed_coach_availabilities
-                    if ca.coach_id in assigned_user_ids
-                ]
+                # Transform to dictionary to include Head Coach status
+                for ca in session.confirmed_coach_availabilities:
+                    if ca.coach_id in assigned_user_ids:
+                        is_hc = False
+                        if head_coach and head_coach.user == ca.coach:
+                            is_hc = True
+                            
+                        confirmed_coaches.append({
+                            'name': ca.coach.first_name if ca.coach.first_name else ca.coach.username,
+                            'is_head_coach': is_hc
+                        })
 
             sessions_for_coach_card.append({
                 'session': session,
                 'status': status,
                 'show_actions': show_actions,
                 'duration': assignment.coaching_duration_minutes if assignment else session.planned_duration_minutes,
-                'confirmed_coaches': confirmed_coaches, # Add to list
-                'is_head_coach': session.get_head_coach() == coach, # Determine if this user is the Head Coach
+                'confirmed_coaches': confirmed_coaches, # List of dicts now
+                'is_head_coach': head_coach == coach, # Determine if THIS user is the Head Coach
             })
 
         # --- Pending assessment logic (remains the same) ---
