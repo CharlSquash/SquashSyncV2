@@ -282,6 +282,7 @@ def _coach_dashboard(request):
                 'show_actions': show_actions,
                 'duration': assignment.coaching_duration_minutes if assignment else session.planned_duration_minutes,
                 'confirmed_coaches': confirmed_coaches, # Add to list
+                'is_head_coach': session.get_head_coach() == coach, # Determine if this user is the Head Coach
             })
 
         # --- Pending assessment logic (remains the same) ---
@@ -1397,18 +1398,31 @@ def assign_coaches_ajax(request):
 
         # --- THIS IS THE FIX ---
         # Instead of session.coaches_attending.set(), we manually manage the through model
+        
+        # New: Get head_coach_id from request
+        head_coach_id = data.get('head_coach_id')
+        if head_coach_id:
+             try:
+                 head_coach_id = int(head_coach_id)
+             except (ValueError, TypeError):
+                 head_coach_id = None
+
         with transaction.atomic():
             # 1. Remove all existing assignments for this session
             SessionCoach.objects.filter(session=session).delete()
             
             # 2. Create new assignments with the default duration
-            new_assignments = [
-                SessionCoach(
-                    session=session,
-                    coach_id=coach_id,
-                    coaching_duration_minutes=session.planned_duration_minutes
-                ) for coach_id in coach_ids
-            ]
+            new_assignments = []
+            for coach_id in coach_ids:
+                is_head = (coach_id == head_coach_id)
+                new_assignments.append(
+                    SessionCoach(
+                        session=session,
+                        coach_id=coach_id,
+                        coaching_duration_minutes=session.planned_duration_minutes,
+                        is_head_coach=is_head
+                    )
+                )
             SessionCoach.objects.bulk_create(new_assignments)
         # --- END OF FIX ---
 
@@ -1927,3 +1941,66 @@ def delete_session_ajax(request):
         return JsonResponse({'status': 'success', 'message': 'Session deleted successfully.'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# --- Email Preview View ---
+@login_required
+def preview_head_coach_email(request):
+    """
+    Renders the consolidated session reminder email template for preview purposes.
+    Mocks a session where the current user is the Head Coach.
+    """
+    if not request.user.is_staff:
+        return HttpResponseForbidden("Only staff can preview emails.")
+
+    # 1. Create a mock session object (using a class to allow property access)
+    class MockSchoolGroup:
+        name = "Preview Group"
+
+    class MockVenue:
+        name = "Preview Court"
+
+    class MockSession:
+        id = 999
+        session_date = timezone.now().date() + timedelta(days=1)
+        session_start_time = datetime.now().time()
+        start_datetime = timezone.now() + timedelta(days=1)
+        planned_duration_minutes = 60
+        school_group = MockSchoolGroup()
+        venue = MockVenue()
+        status = 'active'
+        is_cancelled = False
+        
+        # Mocking the get_head_coach method
+        def get_head_coach(self):
+            # Return a mock object with a user attribute matching the current user
+            class MockCoach:
+                user = request.user
+            return MockCoach()
+            
+    # 2. Build the context structure expected by the template
+    mock_session = MockSession()
+    session_details = [{
+        'session_obj': mock_session,
+        'duration': 60,
+        'status': 'Confirmed',
+        'is_head_coach': True, # Explicitly true for this preview
+    }]
+    
+    # Structure: sessions_by_day = { date: {'sessions': [...], 'confirm_url': ..., 'decline_url': ...} }
+    sessions_by_day = {
+        mock_session.session_date: {
+            'sessions': session_details,
+            'confirm_url': '#',
+            'decline_url': '#'
+        }
+    }
+    
+    context = {
+        'coach_name': request.user.first_name or "Coach",
+        'sessions_by_day': sessions_by_day,
+        'is_reminder': True,
+        'site_name': "SquashSync Preview",
+        'user': request.user # Pass user explicitly if template needs it
+    }
+    
+    return render(request, 'scheduling/emails/consolidated_session_reminder.html', context)

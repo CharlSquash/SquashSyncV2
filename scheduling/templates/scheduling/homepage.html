@@ -67,9 +67,19 @@
                             {% if item.confirmed_coaches %}
                             <li><i class="bi bi-people-fill"></i> 
                                 {% for coach_name in item.confirmed_coaches %}
-                                    <span class="badge bg-light text-dark border">{{ coach_name }}</span>
+                                    <span class="badge bg-light text-dark border">
+                                        {{ coach_name }}
+                                        {% if item.is_head_coach and coach_name == user.coach_profile.first_name|default:user.coach_profile.name %}
+                                            <i class="bi bi-star-fill text-warning" title="Head Coach"></i>
+                                        {% endif %}
+                                    </span>
                                 {% endfor %}
                             </li>
+                            {% endif %}
+                            
+                            {# New: Show explicit HC badge for the current user if they are Head Coach #}
+                            {% if item.is_head_coach %}
+                                <li class="mt-1"><span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> You are Head Coach</span></li>
                             {% endif %}
                         </ul>
                         <div class="upcoming-session-actions">

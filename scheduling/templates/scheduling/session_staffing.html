@@ -181,7 +181,7 @@
                     {% for day in display_week %}
                         {% if day.sessions %}
                             {% for item in day.sessions %}
-                                <tr {% if forloop.last %}class="day-group-end"{% endif %} data-day="{{ day.day_name }}" data-venue="{{ item.session_obj.venue.name|default:'Unknown Venue' }}" style="background-color: {{ item.bg_color }}; color: {{ item.text_color }};">
+                                <tr class="{% if forloop.last %}day-group-end{% endif %}" data-day="{{ day.day_name }}" data-venue="{{ item.session_obj.venue.name|default:'Unknown Venue' }}" style="background-color: {{ item.bg_color }}; color: {{ item.text_color }};">
                                     {% if forloop.first %}
                                         <td rowspan="{{ day.sessions|length }}" style="vertical-align: middle; text-align: center;" class="day-cell">
                                             <strong>{{ day.day_name }}</strong><br>{{ item.session_obj.session_date|date:"d M" }}
@@ -258,9 +258,9 @@
                                         </div>
                                     </div>
                                     <div class="session-status-indicators">
-                                        <span class="status-indicator indicator-pending" title="Pending responses" style="display: {% if item.has_pending_confirmations %}inline-block{% else %}none{% endif %};"><i class="bi bi-hourglass-split"></i> Pending</span>
-                                        <span class="status-indicator indicator-declined" title="Declined" style="display: {% if item.has_declined_coaches %}inline-block{% else %}none{% endif %};"><i class="bi bi-x-circle"></i> Declined</span>
-                                        <span class="status-indicator indicator-unstaffed" title="Unstaffed" style="display: {% if not item.assigned_coaches_with_status %}inline-block{% else %}none{% endif %};"><i class="bi bi-exclamation-triangle"></i> Unstaffed</span>
+                                        <span class="status-indicator indicator-pending" title="Pending responses" {% if item.has_pending_confirmations %}style="display: inline-block;"{% else %}style="display: none;"{% endif %}><i class="bi bi-hourglass-split"></i> Pending</span>
+                                        <span class="status-indicator indicator-declined" title="Declined" {% if item.has_declined_coaches %}style="display: inline-block;"{% else %}style="display: none;"{% endif %}><i class="bi bi-x-circle"></i> Declined</span>
+                                        <span class="status-indicator indicator-unstaffed" title="Unstaffed" {% if not item.assigned_coaches_with_status %}style="display: inline-block;"{% else %}style="display: none;"{% endif %}><i class="bi bi-exclamation-triangle"></i> Unstaffed</span>
                                     </div>
                                 </summary>
                                 <div class="session-details-body">
@@ -325,12 +325,20 @@
                                                         {% for coach in all_coaches_for_form %}
                                                             {% if coach.id in assigned_coach_ids or coach.id in available_coach_ids %}
                                                                 {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
+                                                                <div class="d-flex align-items-center justify-content-between mb-1">
                                                                 <div class="form-check">
                                                                     <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if coach.id in assigned_coach_ids %}checked{% endif %} {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
                                                                     <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
                                                                         {{ coach.name }}
                                                                         {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
                                                                     </label>
+                                                                </div>
+                                                                <div class="ms-auto">
+                                                                    <div class="form-check form-check-inline" title="Designate as Head Coach">
+                                                                        <input class="form-check-input head-coach-radio" type="radio" name="head_coach_{{ item.session_obj.id }}" value="{{ coach.id }}" id="hc-{{ item.session_obj.id }}-{{ coach.id }}">
+                                                                        <label class="form-check-label small text-muted" for="hc-{{ item.session_obj.id }}-{{ coach.id }}">Head Coach</label>
+                                                                    </div>
+                                                                </div>
                                                                 </div>
                                                                 {% endwith %}
                                                             {% endif %}
@@ -346,12 +354,18 @@
                                                             {% for coach in all_coaches_for_form %}
                                                                 {% if coach.id not in assigned_coach_ids and coach.id not in available_coach_ids %}
                                                                     {% with conflict_warning=item.coach_conflict_map|get_item:coach.id %}
+                                                                    <div class="d-flex align-items-center justify-content-between mb-1">
                                                                     <div class="form-check">
                                                                         <input class="form-check-input" type="checkbox" name="coaches_for_session_{{ item.session_obj.id }}" value="{{ coach.id }}" id="coach-{{ item.session_obj.id }}-{{ coach.id }}" {% if conflict_warning %}data-conflict-warning="{{ conflict_warning }}"{% endif %}>
                                                                         <label class="form-check-label" for="coach-{{ item.session_obj.id }}-{{ coach.id }}">
                                                                             {{ coach.name }}
                                                                             {% if conflict_warning %}<i class="bi bi-exclamation-triangle-fill text-warning" title="{{ conflict_warning }}"></i>{% endif %}
                                                                         </label>
+                                                                    </div>
+                                                                    <div class="form-check form-check-inline" title="Designate as Head Coach">
+                                                                        <input class="form-check-input head-coach-radio" type="radio" name="head_coach_{{ item.session_obj.id }}" value="{{ coach.id }}" id="hc-{{ item.session_obj.id }}-{{ coach.id }}">
+                                                                        <label class="form-check-label small text-muted" for="hc-{{ item.session_obj.id }}-{{ coach.id }}">Head Coach</label>
+                                                                    </div>
                                                                     </div>
                                                                     {% endwith %}
                                                                 {% endif %}
@@ -418,13 +432,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 const coachCheckboxes = form.querySelectorAll(`input[name="coaches_for_session_${sessionId}"]:checked`);
                 const coachIds = Array.from(coachCheckboxes).map(cb => cb.value);
 
+                // Get selected Head Coach ID
+                const headCoachRadio = form.querySelector(`input[name="head_coach_${sessionId}"]:checked`);
+                const headCoachId = headCoachRadio ? headCoachRadio.value : null;
+
+                // Validation: If a head coach is selected, ensure they are also assigned (checked)
+                // (Though the UI logic below tries to enforce this, defensive check is good)
+                if (headCoachId && !coachIds.includes(headCoachId)) {
+                    alert("The selected Head Coach must also be assigned to the session.");
+                    return;
+                }
+
                 updateButton.disabled = true;
                 updateButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Updating...';
 
                 fetch("{% url 'scheduling:assign_coaches_ajax' %}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                    body: JSON.stringify({ session_id: sessionId, coach_ids: coachIds })
+                    body: JSON.stringify({ 
+                        session_id: sessionId, 
+                        coach_ids: coachIds,
+                        head_coach_id: headCoachId 
+                    })
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -550,9 +579,54 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!confirm(message)) {
                         event.preventDefault(); // Prevent checking the box if user cancels
                         checkbox.checked = false; // Explicitly uncheck
+                        return; // Stop further processing
                     }
                 }
             }
+
+            // --- Head Coach Radio Logic ---
+            // If a coach is unchecked, uncheck and disable their Head Coach radio
+            // If a coach is checked, enable their Head Coach radio
+            // This runs on every change event in the form
+            
+            // Re-evaluate all radio buttons in this form
+            const sessionId = form.dataset.sessionId;
+            const allCoachCheckboxes = form.querySelectorAll(`input[name="coaches_for_session_${sessionId}"]`);
+            
+            allCoachCheckboxes.forEach(cb => {
+                const coachId = cb.value;
+                const radio = form.querySelector(`input[name="head_coach_${sessionId}"][value="${coachId}"]`);
+                if (radio) {
+                    if (cb.checked) {
+                        radio.disabled = false;
+                        radio.parentElement.classList.remove('opacity-50');
+                    } else {
+                        radio.disabled = true;
+                        radio.checked = false;
+                        radio.parentElement.classList.add('opacity-50');
+                    }
+                }
+            });
+        });
+        
+        // Initial run to set correct state on page load
+        document.querySelectorAll('.assignment-form').forEach(form => {
+             const sessionId = form.dataset.sessionId;
+             const allCoachCheckboxes = form.querySelectorAll(`input[name="coaches_for_session_${sessionId}"]`);
+             allCoachCheckboxes.forEach(cb => {
+                const coachId = cb.value;
+                const radio = form.querySelector(`input[name="head_coach_${sessionId}"][value="${coachId}"]`);
+                if (radio) {
+                     if (cb.checked) {
+                        radio.disabled = false;
+                        radio.parentElement.classList.remove('opacity-50');
+                    } else {
+                        radio.disabled = true;
+                        radio.checked = false;
+                        radio.parentElement.classList.add('opacity-50');
+                    }
+                }
+             });
         });
     });
 

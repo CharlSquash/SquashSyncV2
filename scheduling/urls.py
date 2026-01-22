@@ -29,4 +29,5 @@ urlpatterns = [
     path('api/session/delete/', views.delete_session_ajax, name='delete_session_ajax'),
     # Feeds
     path('feed/calendar/<str:token>/', feeds.coach_calendar_feed, name='coach_calendar_feed'),
+    path('email-preview/', views.preview_head_coach_email, name='preview_head_coach_email'),
 ]

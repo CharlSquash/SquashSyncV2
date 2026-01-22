@@ -176,6 +176,18 @@
                     </div>
                     {% endfor %}
                     
+                    {# --- Head Coach Specific Message --- #}
+                    {% for item in day_data.sessions %}
+                        {% if item.is_head_coach %}
+                        <div style="background-color: #fff3cd; color: #856404; padding: 10px; margin-bottom: 5px; border: 1px solid #ffeeba; border-radius: 4px; font-size: 0.9em;">
+                            <strong><i class="bi bi-star-fill"></i> Head Coach Duty:</strong> 
+                            You are the designated Head Coach for the <strong>{{ item.session_obj.school_group.name }}</strong> session at {{ item.session_obj.session_start_time|time:"H:i" }}.
+                            Please ensure you have prepared the lesson plan.
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                    {# --- End Head Coach Message --- #}
+                    
                     {# --- Bulk Actions --- #}
                     <div class="actions">
                         <a href="{{ day_data.confirm_url }}" class="button confirm-button">Confirm All for {{ date|date:"l" }}</a>

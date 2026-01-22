@@ -142,6 +142,7 @@ def send_consolidated_session_reminder_email(user, sessions_by_day, is_reminder=
                 'session_obj': session,
                 'duration': duration,
                 'status': status, # Add the current status
+                'is_head_coach': getattr(session.get_head_coach(), 'user', None) == user,
             })
 
         # Generate bulk action tokens (remain the same)

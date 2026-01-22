@@ -143,6 +143,33 @@ class Session(models.Model):
             return start + datetime.timedelta(minutes=self.planned_duration_minutes)
         return None
 
+    def get_head_coach(self):
+        """
+        Returns the Head Coach for this session.
+        Logic:
+        1. Checks for an explicit 'is_head_coach=True' in SessionCoach.
+        2. Fallback: Returns the assigned coach with the highest hourly_rate.
+        """
+        # 1. Check for explicit Head Coach
+        explicit_head = self.sessioncoach_set.filter(is_head_coach=True).select_related('coach').first()
+        if explicit_head:
+            return explicit_head.coach
+        
+        # 2. Fallback: Highest hourly_rate
+        # We need to make sure we're looking at ASSIGNED coaches.
+        # coahces_attending uses the SessionCoach through model.
+        # We can query the Coach objects directly via coahces_attending.
+        # Assuming 'hourly_rate' is a field on the Coach model (or its profile).
+        # Based on context, Coach IS the user model or a profile? 
+        # Looking at imports: 'from accounts.models import Coach'
+        # Let's verify if we can order by hourly_rate.
+        
+        assigned_coaches = self.coaches_attending.all().order_by('-hourly_rate')
+        if assigned_coaches.exists():
+            return assigned_coaches.first()
+            
+        return None
+
     def __str__(self):
         group_name = self.school_group.name if self.school_group else "General"
         start_time_str = self.session_start_time.strftime('%H:%M')
@@ -164,6 +191,7 @@ class SessionCoach(models.Model):
     coaching_duration_minutes = models.PositiveIntegerField(
         help_text="The planned duration this coach will be at the session, in minutes."
     )
+    is_head_coach = models.BooleanField(default=False, help_text="Designates if this coach is the Head Coach for the session.")
 
     class Meta:
         unique_together = ('session', 'coach')
