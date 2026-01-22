@@ -12,7 +12,8 @@ urlpatterns = [
     path('api/session/<int:session_id>/save_plan/', views.save_session_plan, name='save_session_plan'),
     path('my-availability/', views.my_availability, name='my_availability'),
     path('session/<int:session_id>/attendance/', views.visual_attendance, name='visual_attendance'),
-    path('bulk-availability/', views.set_bulk_availability_view, name='set_bulk_availability'),
+    # TODO: RESTORE BULK AVAILABILITY
+    # path('bulk-availability/', views.set_bulk_availability_view, name='set_bulk_availability'),
     path('confirm/<int:session_id>/<str:token>/', views.confirm_attendance, name='confirm_attendance'),
     path('decline-with-reason/<int:session_id>/<str:token>/', views.decline_attendance_reason, name='decline_attendance_reason'),
     path('confirm-all/<str:date_str>/<str:token>/', views.confirm_all_for_day, name='confirm_all_for_day'),

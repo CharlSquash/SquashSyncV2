@@ -181,52 +181,53 @@ def _coach_dashboard(request):
             CoachAvailability.Status.EMERGENCY,
         ]
 
-        # Check if current month needs availability
-        # Logic: Sessions exist (from rule, not blocked) AND
-        # (Coach has NO availability record OR status is not in SET_STATUSES)
-        needs_availability_current_month = Session.objects.filter(
-            session_date__year=this_month_start.year,
-            session_date__month=this_month_start.month,
-            generated_from_rule__isnull=False,
-            is_cancelled=False
-        ).exclude(
-            coach_availabilities__coach=request.user,
-            coach_availabilities__status__in=SET_STATUSES
-        ).exists()
+        # TODO: RESTORE BULK AVAILABILITY
+        # # Check if current month needs availability
+        # # Logic: Sessions exist (from rule, not blocked) AND
+        # # (Coach has NO availability record OR status is not in SET_STATUSES)
+        # needs_availability_current_month = Session.objects.filter(
+        #     session_date__year=this_month_start.year,
+        #     session_date__month=this_month_start.month,
+        #     generated_from_rule__isnull=False,
+        #     is_cancelled=False
+        # ).exclude(
+        #     coach_availabilities__coach=request.user,
+        #     coach_availabilities__status__in=SET_STATUSES
+        # ).exists()
         
-        # Check if next month needs availability
-        needs_availability_next_month = Session.objects.filter(
-            session_date__year=next_month_start.year,
-            session_date__month=next_month_start.month,
-            generated_from_rule__isnull=False,
-            is_cancelled=False
-        ).exclude(
-            coach_availabilities__coach=request.user,
-            coach_availabilities__status__in=SET_STATUSES
-        ).exists()
+        # # Check if next month needs availability
+        # needs_availability_next_month = Session.objects.filter(
+        #     session_date__year=next_month_start.year,
+        #     session_date__month=next_month_start.month,
+        #     generated_from_rule__isnull=False,
+        #     is_cancelled=False
+        # ).exclude(
+        #     coach_availabilities__coach=request.user,
+        #     coach_availabilities__status__in=SET_STATUSES
+        # ).exists()
         
-        if needs_availability_current_month:
-            show_bulk_availability_reminder = True
-            prompt_month_name = this_month_start.strftime('%B')
-            bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={this_month_start.strftime('%Y-%m')}"
-        elif needs_availability_next_month:
-            show_bulk_availability_reminder = True
-            prompt_month_name = next_month_start.strftime('%B')
-            bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_start.strftime('%Y-%m')}"
-        else:
-            availability_all_set = True
-            # Determine success message based on whether next month actually has sessions
-            sessions_exist_next_month = Session.objects.filter(
-                session_date__year=next_month_start.year,
-                session_date__month=next_month_start.month,
-                generated_from_rule__isnull=False,
-                is_cancelled=False
-            ).exists()
+        # if needs_availability_current_month:
+        #     show_bulk_availability_reminder = True
+        #     prompt_month_name = this_month_start.strftime('%B')
+        #     bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={this_month_start.strftime('%Y-%m')}"
+        # elif needs_availability_next_month:
+        #     show_bulk_availability_reminder = True
+        #     prompt_month_name = next_month_start.strftime('%B')
+        #     bulk_availability_url = f"{reverse('scheduling:set_bulk_availability')}?month={next_month_start.strftime('%Y-%m')}"
+        # else:
+        #     availability_all_set = True
+        #     # Determine success message based on whether next month actually has sessions
+        #     sessions_exist_next_month = Session.objects.filter(
+        #         session_date__year=next_month_start.year,
+        #         session_date__month=next_month_start.month,
+        #         generated_from_rule__isnull=False,
+        #         is_cancelled=False
+        #     ).exists()
             
-            if sessions_exist_next_month:
-                availability_success_message = "Your bulk availability for the current and next month is set."
-            else:
-                availability_success_message = "Your bulk availability for the current month is set."
+        #     if sessions_exist_next_month:
+        #         availability_success_message = "Your bulk availability for the current and next month is set."
+        #     else:
+        #         availability_success_message = "Your bulk availability for the current month is set."
 
         # --- Logic for Upcoming Sessions Card (Next 7 Days) ---
         local_now = timezone.localtime(now)

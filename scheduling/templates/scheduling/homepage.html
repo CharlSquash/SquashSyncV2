@@ -182,6 +182,7 @@
                 <h3><i class="bi bi-calendar-check-fill"></i> My Availability</h3>
             </div>
             <div class="card-body">
+                {% comment %} <!-- TODO: RESTORE BULK AVAILABILITY -->
                 {% if show_bulk_availability_reminder %}
                 <p>It's time to set your general availability for the upcoming month.</p>
                 <a href="{{ bulk_availability_url }}" class="btn btn-success w-100 mt-2">
@@ -197,6 +198,8 @@
                     month is set.</p>
                 <p class="text-muted small mt-3">You can still make specific changes to your weekly schedule.</p>
                 {% endif %}
+                {% endcomment %}
+                <p>Please manage your availability on a weekly basis.</p>
             </div>
             <div class="card-footer">
                 <a href="{% url 'scheduling:my_availability' %}" class="card-action-link">Go to My Weekly Availability
