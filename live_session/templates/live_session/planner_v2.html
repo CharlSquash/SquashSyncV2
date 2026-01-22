@@ -654,8 +654,9 @@
             );
         };
         
-        const DrillItem = ({ drill, index, isRest, onRemove, onUpdateDuration, onUpdateName, isMaster, onInfo }) => {
+        const DrillItem = ({ drill, index, isRest, onRemove, onUpdateDuration, onUpdateName, isMaster, onInfo, onDropOnDrill }) => {
             const [isResizing, setIsResizing] = useState(false);
+            const [isDragOver, setIsDragOver] = useState(false);
             const itemRef = useRef(null);
             
             // 1 min = 12px (previously 4). Min height 60px covers 5 mins.
@@ -694,6 +695,34 @@
                 window.addEventListener('mouseup', handleMouseUp);
             };
 
+            const handleDragOver = (e) => {
+                if (isMaster) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragOver(true);
+            };
+
+            const handleDragLeave = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragOver(false);
+            };
+
+            const handleDrop = (e) => {
+                if (isMaster) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragOver(false);
+                
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+                    if (data.type === 'DRILL') {
+                        onDropOnDrill(e, index, data, drill.uid); // Pass this drill's UID as target
+                        return;
+                    }
+                } catch(e) {}
+            };
+
             const itemStyle = { height: `${height}px` };
                 
             return (
@@ -708,10 +737,14 @@
                         }));
                         e.dataTransfer.effectAllowed = "move";
                     }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
                     style={itemStyle}
                     className={`relative flex flex-col justify-between rounded-lg shadow-sm border p-2 mb-2 transition-all select-none overflow-hidden 
                     ${styles.color} ${styles.border} border-l-4 ${styles.leftBorder}
-                    ${isResizing ? 'ring-2 ring-emerald-400 z-20' : ''}`}
+                    ${isResizing ? 'ring-2 ring-emerald-400 z-20' : ''}
+                    ${isDragOver ? 'border-t-4 border-t-emerald-500 scale-[1.02] shadow-md' : ''}`}
                 >
                     {/* Watermark */}
                     <div className="absolute -right-4 -bottom-4 z-0 opacity-10 transform -rotate-12 pointer-events-none">
@@ -847,7 +880,7 @@
                              <div className="h-32 flex items-center justify-center text-slate-400 text-xs italic">No drills yet</div>
                          ) : (
                              drills.map((drill, idx) => (
-                                 <DrillItem 
+                            <DrillItem 
                                     key={drill.uid} 
                                     drill={drill} 
                                     index={courtIndex} // Pass court index for source info
@@ -856,6 +889,7 @@
                                     onUpdateDuration={onUpdateDrill}
                                     isMaster={isMaster}
                                     onInfo={onDrillInfo}
+                                    onDropOnDrill={onDropDrill}
                                  />
                              ))
                          )}
@@ -1259,18 +1293,12 @@
                 setDraggedPlayer(null);
             };
 
-            const handleDropDrill = (e, targetCourtIndex, data) => {
+            const handleDropDrill = (e, targetCourtIndex, data, targetDrillUid = null) => {
                 e.preventDefault();
                 const { drillUid, sourceCourtIndex } = data;
                 
-                // If dropping on same court, we might want to reorder (handled by sortable usually, but here we append to bottom if dropped on column generally)
-                // For detailed reordering we need drop targets between items. 
-                // For now, let's assume dropping on column means "move to this court" (append) or "reorder to bottom".
-                
-                if (sourceCourtIndex === targetCourtIndex) {
-                    // Same court - effectively no-op unless we implement specific index targeting
-                    return; 
-                }
+                // Allow same-court reordering now
+                // if (sourceCourtIndex === targetCourtIndex) { ... } // Removed restriction
 
                 const isCopy = e.ctrlKey || e.metaKey; // Support Ctrl or Command (Mac)
 
@@ -1282,7 +1310,7 @@
                 if (!drillToMove) return;
 
                 if (!isCopy) {
-                    // Remove from source ONLY if not copying
+                    // Remove from source
                     newPlans[sourceCourtIndex] = newPlans[sourceCourtIndex].filter(d => d.uid !== drillUid);
                 }
                 
@@ -1290,7 +1318,19 @@
                 // If copying, we MUST generate a new UID to avoid key conflicts
                 const drillToAdd = isCopy ? { ...drillToMove, uid: Date.now() + Math.random().toString(36).substr(2, 9) } : drillToMove;
                 
-                newPlans[targetCourtIndex] = [...newPlans[targetCourtIndex], drillToAdd];
+                // If dropping on a specific drill (targetDrillUid), insert before it
+                if (targetDrillUid) {
+                    const targetIndex = newPlans[targetCourtIndex].findIndex(d => d.uid === targetDrillUid);
+                    if (targetIndex !== -1) {
+                         newPlans[targetCourtIndex].splice(targetIndex, 0, drillToAdd);
+                    } else {
+                         // Fallback to push
+                         newPlans[targetCourtIndex].push(drillToAdd);
+                    }
+                } else {
+                    // Append to end
+                    newPlans[targetCourtIndex].push(drillToAdd);
+                }
                 
                 setCourtPlans(newPlans);
             };
