@@ -66,7 +66,7 @@
             Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library, Info, X, Cloud, CloudLightning,
             Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move,
-            ChevronLeft, ChevronRight, MessageSquare, Coffee
+            ChevronLeft, ChevronRight, MessageSquare, Coffee, GripVertical
         } from 'lucide-react';
 
         /**
@@ -100,7 +100,7 @@
         const getCategoryStyle = (category, isRest) => {
             if (isRest) return { 
                 icon: Coffee, 
-                color: 'bg-amber-50', 
+                color: 'bg-gradient-to-br from-amber-50 to-white', 
                 border: 'border-amber-200', 
                 accent: 'text-amber-500', 
                 leftBorder: 'border-l-amber-400' 
@@ -108,22 +108,22 @@
 
             switch (category) {
                 case 'Warmups':
-                    return { icon: Flame, color: 'bg-orange-50', border: 'border-orange-200', accent: 'text-orange-500', leftBorder: 'border-l-orange-500' };
+                    return { icon: Flame, color: 'bg-gradient-to-br from-orange-50 to-white', border: 'border-orange-200', accent: 'text-orange-500', leftBorder: 'border-l-orange-500' };
                 case 'Conditioning':
                 case 'Fitness':
-                    return { icon: Dumbbell, color: 'bg-emerald-50', border: 'border-emerald-200', accent: 'text-emerald-500', leftBorder: 'border-l-emerald-500' };
+                    return { icon: Dumbbell, color: 'bg-gradient-to-br from-emerald-50 to-white', border: 'border-emerald-200', accent: 'text-emerald-500', leftBorder: 'border-l-emerald-500' };
                 case 'Hand-Eye Coordination':
                 case 'Drills - Racketwork':
                 case 'Feeding Drills':
-                    return { icon: Target, color: 'bg-blue-50', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' };
+                    return { icon: Target, color: 'bg-gradient-to-br from-blue-50 to-white', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' };
                 case 'Fun Games':
                 case 'Condition Games':
-                    return { icon: Trophy, color: 'bg-purple-50', border: 'border-purple-200', accent: 'text-purple-500', leftBorder: 'border-l-purple-500' };
+                    return { icon: Trophy, color: 'bg-gradient-to-br from-purple-50 to-white', border: 'border-purple-200', accent: 'text-purple-500', leftBorder: 'border-l-purple-500' };
                 case 'Ghosting':
                 case 'Movement':
-                    return { icon: Footprints, color: 'bg-slate-100', border: 'border-slate-300', accent: 'text-slate-500', leftBorder: 'border-l-slate-500' };
+                    return { icon: Footprints, color: 'bg-gradient-to-br from-slate-100 to-white', border: 'border-slate-300', accent: 'text-slate-500', leftBorder: 'border-l-slate-500' };
                 case 'Circuits (Score/Time)':
-                    return { icon: Timer, color: 'bg-red-50', border: 'border-red-200', accent: 'text-red-500', leftBorder: 'border-l-red-500' };
+                    return { icon: Timer, color: 'bg-gradient-to-br from-red-50 to-white', border: 'border-red-200', accent: 'text-red-500', leftBorder: 'border-l-red-500' };
                 default:
                     return { icon: Activity, color: 'bg-white', border: 'border-slate-200', accent: 'text-slate-400', leftBorder: 'border-l-slate-500' };
             }
@@ -741,32 +741,39 @@
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     style={itemStyle}
-                    className={`relative flex flex-col justify-between rounded-lg shadow-sm border p-2 mb-2 transition-all select-none overflow-hidden 
+                    className={`relative flex flex-row items-stretch rounded-lg shadow-sm border mb-2 transition-all select-none overflow-hidden hover:shadow-md 
                     ${styles.color} ${styles.border} border-l-4 ${styles.leftBorder}
                     ${isResizing ? 'ring-2 ring-emerald-400 z-20' : ''}
                     ${isDragOver ? 'border-t-4 border-t-emerald-500 scale-[1.02] shadow-md' : ''}`}
                 >
-                    {/* Watermark */}
-                    <div className="absolute -right-4 -bottom-4 z-0 opacity-10 transform -rotate-12 pointer-events-none">
-                        <WatermarkIcon className="w-24 h-24 text-slate-900" /> 
+                    {/* Watermark - Centered */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-5 pointer-events-none">
+                        <WatermarkIcon className="w-20 h-20 text-slate-900" /> 
                     </div>
 
+                    {/* Drag Handle */}
+                    {!isMaster && (
+                        <div className="flex items-center justify-center pl-2 pr-1 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 z-10">
+                            <GripVertical className="w-5 h-5" />
+                        </div>
+                    )}
+
                     {/* Content */}
-                    <div className={`relative z-10 flex flex-col h-full ${isTall ? 'justify-between' : 'justify-between'}`}>
+                    <div className={`relative z-10 flex-1 flex flex-col h-full p-2 pl-0 ${isTall ? 'justify-between' : 'justify-between'}`}>
                         
                         {/* Header Row: Title & Actions */}
-                        <div className={`flex justify-between items-start w-full ${isTall ? 'absolute top-0 left-0 p-2 w-full' : ''}`}>
+                        <div className={`flex justify-between items-start w-full ${isTall ? 'absolute top-0 left-0 p-2 pl-8 w-full' : ''}`}>
                              {/* If Short, title is here. If Tall, title is centered below. */}
                              {!isTall && (
-                                <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2 pr-6">{drill.customName}</h4>
+                                <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2 pr-6 select-text">{drill.customName}</h4>
                              )}
                              {/* Spacer if not tall to push buttons right, or absolute buttons */}
-                             <div className={`flex gap-1 shrink-0 ml-auto ${isTall ? '' : '-mr-1'}`}>
-                                <button onClick={(e) => { e.stopPropagation(); onInfo(drill); }} className="text-slate-400 hover:text-blue-500 p-1 rounded-full hover:bg-black/5 transition" title="View Details">
+                             <div className={`flex gap-1 shrink-0 ml-auto ${isTall ? 'z-20' : '-mr-1'}`}>
+                                <button onClick={(e) => { e.stopPropagation(); onInfo(drill); }} className="text-slate-400 hover:text-blue-500 p-1 rounded-full hover:bg-black/5 transition z-10" title="View Details">
                                     <Info className="w-3.5 h-3.5" />
                                 </button>
                                 {!isMaster && (
-                                    <button onClick={(e) => { e.stopPropagation(); onRemove(drill.uid); }} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-black/5 transition">
+                                    <button onClick={(e) => { e.stopPropagation(); onRemove(drill.uid); }} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-black/5 transition z-10">
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 )}
@@ -776,14 +783,14 @@
                         {/* Centered Title for Tall Cards */}
                         {isTall && (
                             <div className="flex-1 flex items-center justify-center p-4">
-                                <h4 className="font-bold text-slate-800 text-lg text-center leading-tight drop-shadow-sm">{drill.customName}</h4>
+                                <h4 className="font-bold text-slate-800 text-lg text-center leading-tight drop-shadow-sm select-text">{drill.customName}</h4>
                             </div>
                         )}
 
                         {/* Footer Row: Type & Duration */}
-                         <div className={`flex items-end justify-between text-xs text-slate-500 gap-2 mt-auto w-full ${isTall ? 'absolute bottom-0 left-0 p-2' : ''}`}>
+                         <div className={`flex items-end justify-between text-xs text-slate-500 gap-2 mt-auto w-full ${isTall ? 'absolute bottom-0 left-0 p-2 pl-8' : ''}`}>
                             <span className="uppercase tracking-wider font-bold truncate flex-1 text-left opacity-70" title={drill.type}>{drill.type}</span>
-                            <div className="flex items-center gap-1 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 rounded shrink-0 border border-black/5 shadow-sm">
+                            <div className="flex items-center gap-1 bg-white/60 backdrop-blur-sm px-1.5 py-0.5 rounded shrink-0 border border-black/5 shadow-sm z-10">
                                 <Clock className="w-3.5 h-3.5" />
                                 {!isMaster ? (
                                     <input 
