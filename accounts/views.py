@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils import timezone
+import datetime
 from datetime import timedelta
 from django.conf import settings
 from django.core.mail import send_mail
@@ -16,7 +17,7 @@ import calendar
 
 from .models import Coach, CoachInvitation, ContractTemplate, CoachContract
 from .forms import CoachInvitationForm, CoachRegistrationForm, MonthYearFilterForm, CoachProfileUpdateForm
-from scheduling.models import Session
+from scheduling.models import Session, CoachAvailability
 from assessments.models import SessionAssessment, GroupAssessment, AssessmentComment
 from assessments.forms import AssessmentCommentForm
 from finance.models import CoachSessionCompletion
@@ -233,6 +234,93 @@ def coach_profile(request, coach_id=None):
             month=selected_month
         )
 
+    # --- Admin Availability Insights ---
+    admin_availability_context = {}
+    if request.user.is_superuser and target_coach.user:
+        now = timezone.now()
+        # Metric 1: Rolling 7-Day Availability
+        next_7_days_end = now + timedelta(days=7)
+        
+        seven_day_avail_count = Session.objects.filter(
+            session_date__gte=now.date(),
+            session_date__lte=next_7_days_end.date(),
+            coach_availabilities__coach=target_coach.user,
+            coach_availabilities__status=CoachAvailability.Status.AVAILABLE
+        ).distinct().count()
+
+        # Metric 2: Monthly Availability % and List
+        # Determine month/year (re-use selected if available, or parse from GET/defaults)
+        # Note: 'selected_year' and 'selected_month' might be None/unset if viewing_own_profile is False
+        
+        req_year = request.GET.get('year')
+        req_month = request.GET.get('month')
+        current_date = timezone.now().date()
+        
+        if req_year and req_month:
+            try:
+                admin_year = int(req_year)
+                admin_month = int(req_month)
+            except ValueError:
+                admin_year = current_date.year
+                admin_month = current_date.month
+        else:
+            admin_year = current_date.year
+            admin_month = current_date.month
+
+        # Use the same form class, initialized for admin context
+        admin_availability_filter_form = MonthYearFilterForm(initial={'year': admin_year, 'month': admin_month})
+
+        # Calculate month range
+        month_start = datetime.date(admin_year, admin_month, 1)
+        _, last_day = calendar.monthrange(admin_year, admin_month)
+        month_end = datetime.date(admin_year, admin_month, last_day)
+
+        # 1. Total sessions in that month (excluding cancelled)
+        sessions_in_month_qs = Session.objects.filter(
+            session_date__gte=month_start,
+            session_date__lte=month_end,
+            is_cancelled=False
+        )
+        total_sessions_count = sessions_in_month_qs.count()
+
+        # 2. Available Count
+        available_sessions_in_month_count = sessions_in_month_qs.filter(
+            coach_availabilities__coach=target_coach.user,
+            coach_availabilities__status=CoachAvailability.Status.AVAILABLE
+        ).distinct().count()
+
+        # 3. Percentage
+        availability_percentage = 0
+        if total_sessions_count > 0:
+            availability_percentage = round((available_sessions_in_month_count / total_sessions_count) * 100, 1)
+
+        # 4. List with Prefetch
+        # Prefetch the SPECIFIC availability record for this coach
+        avail_prefetch = Prefetch(
+            'coach_availabilities',
+            queryset=CoachAvailability.objects.filter(coach=target_coach.user),
+            to_attr='this_coach_availability_list'
+        )
+        
+        # User Feedback: Only show AVAILABLE or EMERGENCY in the list
+        admin_month_sessions = sessions_in_month_qs.filter(
+            coach_availabilities__coach=target_coach.user,
+            coach_availabilities__status__in=[CoachAvailability.Status.AVAILABLE, CoachAvailability.Status.EMERGENCY]
+        ).prefetch_related(avail_prefetch).select_related(
+            'school_group', 'venue'
+        ).order_by('session_date', 'session_start_time')
+
+        admin_availability_context = {
+            'admin_7day_avail_count': seven_day_avail_count,
+            'admin_month_percentage': availability_percentage,
+            'admin_total_sessions_month': total_sessions_count,
+            'admin_available_sessions_month': available_sessions_in_month_count,
+            'admin_availability_filter_form': admin_availability_filter_form,
+            'admin_month_sessions': admin_month_sessions,
+            'admin_selected_month_name': calendar.month_name[admin_month],
+            'admin_selected_year': admin_year,
+        }
+
     # --- Contract Context ---
     # Check for active contract status for the "Action Required" button or "View Contract" link
     contract_context = {}
@@ -270,6 +358,7 @@ def coach_profile(request, coach_id=None):
         'selected_month_name': selected_month_name,
         'selected_year': selected_year,
         'selected_coach_id': target_coach.id, # For the partial template
+        **admin_availability_context,
     }
     return render(request, 'accounts/coach_profile.html', context)
 

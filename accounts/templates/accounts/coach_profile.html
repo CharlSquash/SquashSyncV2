@@ -142,7 +142,7 @@
                 {% endif %}
 
                 <div class="card shadow-sm profile-section-card">
-                    <details {% if not viewing_own_profile %}open{% endif %}>
+                    <details>
                         <summary>
                             <span class="summary-title"><i class="bi bi-collection-play"></i>Completed Sessions ({{ sessions_attended|length }})</span>
                             <span class="summary-arrow"></span>
@@ -394,17 +394,93 @@
             </div>
         </div>
 
-        <div class="card shadow-sm profile-section-card mt-3">
-            <details>
-                <summary>
-                    <span class="summary-title"><i class="bi bi-calendar2-week"></i>Availability Summary</span>
+        <!-- Admin Availability Insights -->
+        <!-- Admin Availability Insights -->
+        {% if request.user.is_superuser %}
+        <div class="card shadow-sm profile-section-card mt-3 border-info">
+            <details {% if request.GET.year or request.GET.month %}open{% endif %}>
+                <summary class="bg-info-subtle text-info-emphasis rounded px-3 py-2">
+                    <span class="summary-title"><i class="bi bi-graph-up"></i> Availability Insights (Admin View)</span>
                     <span class="summary-arrow"></span>
                 </summary>
-                <div class="details-content">
-                     <p class="text-muted"><em>This feature is coming soon!</em></p>
+                <div class="details-content p-3">
+                    <div class="row text-center mb-4">
+                        <div class="col-md-6 border-end">
+                            <h6 class="text-muted">Available Next 7 Days</h6>
+                            <h2 class="display-6 fw-bold text-success">{{ admin_7day_avail_count }}</h2>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">{{ admin_selected_month_name }} Availability Rate</h6>
+                            <h2 class="display-6 fw-bold text-primary">{{ admin_month_percentage }}%</h2>
+                            <small class="text-muted">Available for {{ admin_available_sessions_month }} of {{ admin_total_sessions_month }} sessions</small>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h6 class="mb-0">Session Details for {{ admin_selected_month_name }} {{ admin_selected_year }}</h6>
+                        
+                        <form method="GET" class="d-flex gap-2 align-items-end">
+                            <div style="width: 140px;">
+                                {{ admin_availability_filter_form.month|as_crispy_field }}
+                            </div>
+                            <div style="width: 100px;">
+                                {{ admin_availability_filter_form.year|as_crispy_field }}
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-outline-primary mb-3">Update</button>
+                        </form>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-hover table-sm align-middle">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Group</th>
+                                    <th>Venue</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in admin_month_sessions %}
+                                    {% with coach_avail=session.this_coach_availability_list.0 %}
+                                    <tr>
+                                        <td>{{ session.session_date|date:"D, d M" }}</td>
+                                        <td>{{ session.session_start_time|time:"H:i" }}</td>
+                                        <td>{{ session.school_group.name|default:"General" }}</td>
+                                        <td><small class="text-muted">{{ session.venue.name|default:"-" }}</small></td>
+                                        <td class="text-center">
+                                            {% if coach_avail %}
+                                                {% if coach_avail.status == 'AVAILABLE' %}
+                                                    <span class="badge bg-success rounded-pill">Available</span>
+                                                {% elif coach_avail.status == 'EMERGENCY' %}
+                                                    <span class="badge bg-danger rounded-pill">Emergency Only</span>
+                                                {% else %}
+                                                    <!-- Should not happen due to filter, but fallback -->
+                                                    <span class="badge bg-secondary rounded-pill">{{ coach_avail.get_status_display }}</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endwith %}
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-3">
+                                            No available sessions found for this month.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </details>
         </div>
+        {% endif %}
+
+
 
     {% else %}
         <div class="alert alert-warning">Coach profile not found or you do not have permission to view it.</div>
