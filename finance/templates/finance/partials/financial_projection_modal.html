@@ -1,0 +1,97 @@
+<!-- finance/templates/finance/partials/financial_projection_modal.html -->
+<div class="modal-header bg-light">
+    <h5 class="modal-title" id="financialProjectionModalLabel">
+        <i class="bi bi-graph-up me-2"></i>Financial Projection
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    
+    <!-- Context Info -->
+    <div class="text-center mb-4">
+        <h6 class="text-muted text-uppercase small">Projected Monthly Expense</h6>
+        <h3 class="fw-bold text-dark">R{{ data.grand_total }}</h3>
+        <p class="text-muted small mb-0">For {{ month }}/{{ year }}</p>
+    </div>
+
+    <!-- Formula Bar -->
+    <div class="card bg-light border-0 mb-4">
+        <div class="card-body py-3">
+            <div class="d-flex justify-content-center align-items-center fs-5 text-nowrap">
+                
+                <!-- Realized -->
+                <div class="text-center position-relative" data-bs-toggle="tooltip" title="Confirmed Payment + Adjustments">
+                    <i class="bi bi-check-circle-fill text-success d-block mb-1"></i>
+                    <span class="fw-bold text-success">R{{ data.realized_total }}</span>
+                    <div class="small text-muted" style="font-size: 0.7rem;">Realized</div>
+                </div>
+
+                <div class="mx-3 text-muted">+</div>
+
+                <!-- Accrued -->
+                <div class="text-center position-relative" data-bs-toggle="tooltip" title="Past Unconfirmed Sessions">
+                    <i class="bi bi-hourglass-split text-warning d-block mb-1"></i>
+                    <span class="fw-bold text-warning">R{{ data.accrued_total }}</span>
+                    <div class="small text-muted" style="font-size: 0.7rem;">Accrued</div>
+                </div>
+
+                <div class="mx-3 text-muted">+</div>
+
+                <!-- Projected -->
+                <div class="text-center position-relative" data-bs-toggle="tooltip" title="Future Estimated Sessions">
+                    <i class="bi bi-graph-up-arrow text-primary d-block mb-1"></i>
+                    <span class="fw-bold text-primary">R{{ data.projected_total }}</span>
+                    <div class="small text-muted" style="font-size: 0.7rem;">Projected</div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Breakdown -->
+    <div class="list-group list-group-flush small">
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+            <span>
+                <i class="bi bi-check-circle-fill text-success me-2"></i>Realized Details
+            </span>
+            <span class="badge bg-light text-dark">{{ data.breakdown.realized_count }} items</span>
+        </div>
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+             <span>
+                <i class="bi bi-hourglass-split text-warning me-2"></i>Accrued Details (Pending)
+            </span>
+             <span class="badge bg-light text-dark">{{ data.breakdown.accrued_count }} sessions</span>
+        </div>
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                 <span>
+                    <i class="bi bi-graph-up-arrow text-primary me-2"></i>Projected Details
+                </span>
+                 <span class="badge bg-light text-dark">{{ data.breakdown.projected_rules_count|add:data.breakdown.projected_manual_count }} sessions</span>
+            </div>
+            <div class="ps-4 text-muted fst-italic" style="font-size: 0.85em;">
+                Includes {{ data.breakdown.projected_rules_count }} from rules (using historical avg) and {{ data.breakdown.projected_manual_count }} manual.
+            </div>
+        </div>
+    </div>
+    
+    <div class="alert alert-info mt-3 d-flex align-items-start mb-0">
+        <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+        <div class="small">
+            <strong>How is this calculated?</strong><br>
+            Projected costs for future sessions use the <em>Historical Average Cost</em> of the associated schedule rule (avg of last 5 finished sessions). If no history exists, it estimates based on the average coach rate.
+        </div>
+    </div>
+
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+
+<script>
+    // Initialize tooltips in the modal
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>

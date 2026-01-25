@@ -18,5 +18,8 @@ urlpatterns = [
     path('adjustments/manage/<int:adj_id>/', views.manage_adjustment_ajax, name='update_adjustment_ajax'),
     path('adjustments/<int:adj_id>/toggle/', views.toggle_adjustment_ajax, name='toggle_adjustment_ajax'),
     path('adjustments/<int:adj_id>/delete/', views.delete_adjustment_ajax, name='delete_adjustment_ajax'),
+    
+    # Financial Analytics
+    path('reports/financial-projection/', views.financial_projection_ajax, name='financial_projection_ajax'),
 ]
 

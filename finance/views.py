@@ -18,6 +18,7 @@ from scheduling.models import Session, SessionCoach
 from accounts.models import Coach
 from .payslip_services import get_payslip_data_for_coach
 from .forms import RecurringCoachAdjustmentForm # Import new form
+from .analytics_service import calculate_monthly_projection
 
 
 
@@ -208,6 +209,34 @@ def toggle_adjustment_ajax(request, adj_id):
             'payment_summary_html': context_html['payment_summary_html'],
             'adjustments_list_html': context_html['adjustments_list_html']
         })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def financial_projection_ajax(request):
+    """
+    Returns the HTML for the Financial Analytics modal.
+    """
+    try:
+        year = int(request.GET.get('year'))
+        month = int(request.GET.get('month'))
+        
+        data = calculate_monthly_projection(year, month)
+        
+        html = render_to_string('finance/partials/financial_projection_modal.html', {
+            'data': data,
+            'year': year,
+            'month': month
+        })
+        
+        return JsonResponse({
+            'status': 'success',
+            'html': html
+        })
+    except (ValueError, TypeError):
+         return JsonResponse({'status': 'error', 'message': 'Invalid year or month.'}, status=400)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 

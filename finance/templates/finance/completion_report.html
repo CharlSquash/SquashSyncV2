@@ -5,7 +5,12 @@
 
 {% block content %}
 <div class="content-wrapper">
-    <h1><i class="bi bi-clipboard2-check-fill me-2"></i>{{ page_title }}</h1>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1><i class="bi bi-clipboard2-check-fill me-2"></i>{{ page_title }}</h1>
+        <button id="financialAnalyticsBtn" type="button" class="btn btn-outline-primary shadow-sm">
+            <i class="bi bi-calculator me-1"></i> Financial Analytics
+        </button>
+    </div>
 
     <form method="GET" action="{% url 'finance:completion_report' %}" class="filter-form">
         <div>
@@ -136,6 +141,20 @@
     {# --- Payment Summary now comes last --- #}
     <div id="payment-summary-container">
         {% include 'finance/partials/payment_summary.html' %}
+    </div>
+
+    <!-- Financial Projection Modal Container -->
+    <div class="modal fade" id="financialProjectionModal" tabindex="-1" aria-labelledby="financialProjectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" id="financialProjectionModalContent">
+                <!-- Content loaded via AJAX -->
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -441,6 +460,58 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // --- Financial Analytics Modal Logic ---
+    const financialAnalyticsBtn = document.getElementById('financialAnalyticsBtn');
+    const financialProjectionModalEl = document.getElementById('financialProjectionModal');
+    // Initialize modal if element exists
+    let financialProjectionModal = financialProjectionModalEl ? new bootstrap.Modal(financialProjectionModalEl) : null;
+    const financialProjectionModalContent = document.getElementById('financialProjectionModalContent');
+
+    if (financialAnalyticsBtn && financialProjectionModal) {
+        financialAnalyticsBtn.addEventListener('click', function() {
+            // Get current year/month from selection
+            const yearSelect = document.getElementById('year_select');
+            const monthSelect = document.getElementById('month_select');
+            
+            let year = yearSelect ? yearSelect.value : new Date().getFullYear();
+            let month = monthSelect ? monthSelect.value : (new Date().getMonth() + 1);
+            
+            // Show loading state
+            financialProjectionModalContent.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>`;
+            
+            financialProjectionModal.show();
+
+            const url = `/finance/reports/financial-projection/?year=${year}&month=${month}`;
+            
+            fetch(url, {
+                 headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    financialProjectionModalContent.innerHTML = data.html;
+                    // Initialize tooltips inside the new content
+                    var tooltipTriggerList = [].slice.call(financialProjectionModalContent.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.map(function (tooltipTriggerEl) {
+                      return new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                } else {
+                    financialProjectionModalContent.innerHTML = `<div class="modal-body text-danger">Error: ${data.message}</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                 financialProjectionModalContent.innerHTML = `<div class="modal-body text-danger">An unexpected error occurred.</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>`;
+            });
+        });
+    }
+
 });
 </script>
 {% endblock %}
