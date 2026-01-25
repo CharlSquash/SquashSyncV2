@@ -6,25 +6,26 @@ from accounts.models import Coach
 from finance.models import CoachSessionCompletion, RecurringCoachAdjustment
 from scheduling.models import Session, SessionCoach, ScheduledClass
 
-def calculate_monthly_projection(year, month):
+def calculate_monthly_projection(year, month, scheduled_class_id=None):
     """
     Calculates financial projections for a given month/year.
     Returns a dictionary with realised, accrued, and projected totals, plus a breakdown.
+    
+    Args:
+        year (int): Year
+        month (int): Month
+        scheduled_class_id (int, optional): If provided, filters costs for this specific Scheduled Class (Group).
+                                          Recurring adjustments are EXCLUDED when filtering by group.
     """
     
     # 1. Setup Dates
     today = timezone.now().date()
-    # If looking at a past month, 'today' for the purpose of logic is effectively the end of that month?
-    # Or strict 'today'?
-    # Requirement: "past sessions (date < today)", "future sessions (date >= today)"
-    # If the user views a past month (e.g. last year), ALL sessions are < today. So Projected should be 0.
-    # If user views future month, ALL sessions >= today. Realized/Accrued 0 (unless prepayments? No).
     
     # Date range for the requested month
     import calendar
     _, num_days = calendar.monthrange(year, month)
-    start_date = datetime.date(year, month, 1)
-    end_date = datetime.date(year, month, num_days)
+    # start_date = datetime.date(year, month, 1) # Unused
+    # end_date = datetime.date(year, month, num_days) # Unused
 
     realized_total = Decimal('0.00')
     accrued_total = Decimal('0.00')
@@ -46,6 +47,9 @@ def calculate_monthly_projection(year, month):
         confirmed_for_payment=True
     ).select_related('coach', 'session').prefetch_related('session__sessioncoach_set')
 
+    if scheduled_class_id:
+        completions = completions.filter(session__generated_from_rule_id=scheduled_class_id)
+
     for comp in completions:
         # Calculate cost for this completion
         # We need the duration from SessionCoach
@@ -56,29 +60,20 @@ def calculate_monthly_projection(year, month):
             realized_total += cost
             breakdown['realized_count'] += 1
 
+    # --- ADJUSTMENTS ---
     # Add Active RecurringCoachAdjustments
-    # Recurring adjustments are monthly. 
-    # Logic: If looking at current or past month, include them? 
-    # Usually recurring adjustments are applied when payslips are generated. 
-    # If confirmed_for_payment logic handles completions, what handles adjustments?
-    # Requirement: "Sum of CoachSessionCompletion (confirmed=True) + active RecurringCoachAdjustment."
-    # I will add them if they are active.
-    
-    recurring_adjs = RecurringCoachAdjustment.objects.filter(coach__is_active=True, is_active=True)
-    # We apply these ONCE per month per coach.
-    # But wait, are we calculating for specific coach or ALL coaches?
-    # "Total Projected Monthly Expense" implies for the whole club/all coaches.
-    recurring_total_qs = recurring_adjs.aggregate(total=Sum('amount'))
-    if recurring_total_qs['total']:
-        realized_total += recurring_total_qs['total']
+    # Rule: EXCLUDE overheads if filtering by specific group (scheduled_class_id is not None)
+    adjustments_total = Decimal('0.00')
+    if not scheduled_class_id:
+        recurring_adjs = RecurringCoachAdjustment.objects.filter(coach__is_active=True, is_active=True)
+        recurring_total_qs = recurring_adjs.aggregate(total=Sum('amount'))
+        if recurring_total_qs['total']:
+            adjustments_total = recurring_total_qs['total']
 
 
     # --- 2. ACCRUED ---
     # Cost of past sessions (date < today) that are unconfirmed.
     # Filter sessions in the month that are < today
-    
-    # We query ALL sessions in the month.
-    # Then split by date relative to today.
     
     sessions_in_month = Session.objects.filter(
         session_date__year=year,
@@ -87,10 +82,11 @@ def calculate_monthly_projection(year, month):
     ).prefetch_related(
         'sessioncoach_set__coach', 
         'generated_from_rule',
-        'coach_completions' # Reverse of CoachSessionCompletion per session? No, it's related_name='coach_completions' on Session?
-        # Check finance/models.py:
-        # CoachSessionCompletion: session = models.ForeignKey(..., related_name='coach_completions')
+        # 'coach_completions' # Optimization: Let's rely on individual queries or more robust prefetching if needed
     )
+
+    if scheduled_class_id:
+        sessions_in_month = sessions_in_month.filter(generated_from_rule_id=scheduled_class_id)
 
     avg_coach_rate_qs = Coach.objects.filter(is_active=True, hourly_rate__isnull=False).aggregate(avg=Avg('hourly_rate'))
     avg_coach_rate = avg_coach_rate_qs['avg'] or Decimal('0.00')
@@ -105,22 +101,10 @@ def calculate_monthly_projection(year, month):
         if is_past:
             # Check for EACH coach if they have a confirmed completion
             if not session_coaches:
-                # If no coaches assigned in past, maybe it was a mistake or empty session. Cost = 0?
-                # Or use fallback?
-                # Usually past sessions should have coaches. If not, we assume 0 cost or maybe it wasn't staffed.
                 pass 
             else:
                 for sc in session_coaches:
                     # Check if confirmed completion exists
-                    # We can check the pre-fetched 'coach_completions' on the session
-                    # completion = next((c for c in session.coach_completions.all() if c.coach_id == sc.coach_id), None)
-                    # Note: accessing .all() on prefetch related manager
-                    
-                    # Optimization:
-                    # The 'coach_completions' might not be pre-fetched fully if we didn't specify it in prefetch_related correctly.
-                    # Let's trust we iterate.
-                    
-                    # We need to see if THIS coach has a confirmed completion for THIS session.
                     has_confirmed = CoachSessionCompletion.objects.filter(
                         session=session, 
                         coach=sc.coach, 
@@ -142,13 +126,7 @@ def calculate_monthly_projection(year, month):
             # Logic: If rule -> Historical Average.
             if session.generated_from_rule:
                 # Calculate rule's historical average cost
-                # "avg cost of last 5 finished sessions of that rule"
                 rule = session.generated_from_rule
-                
-                # We need to calculate this efficiently. 
-                # Doing this inside a loop might be N+1 query heavy. 
-                # But for a single month view (max ~100-200 sessions), it might be acceptable.
-                # Optimization: Cache rule averages? 
                 
                 last_5_sessions = Session.objects.filter(
                     generated_from_rule=rule,
@@ -171,7 +149,6 @@ def calculate_monthly_projection(year, month):
                     avg_cost = sum(costs) / len(costs)
                     projected_total += avg_cost
                     breakdown['projected_rules_count'] += 1
-                    # breakdown['projected_details'].append(f"Rule {rule.id}: Avg {avg_cost:.2f}")
                 else:
                     # Fallback: planned_duration * Average Coach Rate
                     duration_hours = Decimal(session.planned_duration_minutes) / Decimal('60.0')
@@ -180,11 +157,7 @@ def calculate_monthly_projection(year, month):
                     breakdown['projected_rules_count'] += 1 # Still counted as rule-based, just fallback used
             else:
                 # Manual session (future)
-                # If coaches assigned, use them?
-                # Or use fallback?
-                # "Fallback: If no history, use planned_duration * Average Coach Rate."
-                # I'll stick to assigned coaches if available, else fallback.
-                
+                projected_total += Decimal('0.00')
                 session_cost = Decimal('0.00')
                 if session_coaches:
                     for sc in session_coaches:
@@ -202,6 +175,7 @@ def calculate_monthly_projection(year, month):
         'realized_total': realized_total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
         'accrued_total': accrued_total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
         'projected_total': projected_total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-        'grand_total': (realized_total + accrued_total + projected_total).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+        'adjustments_total': adjustments_total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+        'grand_total': (realized_total + accrued_total + projected_total + adjustments_total).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
         'breakdown': breakdown
     }

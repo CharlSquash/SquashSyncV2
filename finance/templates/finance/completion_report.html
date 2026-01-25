@@ -469,26 +469,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const financialProjectionModalContent = document.getElementById('financialProjectionModalContent');
 
     if (financialAnalyticsBtn && financialProjectionModal) {
-        financialAnalyticsBtn.addEventListener('click', function() {
-            // Get current year/month from selection
-            const yearSelect = document.getElementById('year_select');
-            const monthSelect = document.getElementById('month_select');
-            
-            let year = yearSelect ? yearSelect.value : new Date().getFullYear();
-            let month = monthSelect ? monthSelect.value : (new Date().getMonth() + 1);
-            
+        
+        // Helper to load content
+        function loadFinancialProjection(year, month, scheduledClassId = null) {
             // Show loading state
-            financialProjectionModalContent.innerHTML = `
+             financialProjectionModalContent.innerHTML = `
                 <div class="modal-body text-center py-5">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
                 </div>`;
             
-            financialProjectionModal.show();
+            let url = `/finance/reports/financial-projection/?year=${year}&month=${month}`;
+            if (scheduledClassId) {
+                url += `&scheduled_class_id=${scheduledClassId}`;
+            }
+            console.log('Fetching financial data from:', url);
 
-            const url = `/finance/reports/financial-projection/?year=${year}&month=${month}`;
-            
             fetch(url, {
                  headers: { 'X-CSRFToken': csrfToken }
             })
@@ -509,6 +506,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
                  financialProjectionModalContent.innerHTML = `<div class="modal-body text-danger">An unexpected error occurred.</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>`;
             });
+        }
+
+        // Open Modal Button Click
+        financialAnalyticsBtn.addEventListener('click', function() {
+            // Get current year/month from selection
+            const yearSelect = document.getElementById('year_select');
+            const monthSelect = document.getElementById('month_select');
+            
+            let year = yearSelect ? yearSelect.value : new Date().getFullYear();
+            let month = monthSelect ? monthSelect.value : (new Date().getMonth() + 1);
+            
+            console.log('Opening Financial Modal for', year, month);
+            financialProjectionModal.show();
+            loadFinancialProjection(year, month);
+        });
+
+        // Event delegation for the filter dropdown inside the modal
+        financialProjectionModalContent.addEventListener('change', function(event) {
+            // Check if it's our specific dropdown
+            if (event.target && event.target.id === 'financial-class-filter') {
+                const scheduledClassId = event.target.value;
+                console.log('Filter changed. New Group ID:', scheduledClassId);
+                
+                // We need to re-read year/month because the modal doesn't store them explicitly in DOM
+                const yearSelect = document.getElementById('year_select');
+                const monthSelect = document.getElementById('month_select');
+                
+                let year = yearSelect ? yearSelect.value : new Date().getFullYear();
+                let month = monthSelect ? monthSelect.value : (new Date().getMonth() + 1);
+
+                loadFinancialProjection(year, month, scheduledClassId);
+            }
         });
     }
 

@@ -14,7 +14,7 @@ import json
 
 # Import models from their correct new app locations
 from .models import CoachSessionCompletion, RecurringCoachAdjustment # Import new model
-from scheduling.models import Session, SessionCoach
+from scheduling.models import Session, SessionCoach, ScheduledClass
 from accounts.models import Coach
 from .payslip_services import get_payslip_data_for_coach
 from .forms import RecurringCoachAdjustmentForm # Import new form
@@ -222,13 +222,34 @@ def financial_projection_ajax(request):
     try:
         year = int(request.GET.get('year'))
         month = int(request.GET.get('month'))
+        scheduled_class_id = request.GET.get('scheduled_class_id')
         
-        data = calculate_monthly_projection(year, month)
+        # Validate/clean scheduled_class_id
+        if scheduled_class_id == 'null' or scheduled_class_id == '':
+            scheduled_class_id = None
+        elif scheduled_class_id is not None:
+             scheduled_class_id = int(scheduled_class_id)
         
+        data = calculate_monthly_projection(year, month, scheduled_class_id=scheduled_class_id)
+        
+        # Fetch all active scheduled classes for the filter dropdown
+        scheduled_classes = ScheduledClass.objects.filter(is_active=True).order_by('school_group__name', 'day_of_week')
+        
+        filter_name = None
+        if scheduled_class_id:
+            try:
+                sc = ScheduledClass.objects.get(pk=scheduled_class_id)
+                filter_name = str(sc)
+            except ScheduledClass.DoesNotExist:
+                pass
+
         html = render_to_string('finance/partials/financial_projection_modal.html', {
             'data': data,
             'year': year,
-            'month': month
+            'month': month,
+            'filter_name': filter_name,
+            'scheduled_classes': scheduled_classes,
+            'current_scheduled_class_id': scheduled_class_id
         })
         
         return JsonResponse({
