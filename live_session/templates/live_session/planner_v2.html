@@ -66,7 +66,8 @@
             Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library, Info, X, Cloud, CloudLightning,
             Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move,
-            ChevronLeft, ChevronRight, MessageSquare, Coffee, GripVertical
+            ChevronLeft, ChevronRight, MessageSquare, Coffee, GripVertical,
+            Eye, PartyPopper, Ghost, Swords, Repeat, Gamepad2, HeartPulse, Brain, Snowflake
         } from 'lucide-react';
 
         /**
@@ -97,6 +98,23 @@
             return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         };
 
+        const CATEGORY_CONFIG = {
+            'Warmups': { icon: Flame, color: 'bg-gradient-to-br from-orange-50 to-white', border: 'border-orange-200', accent: 'text-orange-500', leftBorder: 'border-l-orange-500' },
+            'Conditioning': { icon: Dumbbell, color: 'bg-gradient-to-br from-emerald-50 to-white', border: 'border-emerald-200', accent: 'text-emerald-500', leftBorder: 'border-l-emerald-500' },
+            'Fitness': { icon: Dumbbell, color: 'bg-gradient-to-br from-emerald-50 to-white', border: 'border-emerald-200', accent: 'text-emerald-500', leftBorder: 'border-l-emerald-500' },
+            'Hand-Eye Coordination': { icon: Target, color: 'bg-gradient-to-br from-blue-50 to-white', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' },
+            'Drills - Racketwork': { icon: Target, color: 'bg-gradient-to-br from-blue-50 to-white', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' },
+            'Feeding Drills': { icon: Target, color: 'bg-gradient-to-br from-blue-50 to-white', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' },
+            'Fun Games': { icon: Trophy, color: 'bg-gradient-to-br from-purple-50 to-white', border: 'border-purple-200', accent: 'text-purple-500', leftBorder: 'border-l-purple-500' },
+            'Condition Games': { icon: Trophy, color: 'bg-gradient-to-br from-purple-50 to-white', border: 'border-purple-200', accent: 'text-purple-500', leftBorder: 'border-l-purple-500' },
+            'Ghosting': { icon: Footprints, color: 'bg-gradient-to-br from-slate-100 to-white', border: 'border-slate-300', accent: 'text-slate-500', leftBorder: 'border-l-slate-500' },
+            'Movement': { icon: Footprints, color: 'bg-gradient-to-br from-slate-100 to-white', border: 'border-slate-300', accent: 'text-slate-500', leftBorder: 'border-l-slate-500' },
+            'Circuits (Score/Time)': { icon: Timer, color: 'bg-gradient-to-br from-red-50 to-white', border: 'border-red-200', accent: 'text-red-500', leftBorder: 'border-l-red-500' },
+            'Mental': { icon: Brain, color: 'bg-gradient-to-br from-indigo-50 to-white', border: 'border-indigo-200', accent: 'text-indigo-500', leftBorder: 'border-l-indigo-500' },
+            'Cool Down': { icon: Snowflake, color: 'bg-gradient-to-br from-cyan-50 to-white', border: 'border-cyan-200', accent: 'text-cyan-500', leftBorder: 'border-l-cyan-500' },
+            'General': { icon: Activity, color: 'bg-white', border: 'border-slate-200', accent: 'text-slate-400', leftBorder: 'border-l-slate-500' }
+        };
+
         const getCategoryStyle = (category, isRest) => {
             if (isRest) return { 
                 icon: Coffee, 
@@ -106,27 +124,7 @@
                 leftBorder: 'border-l-amber-400' 
             };
 
-            switch (category) {
-                case 'Warmups':
-                    return { icon: Flame, color: 'bg-gradient-to-br from-orange-50 to-white', border: 'border-orange-200', accent: 'text-orange-500', leftBorder: 'border-l-orange-500' };
-                case 'Conditioning':
-                case 'Fitness':
-                    return { icon: Dumbbell, color: 'bg-gradient-to-br from-emerald-50 to-white', border: 'border-emerald-200', accent: 'text-emerald-500', leftBorder: 'border-l-emerald-500' };
-                case 'Hand-Eye Coordination':
-                case 'Drills - Racketwork':
-                case 'Feeding Drills':
-                    return { icon: Target, color: 'bg-gradient-to-br from-blue-50 to-white', border: 'border-blue-200', accent: 'text-blue-500', leftBorder: 'border-l-blue-500' };
-                case 'Fun Games':
-                case 'Condition Games':
-                    return { icon: Trophy, color: 'bg-gradient-to-br from-purple-50 to-white', border: 'border-purple-200', accent: 'text-purple-500', leftBorder: 'border-l-purple-500' };
-                case 'Ghosting':
-                case 'Movement':
-                    return { icon: Footprints, color: 'bg-gradient-to-br from-slate-100 to-white', border: 'border-slate-300', accent: 'text-slate-500', leftBorder: 'border-l-slate-500' };
-                case 'Circuits (Score/Time)':
-                    return { icon: Timer, color: 'bg-gradient-to-br from-red-50 to-white', border: 'border-red-200', accent: 'text-red-500', leftBorder: 'border-l-red-500' };
-                default:
-                    return { icon: Activity, color: 'bg-white', border: 'border-slate-200', accent: 'text-slate-400', leftBorder: 'border-l-slate-500' };
-            }
+            return CATEGORY_CONFIG[category] || CATEGORY_CONFIG['General'];
         };
 
         const getYouTubeId = (url) => {
@@ -447,38 +445,54 @@
                             />
                         </div>
                         <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
-                            {['All', 'Conditioning', 'Warmups', 'Fun Games', 'Drills - Racketwork', 'Movement'].map(c => (
-                                <button 
-                                    key={c} 
-                                    onClick={() => setCat(c)}
-                                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition ${cat === c ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}
-                                >
-                                    {c}
-                                </button>
-                            ))}
+                            {['All', 'Warmups', 'Conditioning', 'Fitness', 'Hand-Eye Coordination', 'Drills - Racketwork', 'Feeding Drills', 'Fun Games', 'Condition Games', 'Ghosting', 'Movement', 'Circuits (Score/Time)'].map(c => {
+                                let Icon = List; // Default for 'All'
+                                if (c !== 'All') {
+                                    const style = getCategoryStyle(c, false);
+                                    Icon = style.icon;
+                                }
+
+                                return (
+                                    <button 
+                                        key={c} 
+                                        onClick={() => setCat(c)}
+                                        className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition flex items-center gap-2 ${cat === c ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}
+                                    >
+                                        <Icon className="w-4 h-4" />
+                                        {c}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
                     {/* List */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                        {filtered.map(drill => (
-                            <button 
-                                key={drill.id}
-                                onClick={() => { onAdd(drill); }}
-                                className="w-full bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
-                            >
-                                <div className="text-left">
-                                    <h4 className="font-bold text-slate-800">{drill.name}</h4>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{drill.type}</span>
-                                        <span className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(drill.defaultDuration)}</span>
+                        {filtered.map(drill => {
+                            const style = getCategoryStyle(drill.type, false);
+                            const Icon = style.icon;
+                            return (
+                                <button 
+                                    key={drill.id}
+                                    onClick={() => { onAdd(drill); }}
+                                    className="w-full bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
+                                >
+                                    <div className="text-left">
+                                        <h4 className="font-bold text-slate-800">{drill.name}</h4>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 border ${style.border} ${style.color} ${style.accent}`}>
+                                                <Icon className="w-3 h-3" />
+                                                {drill.type}
+                                            </span>
+                                            <span className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(drill.defaultDuration)}</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
-                                    <Plus className="w-5 h-5" />
-                                </div>
-                            </button>
-                        ))}
+                                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                        <Plus className="w-5 h-5" />
+                                    </div>
+                                </button>
+                            );
+                        })}
                         <div className="h-20"></div> {/* Spacer for bottom safety */}
                     </div>
                 </div>
@@ -747,7 +761,7 @@
                     ${isDragOver ? 'border-t-4 border-t-emerald-500 scale-[1.02] shadow-md' : ''}`}
                 >
                     {/* Watermark - Centered */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-5 pointer-events-none">
+                    <div className="absolute top-1/2 left-[35%] -translate-x-1/2 -translate-y-1/2 z-0 opacity-5 pointer-events-none">
                         <WatermarkIcon className="w-20 h-20 text-slate-900" /> 
                     </div>
 
@@ -1633,6 +1647,9 @@
                                         <Users className="w-4 h-4" /> Bench
                                         <span className="bg-slate-100 text-slate-600 px-1.5 rounded-full">{availablePlayers.filter(p => !groups.flat().some(gp => gp.id === p.id)).length}</span>
                                     </div>
+                                    <button onClick={autoGroupPlayers} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition shrink-0">
+                                        <RefreshCw className="w-3 h-3" /> Auto-Assign
+                                    </button>
                                     {availablePlayers.filter(p => !groups.flat().some(gp => gp.id === p.id)).map((p, idx) => (
                                         <div 
                                             key={p.id}
@@ -1649,9 +1666,6 @@
                                             <span className="text-xs font-bold text-slate-700">{p.name}</span>
                                         </div>
                                     ))}
-                                    <button onClick={autoGroupPlayers} className="ml-auto flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition shrink-0">
-                                        <RefreshCw className="w-3 h-3" /> Auto-Assign
-                                    </button>
                                 </div>
                             )}
 
@@ -1662,7 +1676,7 @@
                                     <p className="text-slate-500 text-sm">Drag players and drills to organize.</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setShowNotesModal(true)} className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-emerald-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 transition"><MessageSquare className="w-4 h-4" /> Notes</button>
+
                                     <button onClick={() => setShowLoadTemplateModal(true)} className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 transition">Load Template</button>
                                     <button onClick={() => setShowSaveTemplateModal(true)} className="flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200 transition"><Save className="w-4 h-4" /> Save Template</button>
                                     <button onClick={addRestPeriod} className="flex items-center gap-2 text-sm font-bold text-amber-700 hover:text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 transition"><Clock className="w-4 h-4" /> Add Rest All</button>
@@ -1789,11 +1803,11 @@
                                             onClick={() => setSelectedCategory(cat)}
                                             className={`whitespace-nowrap px-3 py-1 rounded-full text-xs font-bold border transition ${selectedCategory === cat ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'}`}
                                         >
-                                            {cat === 'Warmups' && <Flame className="w-3 h-3 inline mr-1" />}
-                                            {cat === 'Fun Games' && <Trophy className="w-3 h-3 inline mr-1" />}
-                                            {cat === 'Hand-Eye Coordination' && <Target className="w-3 h-3 inline mr-1" />}
-                                            {cat === 'Ghosting' && <Footprints className="w-3 h-3 inline mr-1" />}
-                                            {cat === 'Fitness' && <Dumbbell className="w-3 h-3 inline mr-1" />}
+                                            {(() => {
+                                                const config = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG['General'];
+                                                const Icon = config.icon;
+                                                return cat !== 'All' ? <Icon className="w-3 h-3 inline mr-1" /> : null;
+                                            })()}
                                             {cat}
                                         </button>
                                     ))}
