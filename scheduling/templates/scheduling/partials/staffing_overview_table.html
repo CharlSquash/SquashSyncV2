@@ -17,7 +17,7 @@
 
 <div class="table-responsive">
     <table class="table table-bordered table-sm table-hover text-center align-middle">
-        <thead class="table-light">
+        <thead class="table-secondary">
             <tr>
                 <th style="width: 10%;">Day</th>
                 <th style="width: 10%;">Time</th>
@@ -32,7 +32,7 @@
                 {% if not day.sessions %}
                     {% if day.day_name != "Saturday" and day.day_name != "Sunday" %}
                     <tr>
-                        <td class="fw-bold bg-light">{{ day.date|date:"D d M" }}</td>
+                        <td class="fw-bold table-active">{{ day.date|date:"D d M" }}</td>
                         <td colspan="5" class="text-muted fst-italic">No sessions scheduled</td>
                     </tr>
                     {% endif %}
@@ -41,7 +41,7 @@
                         <tr>
                             {# Day Column - Only displayed on the first row for the day #}
                             {% if forloop.first %}
-                                <td rowspan="{{ day.sessions|length }}" class="fw-bold bg-light align-middle">
+                                <td rowspan="{{ day.sessions|length }}" class="fw-bold table-active align-middle">
                                     {{ day.date|date:"D d M" }}
                                 </td>
                             {% endif %}
