@@ -15,7 +15,7 @@
     {% endif %}
 </div>
 
-<div class="table-responsive d-none d-md-block">
+<div class="table-responsive">
     <table class="table table-bordered table-sm table-hover text-center align-middle">
         <thead class="table-light">
             <tr>
@@ -23,8 +23,8 @@
                 <th style="width: 10%;">Time</th>
                 <th style="width: 20%;">Class / Session</th>
                 <th style="width: 25%;">Coach(es)</th>
-                <th style="width: 10%;">Duration</th>
-                <th style="width: 25%;">Venue</th>
+                <th style="width: 10%;" class="d-none d-md-table-cell">Duration</th>
+                <th style="width: 25%;" class="d-none d-md-table-cell">Venue</th>
             </tr>
         </thead>
         <tbody>
@@ -47,7 +47,12 @@
                             {% endif %}
 
                             {# Time #}
-                            <td>{{ session_data.session_obj.session_start_time|time:"H:i" }}</td>
+                            <td>
+                                {{ session_data.session_obj.session_start_time|time:"H:i" }}
+                                <div class="d-md-none text-muted small mt-1">
+                                    {{ session_data.session_obj.planned_duration_minutes }}m
+                                </div>
+                            </td>
 
                             {# Class / Session #}
                             <td class="text-start">
@@ -59,6 +64,9 @@
                                 {% if session_data.session_obj.notes %}
                                     <i class="bi bi-info-circle text-info ms-1" data-bs-toggle="tooltip" title="{{ session_data.session_obj.notes }}"></i>
                                 {% endif %}
+                                <div class="d-md-none text-muted small mt-1">
+                                    <i class="bi bi-geo-alt-fill me-1"></i>{{ session_data.session_obj.venue.name|default:"No Venue" }}
+                                </div>
                             </td>
 
                             {# Coach(es) #}
@@ -91,12 +99,12 @@
                             </td>
 
                             {# Duration #}
-                            <td>
+                            <td class="d-none d-md-table-cell">
                                 {{ session_data.session_obj.planned_duration_minutes }} min
                             </td>
 
                             {# Venue #}
-                            <td>
+                            <td class="d-none d-md-table-cell">
                                 {{ session_data.session_obj.venue.name|default:"No Venue Assigned" }}
                             </td>
                         </tr>
@@ -107,78 +115,4 @@
     </table>
 </div>
 
-{# --- MOBILE VIEW (Cards) --- #}
-<div class="d-block d-md-none">
-    {% for day in display_week %}
-        {# Skip empty weekends on mobile too #}
-        {% if not day.sessions %}
-            {% if day.day_name != "Saturday" and day.day_name != "Sunday" %}
-                <div class="card mb-3 shadow-sm">
-                    <div class="card-header bg-light fw-bold">
-                        {{ day.date|date:"l, d M" }}
-                    </div>
-                    <div class="card-body text-center text-muted fst-italic py-2">
-                        No sessions scheduled
-                    </div>
-                </div>
-            {% endif %}
-        {% else %}
-            <div class="mb-4">
-                <h6 class="border-bottom pb-2 mb-3 fw-bold bg-light p-2 rounded">{{ day.date|date:"l, d M" }}</h6>
-                {% for session_data in day.sessions %}
-                    <div class="card mb-3 shadow-sm border-start border-4 border-primary">
-                        <div class="card-body py-2 px-3">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <span class="badge bg-light text-dark border me-1">{{ session_data.session_obj.session_start_time|time:"H:i" }}</span>
-                                    <span class="fw-bold text-primary">
-                                        {% if session_data.session_obj.school_group %}
-                                            {{ session_data.session_obj.school_group.name }}
-                                        {% else %}
-                                            General Session
-                                        {% endif %}
-                                    </span>
-                                </div>
-                                <span class="badge bg-secondary">{{ session_data.session_obj.planned_duration_minutes }}m</span>
-                            </div>
-                            
-                            <div class="small text-muted mb-2">
-                                <i class="bi bi-geo-alt-fill me-1"></i>{{ session_data.session_obj.venue.name|default:"No Venue" }}
-                            </div>
 
-                            <div class="mt-2">
-                                {% if not session_data.assigned_coaches_with_status %}
-                                    <span class="badge bg-secondary text-light">Unstaffed</span>
-                                {% else %}
-                                    <div class="d-flex flex-wrap gap-1">
-                                        {% for coach_info in session_data.assigned_coaches_with_status %}
-                                            {% if coach_info.status == 'Confirmed' %}
-                                                <span class="badge bg-success" title="Confirmed">
-                                                    <i class="bi bi-check-circle me-1"></i>{{ coach_info.coach.name }}
-                                                </span>
-                                            {% elif coach_info.status == 'Declined' %}
-                                                <span class="badge bg-danger" title="Declined">
-                                                    <i class="bi bi-x-circle me-1"></i>{{ coach_info.coach.name }}
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-warning text-dark" title="Pending">
-                                                    <i class="bi bi-dash-circle me-1"></i>{{ coach_info.coach.name }}
-                                                </span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            
-                            {% if session_data.session_obj.notes %}
-                                <div class="mt-2 small text-info bg-light p-1 rounded">
-                                    <i class="bi bi-info-circle me-1"></i>{{ session_data.session_obj.notes }}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endfor %}
-</div>
