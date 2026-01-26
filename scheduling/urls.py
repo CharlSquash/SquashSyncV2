@@ -31,4 +31,5 @@ urlpatterns = [
     # Feeds
     path('feed/calendar/<str:token>/', feeds.coach_calendar_feed, name='coach_calendar_feed'),
     path('email-preview/', views.preview_head_coach_email, name='preview_head_coach_email'),
+    path('staffing-overview-modal/', views.staffing_overview_modal, name='staffing_overview_modal'),
 ]

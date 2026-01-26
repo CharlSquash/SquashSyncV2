@@ -38,7 +38,7 @@
 
 {% block content %}
 <div class="container-fluid mt-3">
-    <div class="page-header d-flex justify-content-between align-items-center">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h1>{{ page_title|default:"Session Calendar" }}</h1>
 
         {# --- NEW TOGGLE BUTTONS --- #}
@@ -55,6 +55,13 @@
         {# --- END OF NEW TOGGLE --- #}
 
         {# --- END OF NEW TOGGLE --- #}
+
+        {# --- WEEKLY OVERVIEW BUTTON --- #}
+        {% if user.is_staff %}
+        <div class="ms-2">
+            <button id="openWeeklyOverviewBtn" type="button" class="btn btn-info"><i class="bi bi-table"></i> Weekly Schedule</button>
+        </div>
+        {% endif %}
 
         {# --- SYNC CALENDAR BUTTON --- #}
         {% if calendar_sync_url %}
@@ -226,6 +233,30 @@
         </div>
     </div>
 </div>
+
+<!-- Weekly Overview Modal -->
+<div class="modal fade" id="weeklyOverviewModal" tabindex="-1" aria-labelledby="weeklyOverviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="weeklyOverviewModalLabel">Weekly Schedule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="weeklyOverviewContent">
+                <!-- Content injected via AJAX -->
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 
 
@@ -680,38 +711,102 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     // Delete Event Logics (Existing)
-    document.getElementById('deleteEventBtn').addEventListener('click', function() {
-        // ... (existing code)
-        const eventId = this.getAttribute('data-event-id');
-        if (!eventId) return;
-        
-        if (!confirm("Are you sure you want to delete this event? This cannot be undone.")) {
-            return;
-        }
-        
-        fetch("{% url 'scheduling:delete_event' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({ event_id: eventId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                const event = calendar.getEventById(eventId);
-                if (event) event.remove();
-                eventModal.style.display = "none";
-                // alert("Event deleted successfully.");
-            } else {
-                alert("Failed to delete event: " + data.message);
+    const deleteBtn = document.getElementById('deleteEventBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            // ... (existing code)
+            const eventId = this.getAttribute('data-event-id');
+            if (!eventId) return;
+            
+            if (!confirm("Are you sure you want to delete this event? This cannot be undone.")) {
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while deleting the event.');
+            
+            fetch("{% url 'scheduling:delete_event' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ event_id: eventId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const event = calendar.getEventById(eventId);
+                    if (event) event.remove();
+                    eventModal.style.display = "none";
+                    // alert("Event deleted successfully.");
+                } else {
+                    alert("Failed to delete event: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the event.');
+            });
         });
+    }
+
+    // --- Weekly Staffing Overview Logic ---
+    // --- Weekly Staffing Overview Logic ---
+    const openWeeklyOverviewBtn = document.getElementById('openWeeklyOverviewBtn');
+    
+    function loadWeeklyOverview(dateStr) {
+        const modalBody = document.getElementById('weeklyOverviewContent');
+        
+        // Show loader (only if not already showing, or always? specific area?)
+        // Ideally keep it smooth, but a loader is good for feedback.
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading schedule...</p>
+            </div>
+        `;
+        
+        // Fetch content
+        fetch(`{% url 'scheduling:staffing_overview_modal' %}?date=${dateStr}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.text();
+            })
+            .then(html => {
+                modalBody.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                modalBody.innerHTML = `<div class="alert alert-danger">Error loading data. Please try again.</div>`;
+            });
+    }
+
+    if (openWeeklyOverviewBtn) {
+        openWeeklyOverviewBtn.addEventListener('click', function() {
+            // "But default back to current week when opened"
+            // We use Today's date (or pass nothing, view defaults to today)
+            const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+            
+            const modalEl = document.getElementById('weeklyOverviewModal');
+            const bsModal = new bootstrap.Modal(modalEl);
+            
+            // Show modal
+            bsModal.show();
+            
+            // Load content for today
+            loadWeeklyOverview(today);
+        });
+    }
+    
+    // Event Delegation for Navigation Buttons
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.closest('.weekly-overview-nav-btn')) {
+            const btn = e.target.closest('.weekly-overview-nav-btn');
+            const dateStr = btn.getAttribute('data-date');
+            if (dateStr) {
+                loadWeeklyOverview(dateStr);
+            }
+        }
     });
 
 

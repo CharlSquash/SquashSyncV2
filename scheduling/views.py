@@ -2012,3 +2012,128 @@ def preview_head_coach_email(request):
     }
     
     return render(request, 'scheduling/emails/consolidated_session_reminder.html', context)
+
+
+@login_required
+def staffing_overview_modal(request):
+    """
+    Returns a partial HTML read-only table of weekly staffing.
+    Used in a modal on the session calendar page.
+    """
+    if not request.user.is_staff:
+        return HttpResponseForbidden()
+        
+    date_str = request.GET.get('date')
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        target_date = timezone.now().date()
+
+    # Calculate Monday-Sunday of the requested week
+    start_of_week = target_date - timedelta(days=target_date.weekday())
+    # end_of_week = start_of_week + timedelta(days=6) # Unused but implicit in loop
+
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    display_week = []
+
+    for i in range(7):
+        current_day = start_of_week + timedelta(days=i)
+        
+        # Fetch sessions for the day
+        sessions_qs = Session.objects.filter(
+            session_date=current_day,
+            is_cancelled=False
+        ).select_related('school_group', 'venue').prefetch_related(
+            'sessioncoach_set__coach__user',
+            'coach_availabilities'
+        )
+
+        # 1. Group by Venue
+        sessions_by_venue = defaultdict(list)
+        for session in sessions_qs:
+            venue_id = session.venue.id if session.venue else 'no_venue'
+            sessions_by_venue[venue_id].append(session)
+        
+        # 2. Sort sessions WITHIN grouped venue by time
+        for vid in sessions_by_venue:
+            sessions_by_venue[vid].sort(key=lambda s: s.session_start_time)
+
+        # 3. Sort Venue Groups by the start time of their EARLIEST session
+        venue_groups = []
+        for vid, s_list in sessions_by_venue.items():
+            if not s_list:
+                continue
+            earliest_start = s_list[0].session_start_time
+            venue_groups.append((vid, s_list, earliest_start))
+        
+        venue_groups.sort(key=lambda x: x[2])
+
+        # 4. Flatten for this day
+        sessions_sorted = []
+        for _, s_list, _ in venue_groups:
+            sessions_sorted.extend(s_list)
+        
+        # Process sessions to format data for template
+        processed_sessions = []
+        for session in sessions_sorted:
+            # Build availability map for quick lookup
+            availability_map = {}
+            for avail in session.coach_availabilities.all():
+                if avail.coach_id:
+                     availability_map[avail.coach_id] = avail
+
+            assigned_coaches_status = []
+            
+            # Iterate through ASSIGNED coaches (via SessionCoach through model)
+            for session_coach in session.sessioncoach_set.all():
+                coach = session_coach.coach
+                avail = None
+                if coach.user:
+                    avail = availability_map.get(coach.user.id)
+
+                status = "Pending"
+                if avail:
+                    if avail.status == CoachAvailability.Status.UNAVAILABLE:
+                        status = "Declined"
+                    elif avail.last_action == 'CONFIRM':
+                        status = "Confirmed"
+                
+                assigned_coaches_status.append({
+                    'coach': coach,
+                    'status': status,
+                    'is_head_coach': session_coach.is_head_coach
+                })
+            
+            processed_sessions.append({
+                'session_obj': session,
+                'assigned_coaches_with_status': assigned_coaches_status,
+            })
+
+        display_week.append({
+            'day_name': day_names[i],
+            'date': current_day,
+            'sessions': processed_sessions
+        })
+    
+    # Navigation Logic
+    prev_week_start = start_of_week - timedelta(weeks=1)
+    next_week_start = start_of_week + timedelta(weeks=1)
+    
+    # Check if sessions exist for next week to conditionally show the button
+    # Query for ANY session in that week range
+    next_week_end = next_week_start + timedelta(days=6)
+    has_next_week_sessions = Session.objects.filter(
+        session_date__gte=next_week_start,
+        session_date__lte=next_week_end,
+        is_cancelled=False
+    ).exists()
+
+    context = {
+        'display_week': display_week,
+        'current_week_start': start_of_week,
+        'prev_week_start': prev_week_start,
+        'next_week_start': next_week_start,
+        'has_next_week_sessions': has_next_week_sessions,
+    }
+
+    return render(request, 'scheduling/partials/staffing_overview_table.html', context)
