@@ -5,7 +5,6 @@ from django.core.validators import MinValueValidator
 
 class Drill(models.Model):
     CATEGORY_CHOICES = [
-
         ('Conditioning', 'Conditioning'),
         ('Warmups', 'Warmups'),
         ('Hand-Eye Coordination', 'Hand-Eye Coordination'),
@@ -17,6 +16,7 @@ class Drill(models.Model):
         ('Fitness', 'Fitness'),
         ('Movement', 'Movement'),
         ('Circuits (Score/Time)', 'Circuits (Score/Time)'),
+        ('Squash Basics', 'Squash Basics'),
     ]
 
     DIFFICULTY_CHOICES = [
@@ -35,6 +35,9 @@ class Drill(models.Model):
     duration_minutes = models.PositiveIntegerField(default=10, help_text="Duration in minutes")
     default_duration = models.PositiveIntegerField(default=180, help_text="Duration in seconds (deprecated)")
     video_url = models.URLField(blank=True, null=True)
+    equipment = models.CharField(max_length=200, blank=True, help_text="Equipment needed for this drill (e.g. 'Cones', 'Target Board')")
+    resource_text = models.TextField(blank=True, help_text="Text content for rules, marking guides, etc.")
+    resource_url = models.URLField(blank=True, null=True, help_text="Link to external document (e.g., Google Drive)")
 
     def __str__(self):
         return self.name

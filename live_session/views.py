@@ -151,7 +151,9 @@ def live_session_update_api(request, session_id):
                     "currentActivity": { 
                         "name": current_block.get('customName', 'Unnamed Activity'), 
                         "timeLeft": time_left, 
-                        "duration": int(current_block.get('duration', 0)) 
+                        "duration": int(current_block.get('duration', 0)),
+                        "resource_text": current_block.get('resource_text', ''),
+                        "resource_url": current_block.get('resource_url', '')
                     },
                     "nextActivity": next_activity
                 })
@@ -226,7 +228,7 @@ def experimental_planner(request, session_id):
 
     # Use explicit list comprehension to ensure no SimpleLazyObject issues naturally
     # Also added created_by_id which was missing
-    drills_values = drills_qs.values('id', 'name', 'category', 'difficulty', 'description', 'duration_minutes', 'video_url', 'created_by_id')
+    drills_values = drills_qs.values('id', 'name', 'category', 'difficulty', 'description', 'duration_minutes', 'video_url', 'created_by_id', 'equipment', 'resource_text', 'resource_url')
     
     # Explicitly convert potentially lazy objects to strings
     drills = []
@@ -239,7 +241,10 @@ def experimental_planner(request, session_id):
             'description': str(d['description']),
             'duration_minutes': d['duration_minutes'],
             'video_url': str(d['video_url']) if d['video_url'] else '',
-            'created_by_id': d['created_by_id']
+            'created_by_id': d['created_by_id'],
+            'equipment': str(d['equipment']) if d['equipment'] else '',
+            'resource_text': str(d['resource_text']) if d['resource_text'] else '',
+            'resource_url': str(d['resource_url']) if d['resource_url'] else ''
         })
 
     # Explicitly sanitize player data as well
@@ -271,9 +276,13 @@ def experimental_planner(request, session_id):
             'created_at_formatted': note.created_at.strftime('%Y-%m-%d %H:%M')
         })
 
+    # Fetch unique equipment for autocomplete
+    existing_equipment = list(Drill.objects.exclude(equipment='').values_list('equipment', flat=True).distinct())
+
     context = {
         'session_id': session.id,
         'drills_json': drills,
+        'existing_equipment_json': existing_equipment,
         'players_json': players_list,
         'current_plan_json': current_plan, # Add the existing plan
         'notes_json': notes_list,
@@ -308,7 +317,10 @@ def create_custom_drill(request):
             duration_minutes=int(data.get('duration', 10)),
             video_url=data.get('video_url', ''),
             created_by=coach,
-            is_approved=is_approved # Explicitly set to False
+            is_approved=is_approved, # Explicitly set to False
+            equipment=data.get('equipment', ''),
+            resource_text=data.get('resource_text', ''),
+            resource_url=data.get('resource_url', '')
         )
         
         return JsonResponse({
@@ -321,7 +333,10 @@ def create_custom_drill(request):
                 'description': drill.description,
                 'duration_minutes': drill.duration_minutes,
                 'video_url': drill.video_url,
-                'created_by_id': coach.id if coach else None
+                'created_by_id': coach.id if coach else None,
+                'equipment': drill.equipment,
+                'resource_text': drill.resource_text,
+                'resource_url': drill.resource_url
             }
         })
     except Exception as e:

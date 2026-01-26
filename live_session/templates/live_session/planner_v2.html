@@ -56,6 +56,7 @@
     {{ notes_json|json_script:"notes-data" }}
     {% url 'live_session:add_session_note' session_id as add_note_url %}
     {{ add_note_url|json_script:"add-note-url" }}
+    {{ existing_equipment_json|json_script:"equipment-data" }}
 
     <!-- 4. Your Application Code -->
     <script type="text/babel" data-type="module">
@@ -66,8 +67,8 @@
             Save, Layout, Clock, Activity, MonitorPlay, ArrowRight, ArrowLeft, RefreshCw, 
             Search, Grid, Copy, Check, List, Library, Info, X, Cloud, CloudLightning,
             Flame, Trophy, Target, Zap, Timer, Heart, Dumbbell, Footprints, Layers, Move,
-            ChevronLeft, ChevronRight, MessageSquare, Coffee, GripVertical,
-            Eye, PartyPopper, Ghost, Swords, Repeat, Gamepad2, HeartPulse, Brain, Snowflake
+            ChevronLeft, ChevronRight, MessageSquare, Coffee, GripVertical, Briefcase,
+            Eye, PartyPopper, Ghost, Swords, Repeat, Gamepad2, HeartPulse, Brain, Snowflake, BookOpen, FileText
         } from 'lucide-react';
 
         /**
@@ -90,6 +91,7 @@
         const CSRF_TOKEN = JSON.parse(document.getElementById('csrf-token').textContent);
         const SERVER_NOTES = JSON.parse(document.getElementById('notes-data').textContent);
         const ADD_NOTE_URL = JSON.parse(document.getElementById('add-note-url').textContent);
+        const SERVER_EQUIPMENT = JSON.parse(document.getElementById('equipment-data').textContent);
 
 
         const formatTime = (seconds) => {
@@ -112,6 +114,7 @@
             'Circuits (Score/Time)': { icon: Timer, color: 'bg-gradient-to-br from-red-50 to-white', border: 'border-red-200', accent: 'text-red-500', leftBorder: 'border-l-red-500' },
             'Mental': { icon: Brain, color: 'bg-gradient-to-br from-indigo-50 to-white', border: 'border-indigo-200', accent: 'text-indigo-500', leftBorder: 'border-l-indigo-500' },
             'Cool Down': { icon: Snowflake, color: 'bg-gradient-to-br from-cyan-50 to-white', border: 'border-cyan-200', accent: 'text-cyan-500', leftBorder: 'border-l-cyan-500' },
+            'Squash Basics': { icon: BookOpen, color: 'bg-slate-100', border: 'border-slate-300', accent: 'text-slate-600', leftBorder: 'border-l-slate-600' },
             'General': { icon: Activity, color: 'bg-white', border: 'border-slate-200', accent: 'text-slate-400', leftBorder: 'border-l-slate-500' }
         };
 
@@ -198,7 +201,10 @@
                 difficulty: 'Beginner',
                 description: '',
                 duration: 10,
-                video_url: ''
+                video_url: '',
+                equipment: '',
+                resource_text: '',
+                resource_url: ''
             });
 
             const handleSubmit = async (e) => {
@@ -219,7 +225,9 @@
                             ...data.drill,
                             defaultDuration: (data.drill.duration_minutes || 10) * 60,
                             type: data.drill.category,
-                            difficulty: data.drill.difficulty
+                            difficulty: data.drill.difficulty,
+                            resource_text: data.drill.resource_text,
+                            resource_url: data.drill.resource_url
                         });
                         onClose();
                     } else {
@@ -262,6 +270,7 @@
                                             <option value="Fitness">Fitness</option>
                                             <option value="Movement">Movement</option>
                                             <option value="Circuits (Score/Time)">Circuits (Score/Time)</option>
+                                            <option value="Squash Basics">Squash Basics</option>
                                         </select>
                                     </div>
                                     <div>
@@ -278,9 +287,38 @@
                                     <input type="number" min="1" value={localDrill.duration} onChange={e => setLocalDrill({...localDrill, duration: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Video URL (YouTube)</label>
-                                    <input type="url" value={localDrill.video_url} onChange={e => setLocalDrill({...localDrill, video_url: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://youtube.com/..." />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Equipment</label>
+                                    <input 
+                                        type="text" 
+                                        list="equipment-options"
+                                        value={localDrill.equipment} 
+                                        onChange={e => setLocalDrill({...localDrill, equipment: e.target.value})} 
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" 
+                                        placeholder="e.g. Cones, Target Board..." 
+                                    />
+                                    <datalist id="equipment-options">
+                                        {SERVER_EQUIPMENT.map((item, idx) => (
+                                            <option key={idx} value={item} />
+                                        ))}
+                                    </datalist>
                                 </div>
+                                {localDrill.category === 'Squash Basics' ? (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Content / Rules Text</label>
+                                            <textarea value={localDrill.resource_text} onChange={e => setLocalDrill({...localDrill, resource_text: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[150px]" placeholder="Paste rules or guide text here..."></textarea>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Document Link (URL)</label>
+                                            <input type="url" value={localDrill.resource_url} onChange={e => setLocalDrill({...localDrill, resource_url: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://drive.google.com/..." />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">Video URL (YouTube)</label>
+                                        <input type="url" value={localDrill.video_url} onChange={e => setLocalDrill({...localDrill, video_url: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://youtube.com/..." />
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
                                     <textarea value={localDrill.description} onChange={e => setLocalDrill({...localDrill, description: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[100px]" placeholder="Describe the drill instructions..."></textarea>
@@ -290,6 +328,50 @@
                         <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
                              <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg transition">Cancel</button>
                              <button type="submit" form="create-drill-form" className="px-6 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm">Create Drill</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const EquipmentSummaryModal = ({ onClose, drills }) => {
+            const equipmentList = Array.from(new Set(
+                drills
+                    .filter(d => d.equipment)
+                    .map(d => d.equipment)
+            )).sort();
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                <Dumbbell className="w-5 h-5 text-emerald-600" />
+                                Equipment Needed
+                            </h3>
+                            <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition"><X className="w-5 h-5 text-slate-500" /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto">
+                            {equipmentList.length === 0 ? (
+                                <div className="text-center py-8 text-slate-400">
+                                    <Dumbbell className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                                    <p className="text-sm">No special equipment specified for this session.</p>
+                                </div>
+                            ) : (
+                                <ul className="space-y-3">
+                                    {equipmentList.map((item, idx) => (
+                                        <li key={idx} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-sm">
+                                                {idx + 1}
+                                            </div>
+                                            <span className="font-bold text-slate-700">{item}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        <div className="p-4 border-t border-slate-100 bg-slate-50 text-center">
+                            <button onClick={onClose} className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg transition">Close</button>
                         </div>
                     </div>
                 </div>
@@ -445,7 +527,7 @@
                             />
                         </div>
                         <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
-                            {['All', 'Warmups', 'Conditioning', 'Fitness', 'Hand-Eye Coordination', 'Drills - Racketwork', 'Feeding Drills', 'Fun Games', 'Condition Games', 'Ghosting', 'Movement', 'Circuits (Score/Time)'].map(c => {
+                            {['All', 'Warmups', 'Conditioning', 'Fitness', 'Hand-Eye Coordination', 'Drills - Racketwork', 'Feeding Drills', 'Fun Games', 'Condition Games', 'Ghosting', 'Movement', 'Circuits (Score/Time)', 'Squash Basics'].map(c => {
                                 let Icon = List; // Default for 'All'
                                 if (c !== 'All') {
                                     const style = getCategoryStyle(c, false);
@@ -952,6 +1034,12 @@
             // Notes State
             const [showNotesModal, setShowNotesModal] = useState(false);
             const [notes, setNotes] = useState(SERVER_NOTES || []);
+            
+            // Equipment Modal
+            const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+            
+            // Session Theme
+            const [sessionTheme, setSessionTheme] = useState(CURRENT_PLAN?.theme || '');
 
             useEffect(() => {
                 const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -1036,7 +1124,8 @@
                         const payload = {
                             numCourts,
                             courtPlans,
-                            groups
+                            groups,
+                            theme: sessionTheme
                         };
                         
                         const response = await fetch(SAVE_PLAN_URL, {
@@ -1061,7 +1150,7 @@
                 }, 2000); // 2 second debounce
 
                 return () => clearTimeout(saveTimeoutRef.current);
-            }, [courtPlans, numCourts, groups]);
+            }, [courtPlans, numCourts, groups, sessionTheme]);
 
             const autoGroupPlayers = () => {
                 const shuffled = [...availablePlayers].sort(() => 0.5 - Math.random());
@@ -1470,6 +1559,30 @@
                                 <div className="h-1/3 md:h-auto md:w-1/3 bg-slate-900 p-4 md:p-6 flex flex-col border-l border-slate-800 overflow-y-auto">
                                     <div className="hidden md:block aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-slate-700 relative mb-6">
                                         {(() => {
+                                            if (currentBlock.type === 'Squash Basics') {
+                                                return (
+                                                    <div className="w-full h-full bg-slate-800 p-6 overflow-y-auto custom-scrollbar flex flex-col justify-start">
+                                                        <h4 className="text-emerald-500 font-bold mb-4 uppercase tracking-wider flex items-center gap-2">
+                                                            <BookOpen className="w-5 h-5" /> Resource Content
+                                                        </h4>
+                                                        {currentBlock.resource_text ? (
+                                                             <div className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed mb-6">
+                                                                {currentBlock.resource_text}
+                                                             </div>
+                                                        ) : (
+                                                            <p className="text-slate-500 italic mb-6">No text content provided.</p>
+                                                        )}
+                                                        
+                                                        {currentBlock.resource_url && (
+                                                            <a href={currentBlock.resource_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-lg mt-auto">
+                                                                <FileText className="w-5 h-5" />
+                                                                Open Document
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+
                                             const vidId = getYouTubeId(currentBlock.video_url);
                                             if (vidId) {
                                                 return (
@@ -1527,9 +1640,19 @@
                                 Planner
                             </div>
                             {/* Desktop: Full Logo */}
-                            <div className="hidden md:flex items-center gap-3">
-                                <div className="bg-emerald-600 p-2 rounded-lg"><Activity className="w-6 h-6 text-white" /></div>
-                                <div><h1 className="text-xl font-bold text-slate-800 leading-tight">SquashSync</h1><p className="text-xs text-slate-500">Coach Dashboard</p></div>
+                            <div className="hidden md:flex items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-emerald-600 p-2 rounded-lg"><Activity className="w-6 h-6 text-white" /></div>
+                                    <h1 className="text-xl font-bold text-slate-800 leading-tight">SquashSync</h1>
+                                </div>
+                                <div className="h-6 w-px bg-slate-300"></div>
+                                <input 
+                                    type="text" 
+                                    value={sessionTheme}
+                                    onChange={(e) => setSessionTheme(e.target.value)}
+                                    placeholder="Enter Session Theme..."
+                                    className="text-sm font-medium text-slate-700 bg-transparent border-none focus:ring-0 placeholder:text-slate-400 placeholder:font-normal w-64 lg:w-96"
+                                />
                             </div>
                         </div>
 
@@ -1544,6 +1667,13 @@
                                 {notes.length > 0 && (
                                     <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
                                 )}
+                            </button>
+                            <button 
+                                onClick={() => setShowEquipmentModal(true)}
+                                className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition"
+                                title="Equipment Manager"
+                            >
+                                <Dumbbell className="w-6 h-6" />
                             </button>
                             <button 
                                 onClick={clearAll}
@@ -1797,7 +1927,7 @@
                                 
                                 {/* Category Filter */}
                                 <div className={`flex gap-2 ${isLibraryExpanded ? 'flex-wrap' : 'overflow-x-auto pb-2 -mx-4 px-4 custom-scrollbar'}`}>
-                                    {['All', 'Conditioning', 'Warmups', 'Fun Games', 'Ghosting', 'Drills - Racketwork', 'Feeding Drills', 'Condition Games', 'Fitness', 'Movement', 'Circuits (Score/Time)', 'Hand-Eye Coordination'].map(cat => (
+                                    {['All', 'Conditioning', 'Warmups', 'Fun Games', 'Ghosting', 'Drills - Racketwork', 'Feeding Drills', 'Condition Games', 'Fitness', 'Movement', 'Circuits (Score/Time)', 'Hand-Eye Coordination', 'Squash Basics'].map(cat => (
                                         <button 
                                             key={cat}
                                             onClick={() => setSelectedCategory(cat)}
@@ -1890,8 +2020,29 @@
                                     className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 animate-in zoom-in-95 duration-200" 
                                     onClick={e => e.stopPropagation()}
                                 >
-                                    <div className="relative aspect-video bg-slate-900">
-                                        {selectedDrill.video_url ? (
+                                    <div className="relative aspect-video bg-slate-900 overflow-hidden">
+                                        {selectedDrill.type === 'Squash Basics' || selectedDrill.category === 'Squash Basics' ? (
+                                            <div className="w-full h-full bg-slate-800 p-6 overflow-y-auto custom-scrollbar flex flex-col justify-start">
+                                                <h4 className="text-emerald-500 font-bold mb-4 uppercase tracking-wider flex items-center gap-2">
+                                                    <BookOpen className="w-5 h-5" /> Resource Content
+                                                </h4>
+                                                {selectedDrill.resource_text ? (
+                                                     <div className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed mb-6">
+                                                        {selectedDrill.resource_text}
+                                                     </div>
+                                                ) : (
+                                                    <p className="text-slate-500 italic mb-6">No text content provided.</p>
+                                                )}
+                                                
+                                                {selectedDrill.resource_url && (
+                                                    <a href={selectedDrill.resource_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-lg mt-auto mb-2">
+                                                        <FileText className="w-5 h-5" />
+                                                        Open Document
+                                                    </a>
+                                                )}
+                                            </div>
+                                        ) : (
+                                        selectedDrill.video_url ? (
                                             <iframe 
                                                 className="w-full h-full" 
                                                 src={`https://www.youtube.com/embed/${getYouTubeId(selectedDrill.video_url)}?origin=${encodeURIComponent(window.location.origin)}&rel=0&enablejsapi=1`} 
@@ -1906,6 +2057,7 @@
                                                 <Play className="w-12 h-12 opacity-20 mb-2" />
                                                 <span className="text-xs font-medium uppercase tracking-wider opacity-60">No Video Preview</span>
                                             </div>
+                                        )
                                         )}
                                         <button 
                                             onClick={() => setSelectedDrill(null)}
@@ -1935,6 +2087,15 @@
                                         </div>
                                         
                                         <div className="prose prose-sm prose-slate mb-6 max-h-40 overflow-y-auto custom-scrollbar">
+                                            {selectedDrill.equipment && (
+                                                <div className="mb-3">
+                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Equipment Needed</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <Dumbbell className="w-4 h-4 text-emerald-600" />
+                                                        <span className="text-slate-700 font-medium">{selectedDrill.equipment}</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <p className="text-slate-600 leading-relaxed">
                                                 {selectedDrill.description || "No description provided for this drill."}
                                             </p>
@@ -2001,6 +2162,13 @@
                                 onSave={() => console.log("Template Saved")}
                                 planData={courtPlans}
                                 courtCount={numCourts}
+                            />
+                        )}
+
+                        {showEquipmentModal && (
+                            <EquipmentSummaryModal 
+                                onClose={() => setShowEquipmentModal(false)}
+                                drills={[...masterSequence, ...courtPlans.flat()]}
                             />
                         )}
                     </main>
