@@ -29,7 +29,17 @@
     .hidden-assessment, .hidden-note, .hidden-log {
         display: none;
     }
+    /* Fix for Tom Select in Bootstrap 5 input groups if needed, though here it is standalone */
+    .ts-control {
+        border: 1px solid var(--bs-border-color);
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+    }
+    .ts-dropdown {
+        z-index: 10000 !important; /* Ensure it pops over other elements */
+    }
 </style>
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
@@ -354,12 +364,12 @@
                                                         <span class="badge bg-success">Win</span>
                                                         vs {{ match.opponent.full_name|default:match.opponent_name }}
                                                         ({{ match.date|date:"d M Y" }}) -
-                                                        <strong>{{ match.player_score_str }} to {{ match.opponent_score_str }}</strong>
+                                                        <strong>{{ match.player_score_str }}</strong>
                                                     {% else %}
                                                         <span class="badge bg-danger">Loss</span>
                                                         vs {{ match.player.full_name }}
                                                         ({{ match.date|date:"d M Y" }}) -
-                                                        <strong>{{ match.opponent_score_str }} to {{ match.player_score_str }}</strong>
+                                                        <strong>{{ match.player_score_str }}</strong>
                                                     {% endif %}
                                                 </span>
                                                 {% if request.user.is_superuser or request.user.coach_profile in match.session.coaches_attending.all %}
@@ -400,6 +410,7 @@
 
 {% block extra_js %}
     {{ block.super }} {# This includes the Chart.js from base.html #}
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 
     <script id="sprint-data" type="application/json">{{ sprint_records_json|safe }}</script>
     <script id="volley-data" type="application/json">{{ volley_records_json|safe }}</script>
@@ -548,6 +559,38 @@
                     showLessLogsBtn.style.display = 'none';
                     showMoreLogsBtn.style.display = 'inline-block';
                 });
+            }
+
+            // Initialize Tom Select for Opponent Dropdown
+            // We check if the element exists first
+            const opponentSelect = document.getElementById('id_opponent');
+            const opponentNameInput = document.getElementById('id_opponent_name');
+            // Helper to toggle visibility of the name field container (div.mb-3 usually)
+            const toggleNameField = (hasValue) => {
+                if (!opponentNameInput) return;
+                const container = opponentNameInput.closest('div'); // The wrapping div for the form field
+                if (container) {
+                    container.style.display = hasValue ? 'none' : 'block';
+                }
+                // Optional: Clear the manual input if hiding it, to avoid confusion?
+                // if (hasValue) opponentNameInput.value = ''; 
+            };
+
+            if (opponentSelect) {
+                const ts = new TomSelect(opponentSelect, {
+                    create: false,
+                    sortField: {
+                        field: "text",
+                        direction: "asc"
+                    },
+                    placeholder: 'Type to search...',
+                    onChange: function(value) {
+                        toggleNameField(!!value);
+                    }
+                });
+                
+                // Initial check in case of reload with value
+                toggleNameField(!!opponentSelect.value);
             }
         });
     </script>

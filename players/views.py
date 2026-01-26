@@ -113,7 +113,7 @@ def add_metric(request, player_id):
             messages.error(request, "Error adding drive record. Please check the form.")
 
     elif 'add_match_result' in request.POST:
-        match_form = MatchResultForm(request.POST)
+        match_form = MatchResultForm(request.POST, player=player)
         if match_form.is_valid():
             match = match_form.save(commit=False)
             match.player = player
@@ -137,7 +137,7 @@ def player_profile(request, player_id):
     sprint_form = CourtSprintRecordForm()
     volley_form = VolleyRecordForm()
     drive_form = BackwallDriveRecordForm()
-    match_form = MatchResultForm()
+    match_form = MatchResultForm(player=player)
 
     # Get related data for tabs
     assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date')

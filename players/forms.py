@@ -1,6 +1,7 @@
 # players/forms.py
 from django import forms
-from .models import SchoolGroup, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, MatchResult
+from .models import SchoolGroup, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, MatchResult, Player
+from django.db.models import Prefetch
 from django.utils import timezone
 
 class SchoolGroupForm(forms.ModelForm):
@@ -57,18 +58,55 @@ class BackwallDriveRecordForm(forms.ModelForm):
         fields = ['date_recorded', 'shot_type', 'consecutive_count']
         labels = { 'consecutive_count': 'Consecutive Drives' }
 
+class PlayerGroupLabelChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        group_names = ", ".join([g.name for g in obj.active_groups])
+        if group_names:
+            return f"{obj.full_name} ({group_names})"
+        return obj.full_name
+
 class MatchResultForm(forms.ModelForm):
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), initial=timezone.now)
+    opponent = PlayerGroupLabelChoiceField(
+
+        queryset=Player.objects.none(),
+        required=False,
+        label="Select Opponent (Database)",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
     class Meta:
         model = MatchResult
-        fields = ['date', 'opponent_name', 'player_score_str', 'opponent_score_str', 'is_competitive', 'match_notes']
+        fields = ['date', 'opponent', 'opponent_name', 'player_score_str', 'is_competitive', 'match_notes']
         labels = {
-            'opponent_name': "Opponent's Name",
-            'player_score_str': "Player's Score",
-            'opponent_score_str': "Opponent's Score",
+            'opponent_name': "Opponent's Name (if not in list)",
+            'player_score_str': "Score",
             'is_competitive': 'Competitive Match',
             'match_notes': 'Notes'
         }
+
+    def __init__(self, *args, **kwargs):
+        player = kwargs.pop('player', None)
+        super().__init__(*args, **kwargs)
+        
+        # Default queryset if no player context (though view should provide it)
+        self.fields['opponent'].queryset = Player.objects.filter(is_active=True).prefetch_related(
+            Prefetch('school_groups', queryset=SchoolGroup.objects.filter(is_active=True), to_attr='_active_groups_cache')
+        )
+
+        if player:
+            self.fields['opponent'].queryset = Player.objects.filter(is_active=True).exclude(id=player.id).prefetch_related(
+                Prefetch('school_groups', queryset=SchoolGroup.objects.filter(is_active=True), to_attr='_active_groups_cache')
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        opponent = cleaned_data.get('opponent')
+        opponent_name = cleaned_data.get('opponent_name')
+
+        if not opponent and not opponent_name:
+            raise forms.ValidationError("Please select an opponent from the list OR enter a name manually.")
+        return cleaned_data
 
 class QuickMatchResultForm(forms.ModelForm):
     player_score_str = forms.CharField(label="Score", widget=forms.TextInput(attrs={'placeholder': '', 'class': 'form-control'}))
