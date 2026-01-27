@@ -733,7 +733,13 @@ def session_calendar(request):
                 'school_group_name': session.school_group.name if session.school_group else "N/A",
                 'session_time_str': session.session_start_time.strftime('%H:%M'),
                 'admin_url': reverse('admin:scheduling_session_change', args=[session.id]),
-                'sortIndex': index # CRITICAL for FullCalendar sorting
+                'sortIndex': index, # CRITICAL for FullCalendar sorting
+                # MANAGEMENT MODE PROPS
+                'venue_id': session.venue.id if session.venue else '',
+                'school_group_id': session.school_group.id if session.school_group else '',
+                'duration': session.planned_duration_minutes,
+                'notes': session.notes,
+                'is_recurring': True if session.generated_from_rule else False
             },
             'classNames': class_names
         })
@@ -801,8 +807,8 @@ def session_calendar(request):
         'is_all_view': view_mode == 'all' and can_view_all,
         'calendar_sync_url': calendar_sync_url, # Added sync URL
         # DATA FOR MANAGEMENT MODE
-        'all_school_groups': SchoolGroup.objects.filter(is_active=True).order_by('name'),
-        'all_venues': Venue.objects.filter(is_active=True).order_by('name'),
+        'all_school_groups': SchoolGroup.objects.all().order_by('name'), # Show ALL groups (even inactive) for management
+        'all_venues': Venue.objects.all().order_by('name'), # Show ALL venues
     }
     return render(request, 'scheduling/session_calendar.html', context)
 
@@ -1823,9 +1829,13 @@ def update_session_ajax(request):
         session_id = data.get('session_id')
         start_time_str = data.get('start_time') # HH:MM
         date_str = data.get('session_date') # YYYY-MM-DD
+        venue_id = data.get('venue_id')
+        school_group_id = data.get('school_group_id')
+        duration = data.get('duration')
+        notes = data.get('notes')
         
         if not all([session_id, start_time_str, date_str]):
-             return JsonResponse({'status': 'error', 'message': 'Missing required fields.'}, status=400)
+             return JsonResponse({'status': 'error', 'message': 'Missing required fields (session_id, start_time, session_date).'}, status=400)
 
         session = get_object_or_404(Session, pk=session_id)
         
@@ -1833,14 +1843,57 @@ def update_session_ajax(request):
         new_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         new_time = datetime.strptime(start_time_str, '%H:%M').time()
         
-        # NOTE: We are intentionally NOT modifying the generated_from_rule link.
-        # This session effectively becomes a "custom" instance of that rule for this specific date.
-        
+        # Resolve Venue and Group
+        new_venue = None
+        if venue_id:
+            new_venue = get_object_or_404(Venue, pk=venue_id)
+            
+        new_school_group = None
+        if school_group_id:
+            new_school_group = get_object_or_404(SchoolGroup, pk=school_group_id)
+
+        current_duration = int(duration) if duration else session.planned_duration_minutes
+
+        # --- CONFLICT CHECK ---
+        warning_message = None
+        if new_venue:
+            # Helper to get start/end datetimes
+            start_dt = datetime.combine(new_date, new_time)
+            end_dt = start_dt + timedelta(minutes=current_duration)
+            
+            overlapping_sessions = Session.objects.filter(
+                venue=new_venue,
+                session_date=new_date,
+                is_cancelled=False
+            ).exclude(pk=session.id) # EXCLUDE CURRENT SESSION
+            
+            conflicts = []
+            for existing in overlapping_sessions:
+                if not existing.session_start_time: continue
+                
+                existing_start = datetime.combine(existing.session_date, existing.session_start_time)
+                existing_end = existing_start + timedelta(minutes=existing.planned_duration_minutes)
+                
+                # Check Overlap: A_start < B_end and A_end > B_start
+                if start_dt < existing_end and end_dt > existing_start:
+                     conflicts.append(f"{existing.school_group.name if existing.school_group else 'Session'} ({existing.session_start_time.strftime('%H:%M')})")
+            
+            if conflicts:
+                 warning_message = 'Venue conflict detected with: ' + ", ".join(conflicts)
+
+        # Apply Updates
         session.session_date = new_date
         session.session_start_time = new_time
+        session.venue = new_venue
+        session.school_group = new_school_group
+        if duration:
+            session.planned_duration_minutes = int(duration)
+        if notes is not None:
+             session.notes = notes
+             
         session.save()
         
-        return JsonResponse({'status': 'success', 'message': 'Session updated successfully.'})
+        return JsonResponse({'status': 'success', 'message': 'Session updated successfully.', 'warning': warning_message})
     except (json.JSONDecodeError, ValueError) as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
     except Exception as e:
@@ -1873,6 +1926,7 @@ def create_session_ajax(request):
         # check_for_conflicts(date, start_time, duration, venue, exclude_session_id=None)
         
         venue = None
+        warning_message = None
         if venue_id:
             venue = get_object_or_404(Venue, pk=venue_id)
             
@@ -1909,7 +1963,7 @@ def create_session_ajax(request):
                     conflicts.append(f"{existing.school_group.name if existing.school_group else 'Session'} ({existing.session_start_time.strftime('%H:%M')})")
             
             if conflicts:
-                 return JsonResponse({'status': 'error', 'message': 'Venue conflict detected with: ' + ", ".join(conflicts)}, status=409)
+                  warning_message = 'Venue conflict detected with: ' + ", ".join(conflicts)
 
         school_group = None
         if school_group_id:
@@ -1925,7 +1979,7 @@ def create_session_ajax(request):
             status='active'
         )
         
-        return JsonResponse({'status': 'success', 'session_id': session.id})
+        return JsonResponse({'status': 'success', 'session_id': session.id, 'warning': warning_message})
         
     except (json.JSONDecodeError, ValueError) as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)

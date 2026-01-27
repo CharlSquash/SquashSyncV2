@@ -33,6 +33,15 @@
     .fc-direction-rtl .fc-daygrid-event.fc-event-attendance-taken .fc-event-main {
         padding-right: 4px;
     }
+
+    /* Management Mode: Read Only State */
+    .calendar-read-only .fc-daygrid-day-frame, 
+    .calendar-read-only .fc-timegrid-slot {
+        pointer-events: none; /* Disable clicking empty slots */
+    }
+    .calendar-read-only .fc-event {
+        pointer-events: auto; /* Allow clicking events (for details) */
+    }
 </style>
 {% endblock %}
 
@@ -363,8 +372,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Start with ONLY sessions by default (as per requirement)
         eventSources: [ sessionsSource, tasksSource ],
 
-        selectable: false, // Default off
-        editable: false,   // Default off
+        selectable: true, // Always true to allow 'select' callback to handle management checks
+        editable: false,   // DISABLE GLOBAL EDITING (Drag & Drop)
+        eventStartEditable: false,
+        eventDurationEditable: false,
 
         eventClick: function(info) {
             info.jsEvent.preventDefault();
@@ -421,38 +432,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const props = info.event.extendedProps;
             
             // Handle Session Updates in Management Mode
-            if (!props.type) { // Is Session
-                 if (!confirm(`Reschedule this session to ${info.event.start.toLocaleDateString()} at ${info.event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}?`)) {
-                    info.revert();
-                    return;
-                }
-                
-                fetch("{% url 'scheduling:update_session_ajax' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        session_id: info.event.id,
-                        session_date: info.event.start.toISOString().split('T')[0], // YYYY-MM-DD
-                        start_time: info.event.start.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'}) // HH:MM
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        // Success
-                    } else {
-                        alert('Failed to update session: ' + data.message);
-                        info.revert();
-                    }
-                })
-                .catch(err => {
-                    alert('Error updating session.');
-                    info.revert();
-                });
-                return;
+            // Handle Session Updates in Management Mode - REMOVED DRAG DROP
+            if (!props.type) { 
+                 info.revert();
+                 return;
             }
 
             // Handle Special Event Drag & Drop
@@ -494,6 +477,8 @@ document.addEventListener('DOMContentLoaded', function() {
         select: function(info) {
             if (isManagementMode) {
                 openManagementOffcanvas('create', null, info);
+            } else {
+                calendar.unselect();
             }
         }
     });
@@ -544,14 +529,18 @@ document.addEventListener('DOMContentLoaded', function() {
     if (toggleManagementControl) {
         toggleManagementControl.addEventListener('change', function() {
             isManagementMode = this.checked;
-            calendar.setOption('selectable', isManagementMode);
-            calendar.setOption('editable', isManagementMode);
+            // selectable is permanent now, logic handled in validRange or select callback
             if (isManagementMode) {
                 document.body.classList.add('management-mode-active');
+                document.querySelector('.calendar-container').classList.remove('calendar-read-only');
             } else {
                 document.body.classList.remove('management-mode-active');
+                document.querySelector('.calendar-container').classList.add('calendar-read-only');
             }
         });
+        
+        // Initialize state
+        document.querySelector('.calendar-container').classList.add('calendar-read-only');
     }
     
     // --- Management Helper Functions ---
@@ -584,31 +573,20 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('mgmtDeleteBtn').classList.remove('d-none');
             
             const props = event.extendedProps;
-            
             document.getElementById('mgmtSessionId').value = event.id;
             
-            // We need to reverse-lookup values or store IDs in extendedProps.
-            // Since props only has names currently, ideally we should update the VIEW to pass IDs.
-            // But wait, the SELECT elements need VALUE matches. 
-            // Currently extendedProps only has names. THIS IS A GAP.
-            // FIX: I will rely on the fact I cannot easily reverse lookup names without ID.
-            // I should update the view to pass IDs in extendedProps. 
-            // FOR NOW: I will try to match text if possible or just let user re-select? No that's bad UX.
-            // Let's assume the user has to re-select for now or I'll implement a fix in the view quickly if I can.
-            // actually, I can just not pre-fill the SELECTs perfectly if ID is missing.
-            // BUT, better approach: I should've added IDs to extendedProps in the view.
-            // Let's proceed with basic pre-fill of Date/Time/Notes and let user re-select Group/Venue if needed, OR I try to match by text (risky).
-            
-            // Wait, I can quickly fix the view in a subsequent turn if needed, but let's try to do it right.
-            // I'll assume for now I can't pre-fill Group/Venue easily without IDs.
-            // I'll just pre-fill date/time.
+            // Pre-fill using new ExtendedProps
+            if(props.venue_id) document.getElementById('mgmtVenue').value = props.venue_id;
+            if(props.school_group_id) document.getElementById('mgmtGroup').value = props.school_group_id;
+            if(props.duration) document.getElementById('mgmtDuration').value = props.duration;
+            if(props.notes) document.getElementById('mgmtNotes').value = props.notes;
             
             document.getElementById('mgmtDate').value = event.start.toISOString().split('T')[0];
             document.getElementById('mgmtTime').value = event.start.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'});
             
-            // Warning for recurring
-            // I don't have 'generated_from_rule' bool in extendedProps yet. 
-            // I need to add that to the view as well.
+            if (props.is_recurring) {
+                document.getElementById('recurringWarning').classList.remove('d-none');
+            }
         }
         
         managementOffcanvas.show();
@@ -624,39 +602,19 @@ document.addEventListener('DOMContentLoaded', function() {
             session_id: sessionId,
             school_group_id: document.getElementById('mgmtGroup').value,
             venue_id: document.getElementById('mgmtVenue').value,
+            session_date: document.getElementById('mgmtDate').value,
+            start_time: document.getElementById('mgmtTime').value,
+            // For create, we use 'date'/'time', for update 'session_date'/'start_time' matching views.
+            // To simplify, we'll send a superset or normalize.
+            // Create view expects: date, time
+            // Update view expects: session_date, start_time
+            // Let's explicitly satisfy both or handle separation:
             date: document.getElementById('mgmtDate').value,
             time: document.getElementById('mgmtTime').value,
+            
             duration: document.getElementById('mgmtDuration').value,
             notes: document.getElementById('mgmtNotes').value
         };
-        
-        if (sessionId) {
-            // For updates via form, we use a separate logic or reuse update_session_ajax?
-            // update_session_ajax only took date/time in my plan for drag-drop.
-            // I should probably make update_session_ajax handle duration/venue/group too if I want full edit capability.
-            // OR create a separate 'edit_session_details_ajax'.
-            // Given the user request "update_session_ajax: ... accept session_id, start_time, and session_date".
-            // It seems "update" was intended for drag-drop.
-            // But the Offcanvas is "SessionForm for editing or creating".
-            // Implementation Gaps: 
-            // 1. update_session_ajax needs to be robust enough for form edits OR I need another view.
-            // 2. extendedProps need IDs.
-            
-            // FIX: I will send what I have to update_session_ajax. If I didn't verify it handles more fields, I should check.
-            // I wrote update_session_ajax to only take date/time.
-            // I should probably just close this loop by calling create for new, and maybe just date/time move for update?
-            // "Offcanvas panel will house a simplified SessionForm for editing or creating sessions."
-            // "eventClick handler: In Management Mode, clicking an event opens the Offcanvas for editing...".
-            
-            // Retrospective: My update_session_ajax is too simple. I should have made it handle all fields.
-            // I will implement the Frontend to send the request, and if I need to update the backend I will do it in next step.
-            // For now, I'll send the payload.
-            
-            // Actually, for this iteration, let's just support date/time update via form to match drag-and-drop.
-            // Full editing might be a nice-to-have but I'll stick to what the backend supports for now or fail gracefully.
-             payload.start_time = payload.time; // mapping
-             payload.session_date = payload.date; // mapping
-        }
         
         fetch(url, {
             method: 'POST',
@@ -667,6 +625,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }).then(r => r.json()).then(data => {
             if (data.status === 'success') {
+                if (data.warning) {
+                    alert("Session saved with warning:\n" + data.warning);
+                }
                 location.reload(); // Simple reload to reflect changes
             } else {
                 alert("Error: " + data.message);
