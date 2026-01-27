@@ -116,7 +116,72 @@ def add_metric(request, player_id):
         match_form = MatchResultForm(request.POST, player=player)
         if match_form.is_valid():
             match = match_form.save(commit=False)
-            match.player = player
+            match.created_by = request.user
+            
+            # Get form data
+            winner = match_form.cleaned_data.get('winner')
+            sets_json = match_form.cleaned_data.get('sets_data')
+            
+            # 1. Parse Sets Data
+            sets_data = []
+            if sets_json:
+                try:
+                    sets_data = json.loads(sets_json)
+                except json.JSONDecodeError:
+                    pass # Should be handled, but for now fallback to empty
+            
+            match.sets_data = sets_data
+            
+            # 2. Logic for Winner/Loser Swapping
+            # Initial state: match.player is the Profile Player (set below), match.opponent is the form selection
+            # If winner is 'opponent', we must swap them so that match.player is the actual Winner.
+            
+            profile_player = player
+            opponent_player = match.opponent
+            
+            if winner == 'opponent':
+                # SWAP
+                match.player = opponent_player
+                match.opponent = profile_player
+                
+                # Also swap the set scores so p1 corresponds to the new match.player (the winner)
+                new_sets_data = []
+                for s in sets_data:
+                    new_sets_data.append({'p1': s.get('p2', 0), 'p2': s.get('p1', 0)})
+                match.sets_data = new_sets_data
+                
+            else:
+                # NO SWAP (Profile Player won)
+                match.player = profile_player
+                # match.opponent is already set correctly from form
+                
+                # Sets data p1/p2 is already correct (p1=Profile/Winner, p2=Opponent/Loser)
+                pass
+
+            # 3. Calculate Score String
+            # We calculate based on the FINAL match.sets_data where p1 is match.player
+            p1_games = 0
+            p2_games = 0
+            
+            if match.sets_data:
+                for s in match.sets_data:
+                    s1 = int(s.get('p1', 0))
+                    s2 = int(s.get('p2', 0))
+                    if s1 > s2:
+                        p1_games += 1
+                    elif s2 > s1:
+                        p2_games += 1
+                
+                match.player_score_str = f"{p1_games}-{p2_games}"
+            else:
+                # If no sets data (legacy or error), keep manual entry or default?
+                # The form relaxes validation, so manual string might be there if we allowed it.
+                # If they didn't add sets, maybe they typed a score string?
+                # But our form makes score string readonly. 
+                # Let's assume if no sets data, we have no score, unless we fallback.
+                if not match.player_score_str:
+                     match.player_score_str = "0-0" # Default
+
             match.save()
             messages.success(request, "Match result added.")
         else:

@@ -305,6 +305,9 @@ class MatchResult(models.Model):
         help_text="The player who was the opponent. Null if the opponent is not a registered player."
     )
     # --- END OF ADDITION ---
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_matches')
+    sets_data = models.JSONField(null=True, blank=True, help_text="List of set scores, e.g. [{'p1': 11, 'p2': 9}, ...]")
     
     date = models.DateField(default=timezone.now)
     opponent_name = models.CharField(max_length=100, blank=True, null=True, help_text="Use this if the opponent is not a registered player.") # Help text updated

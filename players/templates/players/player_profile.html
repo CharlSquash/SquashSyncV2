@@ -372,7 +372,7 @@
                                                         <strong>{{ match.player_score_str }}</strong>
                                                     {% endif %}
                                                 </span>
-                                                {% if request.user.is_superuser or request.user.coach_profile in match.session.coaches_attending.all %}
+                                                {% if request.user.is_superuser or match.created_by == request.user %}
                                                 <form action="{% url 'assessments:delete_match_result' match.id %}" method="post" onsubmit="return confirm('Are you sure you want to delete this match result?');">
                                                     {% csrf_token %}
                                                     <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Delete Match Result"><i class="bi bi-trash"></i></button>
@@ -392,10 +392,77 @@
                             </h2>
                             <div id="collapseAddMatch" class="accordion-collapse collapse" data-bs-parent="#matchesAccordion">
                                 <div class="accordion-body">
-                                    <form method="post" action="{% url 'players:add_metric' player.id %}">
+                                    <form method="post" action="{% url 'players:add_metric' player.id %}" id="add-match-form">
                                         {% csrf_token %}
-                                        {{ match_form|crispy }}
-                                        <button type="submit" name="add_match_result" class="btn btn-primary mt-2">Save Match</button>
+                                        
+                                        <!-- Winner Selection -->
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Who Won?</label>
+                                            <div class="d-flex gap-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="winner" id="winner_me" value="me" checked>
+                                                    <label class="form-check-label" for="winner_me">
+                                                        {{ player.full_name }}
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="winner" id="winner_opponent" value="opponent">
+                                                    <label class="form-check-label" for="winner_opponent">
+                                                        Opponent
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Opponent Fields -->
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                {{ match_form.opponent|as_crispy_field }}
+                                            </div>
+                                            <div class="col-md-6" id="opponent-name-container">
+                                                {{ match_form.opponent_name|as_crispy_field }}
+                                            </div>
+                                        </div>
+
+                                        <!-- Dynamic Sets Section -->
+                                        <div class="mb-3 p-3 bg-light rounded border">
+                                            <label class="form-label fw-bold d-flex justify-content-between">
+                                                <span>Set Scores</span>
+                                                <span id="running-score" class="badge bg-primary rounded-pill">Current Score: 0 - 0</span>
+                                            </label>
+                                            
+                                            <table class="table table-sm table-borderless mb-2">
+                                                <thead>
+                                                    <tr class="text-muted small text-center">
+                                                        <th style="width: 40%">{{ player.full_name }}</th>
+                                                        <th style="width: 40%">Opponent</th>
+                                                        <th style="width: 20%"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="sets-container">
+                                                    <!-- Dynamic Rows go here -->
+                                                </tbody>
+                                            </table>
+                                            
+                                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 dashed-border" id="add-set-btn">
+                                                <i class="bi bi-plus-circle"></i> Add Set
+                                            </button>
+                                        </div>
+
+                                        <!-- Hidden processed fields -->
+                                        {{ match_form.sets_data }}
+                                        
+                                        <!-- Other fields -->
+                                        {{ match_form.date|as_crispy_field }}
+                                        {{ match_form.is_competitive|as_crispy_field }}
+                                        {{ match_form.match_notes|as_crispy_field }}
+                                        
+                                        <!-- Hidden Score String (Auto-calculated) -->
+                                        <div class="d-none">
+                                            {{ match_form.player_score_str }}
+                                        </div>
+
+                                        <button type="submit" name="add_match_result" class="btn btn-primary mt-2 w-100">Save Match Result</button>
                                     </form>
                                 </div>
                             </div>
@@ -592,6 +659,93 @@
                 // Initial check in case of reload with value
                 toggleNameField(!!opponentSelect.value);
             }
+
+            // --- Dynamic Sets Logic ---
+            const setsContainer = document.getElementById('sets-container');
+            const addSetBtn = document.getElementById('add-set-btn');
+            const scoreLabel = document.getElementById('running-score');
+            const setsDataInput = document.getElementById('id_sets_data');
+            const form = document.getElementById('add-match-form');
+            
+            if (setsContainer && addSetBtn) {
+                // Function to update the JSON field and running total
+                const updateSetsData = () => {
+                    const rows = setsContainer.querySelectorAll('tr');
+                    const sets = [];
+                    let p1Total = 0;
+                    let p2Total = 0;
+
+                    rows.forEach(row => {
+                        const p1Input = row.querySelector('.p1-score');
+                        const p2Input = row.querySelector('.p2-score');
+                        
+                        // Parse values
+                        const p1Val = parseInt(p1Input.value) || 0;
+                        const p2Val = parseInt(p2Input.value) || 0;
+                        
+                        // Only add if at least one side has a score (or both 0 if intentional, but usually typed)
+                        // Actually, we want to capture whatever is typed.
+                        sets.push({ p1: p1Val, p2: p2Val });
+
+                        if (p1Val > p2Val) p1Total++;
+                        if (p2Val > p1Val) p2Total++;
+                    });
+
+                    // Update JSON Input
+                    setsDataInput.value = JSON.stringify(sets);
+                    
+                    // Update Label
+                    scoreLabel.textContent = `Current Score: ${p1Total} - ${p2Total}`;
+                };
+
+                // Function to add a row
+                const addRow = (p1 = '', p2 = '') => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-center p1-score" placeholder="0" value="${p1}" min="0">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm text-center p2-score" placeholder="0" value="${p2}" min="0">
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-link text-danger p-0 remove-set-btn"><i class="bi bi-x-circle"></i></button>
+                        </td>
+                    `;
+                    setsContainer.appendChild(tr);
+
+                    // Add listeners
+                    const inputs = tr.querySelectorAll('input');
+                    inputs.forEach(input => input.addEventListener('input', updateSetsData));
+                    tr.querySelector('.remove-set-btn').addEventListener('click', () => {
+                        tr.remove();
+                        updateSetsData();
+                    });
+                };
+
+                // Add initial row if empty
+                if (setsContainer.children.length === 0) {
+                    addRow();
+                }
+
+                addSetBtn.addEventListener('click', () => addRow());
+                
+                // If form fails and reloads, we might want to repopulate from setsDataInput.value
+                // But simplified for now: just start fresh or relying on browser autocomplete.
+                // ideally:
+                const existingData = setsDataInput.value;
+                if(existingData) {
+                     try {
+                        const parsed = JSON.parse(existingData);
+                        if(Array.isArray(parsed) && parsed.length > 0) {
+                             setsContainer.innerHTML = ''; // Clear default
+                             parsed.forEach(s => addRow(s.p1, s.p2));
+                             updateSetsData();
+                        }
+                     } catch(e) {}
+                }
+            }
+
         });
     </script>
 {% endblock %}
