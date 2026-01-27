@@ -73,7 +73,7 @@
                                 <thead>
                                     <tr class="text-muted small text-center">
                                         <th style="width: 40%">{{ player.full_name }}</th>
-                                        <th style="width: 40%">Opponent</th>
+                                        <th style="width: 40%" id="opponent-header-label">Opponent</th>
                                         <th style="width: 20%"></th>
                                     </tr>
                                 </thead>
@@ -120,6 +120,13 @@
             // Initialize Tom Select for Opponent Dropdown
             const opponentSelect = document.getElementById('id_opponent');
             const opponentNameInput = document.getElementById('id_opponent_name');
+            const opponentHeaderLabel = document.getElementById('opponent-header-label');
+            
+            const updateOpponentLabel = (text) => {
+                if (opponentHeaderLabel) {
+                    opponentHeaderLabel.textContent = text || 'Opponent';
+                }
+            };
             
             const toggleNameField = (hasValue) => {
                 if (!opponentNameInput) return;
@@ -135,10 +142,40 @@
                     sortField: { field: "text", direction: "asc" },
                     placeholder: 'Type to search...',
                     onChange: function(value) {
-                        toggleNameField(!!value);
+                         // Get the text content of the selected item
+                         let label = 'Opponent';
+                         if (value) {
+                            const item = this.getItem(value);
+                            if (item) label = item.textContent;
+                         } else {
+                            // If cleared and manual input has value, use that
+                            if (opponentNameInput && opponentNameInput.value) {
+                                label = opponentNameInput.value;
+                            }
+                         }
+                         updateOpponentLabel(label);
+                         toggleNameField(!!value);
                     }
                 });
-                toggleNameField(!!opponentSelect.value);
+                
+                // Initial set
+                if (opponentSelect.value) {
+                    const item = ts.getItem(opponentSelect.value);
+                    if (item) updateOpponentLabel(item.textContent);
+                    toggleNameField(true);
+                } else if (opponentNameInput && opponentNameInput.value) {
+                     updateOpponentLabel(opponentNameInput.value);
+                }
+            }
+
+            // Manual input listener
+            if (opponentNameInput) {
+                opponentNameInput.addEventListener('input', function() {
+                    // Only update if no dropdown selected
+                    if (opponentSelect && !opponentSelect.value) {
+                         updateOpponentLabel(this.value);
+                    }
+                });
             }
 
             // --- Dynamic Sets Logic ---

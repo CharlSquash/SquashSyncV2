@@ -378,11 +378,21 @@
                                                 </span>
                                                 {% if request.user.is_superuser or match.created_by == request.user %}
                                                 <div class="d-flex gap-1">
+                                                    {% if match.match_notes %}
+                                                        <button type="button" class="btn btn-sm btn-outline-info view-match-note-btn" 
+                                                                data-note="{{ match.match_notes }}"
+                                                                style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" 
+                                                                title="View Match Notes">
+                                                            <i class="bi bi-sticky"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    {% if request.user.is_superuser or match.created_by == request.user %}
                                                     <a href="{% url 'players:edit_match_result' player.id match.id %}" class="btn btn-sm btn-outline-primary" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="Edit Match Result"><i class="bi bi-pencil"></i></a>
                                                     <form action="{% url 'assessments:delete_match_result' match.id %}" method="post" onsubmit="return confirm('Are you sure you want to delete this match result?');">
                                                         {% csrf_token %}
                                                         <button type="submit" class="btn btn-sm btn-outline-danger" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="Delete Match Result"><i class="bi bi-trash"></i></button>
                                                     </form>
+                                                    {% endif %}
                                                 </div>
                                                 {% endif %}
                                             </li>
@@ -442,7 +452,7 @@
                                                 <thead>
                                                     <tr class="text-muted small text-center">
                                                         <th style="width: 40%">{{ player.full_name }}</th>
-                                                        <th style="width: 40%">Opponent</th>
+                                                        <th style="width: 40%" id="opponent-column-header">Opponent</th>
                                                         <th style="width: 20%"></th>
                                                     </tr>
                                                 </thead>
@@ -480,6 +490,23 @@
         </div>
     </div>
 </div>
+    <!-- Match Note Modal -->
+    <div class="modal fade" id="matchNoteModal" tabindex="-1" aria-labelledby="matchNoteModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="matchNoteModalLabel">Match Note</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="match-note-content" style="white-space: pre-wrap;">
+            <!-- Note content will be injected here -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
 {% endblock %}
 
 {% block extra_js %}
@@ -650,22 +677,35 @@
                 // if (hasValue) opponentNameInput.value = ''; 
             };
 
-            if (opponentSelect) {
-                const ts = new TomSelect(opponentSelect, {
-                    create: false,
-                    sortField: {
-                        field: "text",
-                        direction: "asc"
-                    },
-                    placeholder: 'Type to search...',
-                    onChange: function(value) {
-                        toggleNameField(!!value);
+                if (opponentSelect) {
+                    // Cache the header element
+                    const opponentHeader = document.getElementById('opponent-column-header');
+                    
+                    const ts = new TomSelect(opponentSelect, {
+                        create: false,
+                        sortField: {
+                            field: "text",
+                            direction: "asc"
+                        },
+                        placeholder: 'Type to search...',
+                        onChange: function(value) {
+                            toggleNameField(!!value);
+                            // Update header text
+                            if (value && this.options[value] && opponentHeader) {
+                                opponentHeader.textContent = this.options[value].text;
+                            } else if (opponentHeader) {
+                                opponentHeader.textContent = 'Opponent';
+                            }
+                        }
+                    });
+                    
+                    // Initial check in case of reload with value
+                    toggleNameField(!!opponentSelect.value);
+                    // Initial header update
+                    if (opponentSelect.value && ts.options[opponentSelect.value] && opponentHeader) {
+                         opponentHeader.textContent = ts.options[opponentSelect.value].text;
                     }
-                });
-                
-                // Initial check in case of reload with value
-                toggleNameField(!!opponentSelect.value);
-            }
+                }
 
             // --- Dynamic Sets Logic ---
             const setsContainer = document.getElementById('sets-container');
@@ -752,6 +792,26 @@
                      } catch(e) {}
                 }
             }
+
+            // --- Match Note Modal Logic ---
+            const matchNoteModalEl = document.getElementById('matchNoteModal');
+            let matchNoteModal = null;
+            if (matchNoteModalEl) {
+                matchNoteModal = new bootstrap.Modal(matchNoteModalEl);
+            }
+
+            const noteButtons = document.querySelectorAll('.view-match-note-btn');
+            const noteContent = document.getElementById('match-note-content');
+
+            noteButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const note = this.getAttribute('data-note');
+                    if (noteContent && matchNoteModal) {
+                        noteContent.textContent = note;
+                        matchNoteModal.show();
+                    }
+                });
+            });
 
         });
     </script>
