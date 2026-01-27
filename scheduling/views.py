@@ -1232,15 +1232,33 @@ def session_staffing(request):
     # Neutral color for no venue
     NEUTRAL_COLOR = {'bg': '#f5f5f5', 'text': '#424242'} # Grey 100 -> Grey 800
 
-    # Pre-fetch all session assignments for the week for all active coaches
-    coach_sessions_for_week = {
-        coach.id: list(Session.objects.filter(
-            coaches_attending=coach,
-            session_date__range=[target_week_start, target_week_end],
-            is_cancelled=False
-        ).select_related('school_group', 'venue'))
-        for coach in all_active_coaches
-    }
+    # --- OPTIMIZED QUERY LOGIC ---
+    # Fetch all sessions for the week in a single query
+    # We prefetch all necessary related data to avoid N+1 N+1 queries in the loop
+    week_sessions = Session.objects.filter(
+        session_date__range=[target_week_start, target_week_end],
+        is_cancelled=False
+    ).select_related(
+        'school_group', 'venue'
+    ).prefetch_related(
+        'coaches_attending',                # Explicit prefetch for conflict checking
+        'sessioncoach_set__coach__user',    # For display status
+        'coach_availabilities'              # For display availability status
+    )
+
+    # 1. Build Conflict Map (sessions grouped by coach)
+    coach_sessions_for_week = defaultdict(list)
+    
+    # 2. Build Daily Map (sessions grouped by date)
+    sessions_by_date = defaultdict(list)
+
+    for session in week_sessions:
+        # Populate conflict map
+        for coach in session.coaches_attending.all():
+            coach_sessions_for_week[coach.id].append(session)
+        
+        # Populate daily map
+        sessions_by_date[session.session_date].append(session)
 
     day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     display_week = []
@@ -1248,14 +1266,8 @@ def session_staffing(request):
     for i in range(7):
         current_day = target_week_start + timedelta(days=i)
         
-        # --- START: UPDATED GROUPING LOGIC ---
-        sessions_qs = Session.objects.filter(
-            session_date=current_day,
-            is_cancelled=False
-        ).select_related('school_group', 'venue').prefetch_related(
-            'sessioncoach_set__coach__user',
-            'coach_availabilities'
-        )
+        # --- RETRIEVE FROM PRE-FETCHED DICT ---
+        sessions_qs = sessions_by_date[current_day]
 
         # 1. Group by Venue ID
         sessions_by_venue = defaultdict(list)
@@ -1284,7 +1296,7 @@ def session_staffing(request):
         sessions_for_day_sorted = []
         for _, s_list, _ in venue_groups:
             sessions_for_day_sorted.extend(s_list)
-        # --- END: UPDATED GROUPING LOGIC ---
+        # --- END: GROUPING LOGIC ---
         
         processed_sessions = []
         for session in sessions_for_day_sorted:
@@ -1296,6 +1308,7 @@ def session_staffing(request):
 
             coach_conflict_map = {}
             for coach in all_active_coaches:
+                # Use the pre-calculated dictionary for conflicts
                 conflict = check_for_conflicts(coach, session, coach_sessions_for_week.get(coach.id, []))
                 if conflict:
                     coach_conflict_map[coach.id] = conflict
