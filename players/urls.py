@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/update-group-membership/', views.update_player_group_membership, name='update_player_group_membership'),
 
     path('<int:player_id>/', views.player_profile, name='player_profile'),
+    path('<int:player_id>/match/<int:match_id>/edit/', views.edit_match_result, name='edit_match_result'),
     path('player/<int:player_id>/add-metric/', views.add_metric, name='add_metric'),
 
     path('groups/<int:group_id>/', views.school_group_profile, name='school_group_profile'),

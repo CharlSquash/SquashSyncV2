@@ -1,8 +1,8 @@
 # players/views.py
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
-from django.views.decorators.http import require_POST
-from django.http import JsonResponse
+from django.views.decorators.http import require_POST, require_http_methods
+from django.http import JsonResponse, HttpResponseForbidden
 from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
 from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
 from scheduling.stats import calculate_player_attendance_stats, calculate_group_attendance_stats
@@ -507,3 +507,144 @@ def quick_assign_group(request, player_id):
         
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def edit_match_result(request, player_id, match_id):
+    profile_player = get_object_or_404(Player, pk=player_id)
+    match = get_object_or_404(MatchResult, pk=match_id)
+
+    # Security check: Ensure the logged-in user is associated with this player profile
+    # Or is a superuser/admin.
+    # Assuming 'request.user.player_profile' maps to the user's player profile.
+    if not request.user.is_superuser:
+        if not hasattr(request.user, 'player_profile') or request.user.player_profile != profile_player:
+             # Also allow if the user created the match
+             if match.created_by != request.user:
+                return HttpResponseForbidden("You do not have permission to edit this match.")
+
+    # Security check 2: Ensure the match actually involves this player
+    # It could be that match.player is this player OR match.opponent is this player.
+    if match.player != profile_player and match.opponent != profile_player:
+         return HttpResponseForbidden("This match does not belong to the specified player profile.")
+
+    if request.method == 'POST':
+        form = MatchResultForm(request.POST, player=profile_player, instance=match)
+        if form.is_valid():
+            # Don't save yet, we need to handle the winner logic
+            updated_match = form.save(commit=False)
+            
+            # Re-apply the logic from add_metric to handle swaps
+            winner = form.cleaned_data.get('winner')
+            sets_json = form.cleaned_data.get('sets_data')
+            
+            # Parse sets data
+            sets_data = []
+            if sets_json:
+                try:
+                    sets_data = json.loads(sets_json)
+                except json.JSONDecodeError:
+                    pass
+            
+            updated_match.sets_data = sets_data
+
+            # Logic for Winner/Loser Swapping
+            # The form's 'opponent' field dictates the OTHER person.
+            # If winner is 'me', updated_match.player should be profile_player.
+            # If winner is 'opponent', updated_match.player should be the opponent (and we swap fields).
+            
+            form_opponent = updated_match.opponent # This is who the user selected as "Opponent"
+
+            if winner == 'opponent':
+                # User says Opponent Won.
+                # So Match.player (Winner) = Form Opponent
+                # Match.opponent (Loser) = Profile Player
+                updated_match.player = form_opponent
+                updated_match.opponent = profile_player
+                
+                # Swap scores so p1 is Winner (Opponent) and p2 is Loser (Profile Player)
+                # usage in template (Me vs Opp) sent p1=Me, p2=Opp.
+                new_sets_data = []
+                for s in sets_data:
+                    new_sets_data.append({'p1': s.get('p2', 0), 'p2': s.get('p1', 0)})
+                updated_match.sets_data = new_sets_data
+            else:
+                # User says Me Won.
+                # Match.player (Winner) = Profile Player
+                # Match.opponent (Loser) = Form Opponent
+                updated_match.player = profile_player
+                # updated_match.opponent is already set correctly by form
+                # Sets data is already correct (p1=Me/Winner, p2=Opp/Loser)
+                pass
+
+            # Recalculate Score String
+            p1_games = 0
+            p2_games = 0
+            if updated_match.sets_data:
+                for s in updated_match.sets_data:
+                    s1 = int(s.get('p1', 0))
+                    s2 = int(s.get('p2', 0))
+                    if s1 > s2:
+                        p1_games += 1
+                    elif s2 > s1:
+                        p2_games += 1
+                updated_match.player_score_str = f"{p1_games}-{p2_games}"
+            else:
+                updated_match.player_score_str = "0-0"
+
+            updated_match.save()
+            messages.success(request, "Match result updated successfully.")
+            return redirect('players:player_profile', player_id=player_id)
+            
+    else:
+        # GET Request: Pre-fill data
+        
+        # Determine who "Me" and "Opponent" are relative to the match record.
+        # Match record always stores Winner in 'player' and Loser in 'opponent'.
+        
+        initial_data = {}
+        
+        if match.player == profile_player:
+            # I won.
+            initial_data['winner'] = 'me'
+            # Form opponent is the loser
+            # match.opponent is already correct for the form
+            sets_data_for_form = match.sets_data # p1 is me, p2 is opponent. Correct.
+        else:
+            # Opponent won.
+            # match.player is the Opponent (Winner).
+            # match.opponent should be Me (Loser).
+            initial_data['winner'] = 'opponent'
+            
+            # The form expects 'opponent' field to be the OTHER person.
+            # In this case, match.player is the other person.
+            
+            initial_data['opponent'] = match.player
+            initial_data['opponent_name'] = match.opponent_name
+            
+            # We also need to swap the sets data for the form.
+            # Form expects p1 = Me, p2 = Opponent.
+            # DB has p1 = Winner(Opponent), p2 = Loser(Me).
+            # So we swap them.
+            swapped_sets = []
+            if match.sets_data:
+                for s in match.sets_data:
+                    swapped_sets.append({'p1': s.get('p2', 0), 'p2': s.get('p1', 0)})
+            sets_data_for_form = swapped_sets
+
+        initial_data['sets_data'] = json.dumps(sets_data_for_form) if sets_data_for_form else '[]'
+        
+        form = MatchResultForm(instance=match, player=profile_player, initial=initial_data)
+        
+        # If opponent won, we need to ensure the opponent field points to the winner (match.player), not match.opponent
+        if match.player != profile_player:
+            if match.player:
+                 form.fields['opponent'].initial = match.player.id
+    
+    context = {
+        'form': form,
+        'player': profile_player,
+        'match': match
+    }
+    return render(request, 'players/edit_match_result.html', context)
