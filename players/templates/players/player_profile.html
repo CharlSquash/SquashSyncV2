@@ -364,12 +364,16 @@
                                                         <span class="badge bg-success">Win</span>
                                                         vs {{ match.opponent.full_name|default:match.opponent_name }}
                                                         ({{ match.date|date:"d M Y" }}) -
-                                                        <strong>{{ match.player_score_str }}</strong>
                                                     {% else %}
                                                         <span class="badge bg-danger">Loss</span>
                                                         vs {{ match.player.full_name }}
                                                         ({{ match.date|date:"d M Y" }}) -
-                                                        <strong>{{ match.player_score_str }}</strong>
+                                                    {% endif %}
+                                                    <strong>{{ match.player_score_str }}</strong>
+                                                    {% if match.sets_data %}
+                                                        <span class="text-muted small ms-2">
+                                                            ({% for set in match.sets_data %}{{ set.p1 }}-{{ set.p2 }}{% if not forloop.last %}, {% endif %}{% endfor %})
+                                                        </span>
                                                     {% endif %}
                                                 </span>
                                                 {% if request.user.is_superuser or match.created_by == request.user %}
