@@ -39,3 +39,18 @@ def map_attribute(list_of_objects, attribute_name):
             continue
             
     return result
+
+@register.filter
+def split_metrics(value):
+    """
+    Parses a string like "key1:Label1,key2:Label2" into a list of tuples.
+    """
+    if not value:
+        return []
+    items = value.split(',')
+    result = []
+    for item in items:
+        if ':' in item:
+            k, v = item.split(':', 1)
+            result.append((k, v))
+    return result

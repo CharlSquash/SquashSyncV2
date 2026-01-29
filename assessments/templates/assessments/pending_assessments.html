@@ -1,157 +1,391 @@
 {% extends "base.html" %}
 {% load static %}
+{% load scheduling_extras %}
 
 {% block title %}{{ page_title|default:"My Pending Assessments" }} - SquashSync{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="page-header">
+<style>
+    /* Mobile-First Optimizations */
+    .touch-target-min {
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Segmented Control / Tabs */
+    .assessment-tabs {
+        display: flex;
+        background-color: #f1f3f5;
+        border-radius: 8px;
+        padding: 4px;
+        margin-bottom: 20px;
+    }
+    .assessment-tab-btn {
+        flex: 1;
+        border: none;
+        background: none;
+        padding: 10px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #6c757d;
+        transition: all 0.2s;
+    }
+    .assessment-tab-btn.active {
+        background-color: white;
+        color: #0d6efd;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Star Rating Widget */
+    .star-rating-widget {
+        display: flex;
+        flex-direction: row-reverse; /* Handle hover states correctly */
+        justify-content: flex-end;
+    }
+    .star-rating-widget input {
+        display: none;
+    }
+    .star-rating-widget label {
+        color: #ddd;
+        font-size: 1.5rem; /* Large stars */
+        padding: 0 5px; /* Spacing */
+        cursor: pointer;
+        transition: color 0.2s;
+        min-width: 30px; /* Touch target width */ 
+        height: 44px;    /* Touch target height */
+        display: inline-flex;
+        align-items: center;
+    }
+    .star-rating-widget input:checked ~ label,
+    .star-rating-widget label:hover,
+    .star-rating-widget label:hover ~ label {
+        color: #ffc107;
+    }
+
+    /* Assessment Row */
+    .player-assessment-row {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: border-color 0.3s;
+    }
+    .player-assessment-row.assessed {
+        border-left: 5px solid #198754;
+    }
+    .rating-group {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    .rating-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    /* Notes Input */
+    .auto-expand-input {
+        width: 100%;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        padding: 8px 12px;
+        transition: all 0.3s;
+    }
+    .auto-expand-input:focus {
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        min-height: 80px; /* Expand on focus */
+    }
+
+    /* Save Indicator */
+    .save-status-indicator {
+        opacity: 0;
+        transition: opacity 0.5s;
+        font-size: 0.8rem;
+        color: #198754;
+        margin-left: 10px;
+    }
+    .save-status-indicator.show {
+        opacity: 1;
+    }
+
+    /* Match Form */
+    .match-form-horizontal {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+    }
+</style>
+
+<div class="container mt-4 mb-5">
+    <div class="page-header mb-4">
         <h1><i class="bi bi-list-check me-2"></i>{{ page_title }}</h1>
     </div>
 
     {% if pending_items %}
         {% for item in pending_items %}
-            <details class="pending-session-card" {% if not item.all_assessments_truly_complete %}open{% endif %}>
-                <summary class="pending-session-header">
+            <details class="pending-session-card" id="session-details-{{ item.session.id }}">
+                <summary class="pending-session-header" onclick="saveSessionState('{{ item.session.id }}')">
                     <div class="header-content">
                         <h3>
-                            {# Use the is_marked_complete flag for the checkmark icon #}
                             {% if item.is_marked_complete %}
-                                <i class="bi bi-check-circle-fill text-success me-2" title="Marked as complete for payment"></i>
+                                <i class="bi bi-check-circle-fill text-success me-2"></i>
                             {% else %}
-                                <i class="bi bi-hourglass-split text-muted me-2" title="Pending completion for payment"></i>
+                                <i class="bi bi-hourglass-split text-muted me-2"></i>
                             {% endif %}
-                            {{ item.session.session_date|date:"l, d M Y" }} -
-                            {{ item.session.school_group.name|default:"General Session" }}
+                            {{ item.session.session_date|date:"D, d M" }} - {{ item.session.school_group.name|default:"General" }}
                         </h3>
-                        <p>
-                            Time: {{ item.session.session_start_time|time:"H:i" }}
-                            {% if item.session.venue %}| Venue: {{ item.session.venue.name }}{% endif %}
+                        <p class="mb-0 text-muted small">
+                            {{ item.session.session_start_time|time:"H:i" }} | {{ item.session.venue.name }}
                         </p>
                     </div>
-                    <div class="arrow"></div>
                 </summary>
 
-                <div class="assessment-tasks-grid">
-                    <div class="assessment-task-item">
-                        <h4>Player Assessments</h4>
-
-                        {% comment %} --- START: Modified Logic --- {% endcomment %}
-
-                        {% comment %} Always show the attendance button/link {% endcomment %}
-                        <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="assess-link-secondary mb-3"> {# <-- Changed class #}
-                            {% if item.attendance_taken %}
-                                <i class="bi bi-pencil-square me-1"></i> View/Edit Attendance {# <-- Changed text/icon #}
-                            {% else %}
-                                <i class="bi bi-person-check me-1"></i> Take Attendance Now {# <-- Original text/icon #}
-                            {% endif %}
-                        </a>
-
-                        {% comment %} Only show the player list if attendance HAS been taken {% endcomment %}
-                        {% if item.attendance_taken %}
-                            {% if not item.players_to_assess and not item.is_marked_complete and not item.group_assessment_pending %}
-                                 <p class="text-success"><i class="bi bi-check-circle-fill"></i> All players assessed.</p>
-                            {% elif item.players_to_assess %}
-                                <p>You have {{ item.players_to_assess|length }} player(s) left to assess:</p>
-                                <div class="players-to-assess-list-container">
-                                    <ul class="players-to-assess-list">
-                                        {% for player in item.players_to_assess %}
-                                            <li>
-                                                <span class="player-name">{{ player.full_name }}</span>
-                                                <a href="{% url 'assessments:assess_player' session_id=item.session.id player_id=player.pk %}" class="assess-link-small">
-                                                    Assess <i class="bi bi-pencil"></i>
-                                                </a>
-                                            </li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            {% else %}
-                                 <p class="text-muted">No players left to assess for this session.</p>
-                            {% endif %}
-                        {% else %}
-                             <p class="text-warning small"><i class="bi bi-exclamation-triangle-fill me-1"></i>Take attendance first to see which players need assessment.</p>
-                        {% endif %}
-                        {% comment %} --- END: Modified Logic --- {% endcomment %}
-
+                <div class="p-3">
+                    <!-- Tab Navigation -->
+                    <div class="assessment-tabs">
+                        <button class="assessment-tab-btn active" onclick="switchTab('{{ item.session.id }}', 'players')" id="tab-btn-players-{{ item.session.id }}">Players</button>
+                        <button class="assessment-tab-btn" onclick="switchTab('{{ item.session.id }}', 'group')" id="tab-btn-group-{{ item.session.id }}">Group</button>
+                        <button class="assessment-tab-btn" onclick="switchTab('{{ item.session.id }}', 'matches')" id="tab-btn-matches-{{ item.session.id }}">Matches</button>
                     </div>
 
-                    <div class="assessment-task-item">
-                        <h4>Group Assessment</h4>
+                    <!-- Players Tab -->
+                    <div id="tab-content-players-{{ item.session.id }}" class="tab-content-pane">
+                        {% if not item.attendance_taken %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i> 
+                                <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="alert-link">Take Attendance</a> first to assess players.
+                            </div>
+                        {% else %}
+                             <!-- Quick Link to Attendance -->
+                             <div class="text-end mb-3">
+                                <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="text-decoration-none small">
+                                    <i class="bi bi-pencil-square"></i> Edit Attendance
+                                </a>
+                            </div>
+
+                            <div class="player-list-container" id="player-list-{{ item.session.id }}">
+                                {% for player in item.all_players_in_session %}
+                                    {% with assessment_data=item.current_assessments|get_item:player.pk %}
+                                    <div class="player-assessment-row {% if assessment_data.effort %}assessed{% endif %}" id="player-row-{{ player.pk }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h5 class="mb-0 fw-bold">{{ player.full_name }}</h5>
+                                            <span class="save-status-indicator" id="save-indicator-{{ item.session.id }}-{{ player.pk }}">
+                                                <i class="bi bi-check-lg"></i> Saved
+                                            </span>
+                                        </div>
+
+                                        <!-- 5 Metrics -->
+                                        {% for metric_key, metric_label in "effort:Effort,focus:Focus,resilience:Resilience,composure:Composure,decision:Decision Making"|split_metrics %}
+                                        <div class="rating-group">
+                                            <span class="rating-label">{{ metric_label }}</span>
+                                            <div class="star-rating-widget">
+                                                {% for i in "54321" %} <!-- Reverse order for CSS trick -->
+                                                    <input type="radio" 
+                                                           name="rating-{{ item.session.id }}-{{ player.pk }}-{{ metric_key }}" 
+                                                           id="rating-{{ item.session.id }}-{{ player.pk }}-{{ metric_key }}-{{ i }}" 
+                                                           value="{{ i }}"
+                                                           {% if assessment_data|get_item:metric_key == i|add:"0" %}checked{% endif %}
+                                                           onchange="saveAssessment('{{ item.session.id }}', '{{ player.pk }}', '{{ metric_key }}', this.value)">
+                                                    <label for="rating-{{ item.session.id }}-{{ player.pk }}-{{ metric_key }}-{{ i }}" title="{{ i }} stars">★</label>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+
+                                        <!-- Notes -->
+                                        <div class="mt-3">
+                                            <input type="text" 
+                                                   class="auto-expand-input" 
+                                                   placeholder="Coach notes for {{ player.first_name }}..." 
+                                                   value="{{ assessment_data.notes|default:'' }}"
+                                                   onblur="saveAssessment('{{ item.session.id }}', '{{ player.pk }}', 'notes', this.value)"
+                                                   onkeypress="if(event.key === 'Enter') this.blur();">
+                                        </div>
+                                    </div>
+                                    {% endwith %}
+                                {% empty %}
+                                    <p class="text-muted text-center py-3">No players marked as attending.</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Group Tab -->
+                    <div id="tab-content-group-{{ item.session.id }}" class="tab-content-pane" style="display:none;">
                          {% if item.group_assessment_pending %}
-                            <p>A general assessment for the group/session is pending.</p>
-                            <a href="{% url 'assessments:add_edit_group_assessment' session_id=item.session.id %}" class="assess-link">
-                                Assess Group / Session <i class="bi bi-journal-text"></i>
-                            </a>
+                            <div class="text-center py-4">
+                                <p class="mb-3">Group assessment pending.</p>
+                                <a href="{% url 'assessments:add_edit_group_assessment' session_id=item.session.id %}" class="btn btn-primary touch-target-min w-100">
+                                    Assess Session
+                                </a>
+                            </div>
                          {% else %}
-                            <p class="text-success"><i class="bi bi-check-circle-fill"></i> Group assessment submitted.</p>
-                             <a href="{% url 'assessments:add_edit_group_assessment' session_id=item.session.id %}" class="assess-link-secondary">
-                                View/Edit <i class="bi bi-pencil"></i>
-                            </a>
+                             <div class="text-center py-4">
+                                <span class="d-block text-success mb-3"><i class="bi bi-check-circle-fill display-4"></i></span>
+                                <h5 class="text-success">Submitted</h5>
+                                <a href="{% url 'assessments:add_edit_group_assessment' session_id=item.session.id %}" class="btn btn-outline-secondary mt-2">
+                                    View / Edit
+                                </a>
+                             </div>
                          {% endif %}
                     </div>
 
-                    <div class="assessment-task-item">
-                        <div class="accordion" id="match-results-accordion-{{ item.session.id }}">
-                            <div class="accordion-item">
-                                <h2 class="accordion-header" id="heading-{{ item.session.id }}">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item.session.id }}">
-                                        <i class="bi bi-trophy-fill me-2"></i> Add/View Match Results
-                                    </button>
-                                </h2>
-                                <div id="collapse-{{ item.session.id }}" class="accordion-collapse collapse" data-bs-parent="#match-results-accordion-{{ item.session.id }}">
-                                    <div class="accordion-body">
-                                        {% if not item.attendance_taken %}
-                                            <p class="text-muted small">Take attendance first to enable adding match results.</p>
-                                        {% elif item.match_form.fields.player.queryset.count < 2 %}
-                                            <p class="text-muted small">At least two players must be marked as "Attending" to log match results.</p>
-                                        {% else %}
-                                            <h6 class="mb-3">Add New Result</h6>
-                                            <form action="{% url 'assessments:add_match_result' item.session.id %}" method="post">
-                                                {% csrf_token %}
-                                                <div class="row g-2">
-                                                    <div class="col-6"><label class="form-label">{{ item.match_form.player.label }}</label>{{ item.match_form.player }}</div>
-                                                    <div class="col-6"><label class="form-label">Score</label>{{ item.match_form.player_score_str }}</div>
-                                                    <div class="col-12 text-center my-1">vs</div>
-                                                    <div class="col-6"><label class="form-label">{{ item.match_form.opponent.label }}</label>{{ item.match_form.opponent }}</div>
-                                                    <div class="col-6"><label class="form-label">Score</label>{{ item.match_form.opponent_score_str }}</div>
-                                                    <div class="col-12 mt-3"><button type="submit" class="btn btn-sm btn-primary w-100">Save Match</button></div>
-                                                </div>
-                                            </form>
-                                            <hr>
-                                        {% endif %}
-
-                                        <h6 class="mb-2">Recent Matches in this Session</h6>
-                                        <ul class="list-group list-group-flush">
-                                            {% for match in item.session_matches %}
-                                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <span>
-                                                        <strong>{{ match.player.full_name }}</strong> beat {{ match.opponent.full_name }}
-                                                        ({{ match.player_score_str }} - {{ match.opponent_score_str }})
-                                                    </span>
-                                                    <form action="{% url 'assessments:delete_match_result' match.id %}" method="post" onsubmit="return confirm('Are you sure you want to delete this match result?');">
-                                                        {% csrf_token %}
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Delete Match Result"><i class="bi bi-trash"></i></button>
-                                                    </form>
-                                                </li>
-                                            {% empty %}
-                                                <li class="list-group-item text-muted">No matches added for this session yet.</li>
-                                            {% endfor %}
-                                        </ul>
+                    <!-- Matches Tab -->
+                    <div id="tab-content-matches-{{ item.session.id }}" class="tab-content-pane" style="display:none;">
+                        
+                        {% if not item.attendance_taken %}
+                             <div class="alert alert-secondary">Take attendance first to log matches.</div>
+                        {% elif item.match_form.fields.player.queryset.count < 2 %}
+                             <div class="alert alert-secondary">Need at least 2 players attending to log matches.</div>
+                        {% else %}
+                             <div class="match-form-horizontal mb-4">
+                                <h6 class="mb-2 text-muted">Quick Add Result</h6>
+                                <form action="{% url 'assessments:add_match_result' item.session.id %}" method="post">
+                                    {% csrf_token %}
+                                    <div class="input-group mb-2">
+                                        {{ item.match_form.player }}
+                                        <span class="input-group-text bg-white border-end-0">vs</span>
+                                        {{ item.match_form.opponent }}
                                     </div>
-                                </div>
-                            </div>
-                        </div>
+                                    <div class="input-group">
+                                        {{ item.match_form.player_score_str }}
+                                        <span class="input-group-text">-</span>
+                                        {{ item.match_form.opponent_score_str }}
+                                        <button class="btn btn-primary" type="submit">Save</button>
+                                    </div>
+                                </form>
+                             </div>
+                        {% endif %}
+
+                         <h6 class="mb-2">Session Results</h6>
+                         <ul class="list-group list-group-flush">
+                            {% for match in item.session_matches %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    <span>
+                                        <strong>{{ match.player.last_name }}</strong> def. {{ match.opponent.last_name }}
+                                        <span class="badge bg-light text-dark border ms-1">{{ match.player_score_str }}-{{ match.opponent_score_str }}</span>
+                                    </span>
+                                    <form action="{% url 'assessments:delete_match_result' match.id %}" method="post" onsubmit="return confirm('Delete?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-link text-danger p-0 ms-2"><i class="bi bi-x-circle-fill"></i></button>
+                                    </form>
+                                </li>
+                            {% empty %}
+                                <li class="list-group-item text-muted ps-0">No matches recorded.</li>
+                            {% endfor %}
+                        </ul>
                     </div>
+
                 </div>
-
-                
-
             </details>
         {% endfor %}
     {% else %}
         <div class="no-pending-message">
-            <p><i class="bi bi-check2-all"></i> Great work! You have no pending player or group assessments from the last 4 weeks.</p>
+             <p><i class="bi bi-check2-all"></i> All caught up!</p>
         </div>
     {% endif %}
 </div>
+
+<script>
+    // --- Sticky State Logic ---
+    document.addEventListener('DOMContentLoaded', function() {
+        const lastSessionId = localStorage.getItem('assesments_last_session_id');
+        const lastTab = localStorage.getItem('assessments_last_tab') || 'players';
+
+        if (lastSessionId) {
+            const detailsEl = document.getElementById(`session-details-${lastSessionId}`);
+            if (detailsEl) {
+                detailsEl.open = true;
+                // Scroll into view
+                setTimeout(() => detailsEl.scrollIntoView({behavior: 'smooth', block: 'start'}), 100);
+            }
+            // Switch to the correct tab for that session
+            switchTab(lastSessionId, lastTab);
+        }
+    });
+
+    function saveSessionState(sessionId) {
+        localStorage.setItem('assesments_last_session_id', sessionId);
+        // Default to players tab if opening a new session
+        const currentTab = localStorage.getItem('assessments_last_tab') || 'players';
+        // Ensure UI matches
+        switchTab(sessionId, currentTab);
+    }
+
+    function switchTab(sessionId, tabName) {
+        // Save state
+        localStorage.setItem('assessments_last_tab', tabName);
+        localStorage.setItem('assesments_last_session_id', sessionId); // Ensure session is updated
+
+        // Hide all contents for this session
+        document.querySelector(`#tab-content-players-${sessionId}`).style.display = 'none';
+        document.querySelector(`#tab-content-group-${sessionId}`).style.display = 'none';
+        document.querySelector(`#tab-content-matches-${sessionId}`).style.display = 'none';
+        
+        // Remove active class from buttons
+        document.querySelector(`#tab-btn-players-${sessionId}`).classList.remove('active');
+        document.querySelector(`#tab-btn-group-${sessionId}`).classList.remove('active');
+        document.querySelector(`#tab-btn-matches-${sessionId}`).classList.remove('active');
+
+        // Show selected content
+        document.querySelector(`#tab-content-${tabName}-${sessionId}`).style.display = 'block';
+        document.querySelector(`#tab-btn-${tabName}-${sessionId}`).classList.add('active');
+    }
+
+    // --- Auto-Save AJAX Logic ---
+    function saveAssessment(sessionId, playerId, field, value) {
+        const url = "{% url 'assessments:update_player_assessment_api' %}";
+        const indicator = document.getElementById(`save-indicator-${sessionId}-${playerId}`);
+        
+        // Optimistic UI: Don't block user
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'session_id': sessionId,
+                'player_id': playerId,
+                'field': field,
+                'value': value
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                // Show success feedback
+                if (indicator) {
+                    indicator.classList.add('show');
+                    // Mark row as assessed visually (green border)
+                    document.getElementById(`player-row-${playerId}`).classList.add('assessed');
+                    
+                    // Hide after 2 seconds
+                    setTimeout(() => {
+                        indicator.classList.remove('show');
+                    }, 2000);
+                }
+                
+                // Optional: Re-sort logic could go here, but might be jarring
+            } else {
+                console.error('Error saving assessment:', data.message);
+                alert('Failed to save. Please check your connection.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving.');
+        });
+    }
+</script>
 {% endblock %}

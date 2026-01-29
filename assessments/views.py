@@ -11,7 +11,8 @@ from django.http import Http404, JsonResponse
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Count
+import json
 
 from accounts.models import Coach
 from scheduling.models import Session, AttendanceTracking
@@ -157,6 +158,33 @@ def pending_assessments(request):
         assessed_player_pks = {a.player_id for a in assessments_for_this_session}
         players_to_assess = [p for p in players_in_session if p.pk not in assessed_player_pks]
 
+        # --- NEW: Priority Sort & Pre-loading ---
+        # 1. Get existing assessments for this session to pre-fill forms
+        current_assessments_dict = {}
+        for assessment in assessments_for_this_session:
+            current_assessments_dict[assessment.player_id] = {
+                'effort': assessment.effort_rating,
+                'focus': assessment.focus_rating,
+                'resilience': assessment.resilience_rating,
+                'composure': assessment.composure_rating,
+                'decision': assessment.decision_making_rating,
+                'notes': assessment.coach_notes,
+            }
+
+        # 2. Annotate players with their TOTAL historical assessment count (Priority Sort)
+        # We need to map the list of player objects to a queryset to use annotate more easily, 
+        # or just do a separate query since we have the PKs.
+        player_pks_in_session = [p.pk for p in players_in_session]
+        
+        # Fetch players again with the annotation to ensure we have the count
+        # This is a bit redundant but ensures we have the "live" count efficiently
+        players_with_counts = Player.objects.filter(pk__in=player_pks_in_session).annotate(
+            total_assessments=Count('session_assessments_by_player')
+        ).order_by('total_assessments', 'first_name')
+
+        # Replace our list with this sorted list
+        players_in_session = list(players_with_counts)
+
         attendance_has_been_taken = session_id in attendance_taken_session_ids
 
         # --- NEW: Determine if ALL assessments are truly done for accordion state ---
@@ -177,6 +205,9 @@ def pending_assessments(request):
             'match_form': match_form,
             'session_matches': matches_by_session.get(session.id, []),
             'attendance_taken': attendance_has_been_taken,
+            'attendance_taken': attendance_has_been_taken,
+            'current_assessments': current_assessments_dict,
+            'all_players_in_session': players_in_session, # The sorted list of all attendees
         })
 
     context = {
@@ -184,6 +215,67 @@ def pending_assessments(request):
         'page_title': "My Pending Assessments"
     }
     return render(request, 'assessments/pending_assessments.html', context)
+
+@require_POST
+@login_required
+@user_passes_test(is_coach)
+def update_player_assessment_api(request):
+    """
+    API endpoint to update a single field of a player assessment via AJAX.
+    Expects data: { session_id, player_id, field, value }
+    """
+    try:
+        data = json.loads(request.body)
+        session_id = data.get('session_id')
+        player_id = data.get('player_id')
+        field = data.get('field')
+        value = data.get('value')
+        
+        if not all([session_id, player_id, field]):
+             return JsonResponse({'status': 'error', 'message': 'Missing required fields'}, status=400)
+
+        session = get_object_or_404(Session, id=session_id)
+        player = get_object_or_404(Player, pk=player_id)
+        
+        # Get or Create Assessment
+        assessment, created = SessionAssessment.objects.get_or_create(
+            session=session,
+            player=player,
+            submitted_by=request.user,
+            defaults={'date_recorded': session.session_date}
+        )
+        
+        # Field Mapping
+        # Frontend field names -> Model field names
+        field_map = {
+            'effort': 'effort_rating',
+            'focus': 'focus_rating',
+            'resilience': 'resilience_rating',
+            'composure': 'composure_rating',
+            'decision': 'decision_making_rating',
+            'notes': 'coach_notes'
+        }
+        
+        model_field = field_map.get(field)
+        if not model_field:
+             return JsonResponse({'status': 'error', 'message': f'Invalid field: {field}'}, status=400)
+             
+        # Update Value
+        if field == 'notes':
+            setattr(assessment, model_field, value)
+        else:
+            # Handle empty strings for ratings (clearing a rating)
+            if value == "" or value is None:
+                setattr(assessment, model_field, None)
+            else:
+                setattr(assessment, model_field, int(value))
+            
+        assessment.save()
+        
+        return JsonResponse({'status': 'success', 'field': field, 'value': value})
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
 @login_required
