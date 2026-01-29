@@ -27,7 +27,7 @@ def is_coach(user):
     return user.is_staff and not user.is_superuser
 
 @login_required
-@user_passes_test(is_coach, login_url='scheduling:homepage')
+@user_passes_test(is_coach, login_url='homepage')
 def pending_assessments(request):
     """
     Displays a list of past sessions for a coach that are pending assessments
@@ -356,7 +356,7 @@ def save_group_assessment_api(request):
 
 @login_required
 @require_POST
-@user_passes_test(is_coach, login_url='scheduling:homepage')
+@user_passes_test(is_coach, login_url='homepage')
 def mark_my_assessments_complete(request, session_id):
     session = get_object_or_404(Session, id=session_id)
     coach = get_object_or_404(Coach, user=request.user)
@@ -380,7 +380,7 @@ def mark_my_assessments_complete(request, session_id):
     return redirect('assessments:pending_assessments')
 
 @login_required
-@user_passes_test(is_coach, login_url='scheduling:homepage')
+@user_passes_test(is_coach, login_url='homepage')
 def assess_player(request, session_id, player_id):
     """
     Displays a form for a coach to assess a single player for a given session.
@@ -415,7 +415,7 @@ def assess_player(request, session_id, player_id):
     return render(request, 'assessments/assess_player_form.html', context)
 
 @login_required
-@user_passes_test(is_coach, login_url='scheduling:homepage')
+@user_passes_test(is_coach, login_url='homepage')
 def add_edit_group_assessment(request, session_id):
     session = get_object_or_404(Session, id=session_id)
     if not session.coaches_attending.filter(user=request.user).exists():
@@ -474,7 +474,7 @@ def acknowledge_group_assessment(request, group_assessment_id):
 
 @login_required
 @require_POST
-@user_passes_test(is_coach, login_url='scheduling:homepage')
+@user_passes_test(is_coach, login_url='homepage')
 def add_match_result(request, session_id):
     session = get_object_or_404(Session, pk=session_id)
     
