@@ -1005,12 +1005,13 @@ def set_bulk_availability_view(request):
             elif availability_status_str == 'EMERGENCY':
                 status_to_set = CoachAvailability.Status.EMERGENCY
             
-            # We enforce setting the status for ALL sessions of this rule in the month,
-            # regardless of whether they chose 'Available', 'Emergency', or left it blank (Unavailable).
+            # Historical Protection: Only update sessions strictly in the future (tomorrow onwards)
+            # We do NOT touch today's sessions or past sessions.
+            future_start_date = max(start_date, timezone.now().date() + timedelta(days=1))  
 
             sessions_to_update = Session.objects.filter(
                 generated_from_rule=rule,
-                session_date__gte=start_date,
+                session_date__gte=future_start_date, # CHANGED: Use future_start_date instead of start_date
                 session_date__lte=end_date,
                 is_cancelled=False
             )
@@ -1024,7 +1025,7 @@ def set_bulk_availability_view(request):
                 availability_updated_count += 1
         
         month_name = calendar.month_name[selected_month]
-        messages.success(request, f"Your availability for {availability_updated_count} potential sessions in {month_name} {selected_year} has been updated.")
+        messages.success(request, f"Your availability for {availability_updated_count} future sessions in {month_name} {selected_year} has been updated.")
         return redirect(f"{reverse('scheduling:set_bulk_availability')}?month={selected_year}-{selected_month:02d}")
 
     # --- GET request handling ---
@@ -1046,10 +1047,16 @@ def set_bulk_availability_view(request):
     scheduled_classes_qs = ScheduledClass.objects.filter(is_active=True).select_related('school_group', 'default_venue').order_by('day_of_week', 'default_venue__name', 'start_time')
     
     # --- NEW: Fetch existing availability statuses ---
+    # We want to show what the coach has *mostly* selected.
+    # Logic:
+    # - If ALL sessions are Available -> Green
+    # - If ALL sessions are Emergency -> Blue
+    # - Otherwise (Mixed, None, or mostly unavailable) -> Grey (Pending/Unavailable)
+    
     start_date, end_date = get_month_start_end(selected_year, selected_month)
 
     # 1. Get total sessions count for each rule in this month
-    from django.db.models import Count
+    from django.db.models import Count, Q
     rule_session_counts = Session.objects.filter(
         generated_from_rule__in=scheduled_classes_qs,
         session_date__range=[start_date, end_date],
@@ -1058,30 +1065,39 @@ def set_bulk_availability_view(request):
     
     total_sessions_map = {item['generated_from_rule_id']: item['total'] for item in rule_session_counts}
 
-    # 2. Get unavailable sessions count for each rule
-    unavailable_counts = CoachAvailability.objects.filter(
+    # 2. Get counts of specific statuses
+    status_counts = CoachAvailability.objects.filter(
         coach=request.user,
         session__generated_from_rule__in=scheduled_classes_qs,
-        session__session_date__range=[start_date, end_date],
-        status=CoachAvailability.Status.UNAVAILABLE
-    ).values('session__generated_from_rule_id').annotate(unavailable=Count('id'))
+        session__session_date__range=[start_date, end_date]
+    ).values('session__generated_from_rule_id', 'status').annotate(count=Count('id'))
 
-    unavailable_map = {item['session__generated_from_rule_id']: item['unavailable'] for item in unavailable_counts}
+    # Organize into a nested map: rule_id -> { status: count }
+    rule_status_counts = defaultdict(lambda: defaultdict(int))
+    for item in status_counts:
+        rule_status_counts[item['session__generated_from_rule_id']][item['status']] = item['count']
 
-    # 3. Determine status for map
-    # Logic: Default to AVAILABLE (Green). Only UNAVAILABLE if 100% of sessions are UNAVAILABLE.
+    # 3. Determine aggregated status for UI
     rule_status_map = {}
     for rule in scheduled_classes_qs:
         total = total_sessions_map.get(rule.id, 0)
-        unavailable = unavailable_map.get(rule.id, 0)
+        if total == 0:
+            rule_status_map[rule.id] = CoachAvailability.Status.PENDING # Default Grey if no sessions
+            continue
+
+        counts = rule_status_counts.get(rule.id, {})
+        available_count = counts.get(CoachAvailability.Status.AVAILABLE, 0)
+        emergency_count = counts.get(CoachAvailability.Status.EMERGENCY, 0)
         
-        if total > 0 and unavailable == total:
-            # If sessions exist and ALL are marked unavailable -> Unavailable
-            # FIX: Display as PENDING (Grey) instead of Red for bulk view
-            rule_status_map[rule.id] = CoachAvailability.Status.PENDING
-        else:
-            # Otherwise (Partial Unavailability, No Data, or All Available) -> Available
+        # Strict logic: Must be 100% to show as that color. otherwise default to Grey (Pending/Unavailable)
+        # This encourages the user to re-apply if there's a mix, ensuring consistency.
+        if available_count == total:
             rule_status_map[rule.id] = CoachAvailability.Status.AVAILABLE
+        elif emergency_count == total:
+            rule_status_map[rule.id] = CoachAvailability.Status.EMERGENCY
+        else:
+            rule_status_map[rule.id] = CoachAvailability.Status.PENDING
+
     
     grouped_classes = defaultdict(list)
     for rule in scheduled_classes_qs:
