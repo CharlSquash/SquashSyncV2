@@ -369,7 +369,12 @@
                                                         vs {{ match.player.full_name }}
                                                         ({{ match.date|date:"d M Y" }}) -
                                                     {% endif %}
-                                                    <strong>{{ match.player_score_str }}</strong>
+                                                    <strong>
+                                                        {{ match.player_score_str }}
+                                                        {% if match.opponent_score_str %}
+                                                            - {{ match.opponent_score_str }}
+                                                        {% endif %}
+                                                    </strong>
                                                     {% if match.sets_data %}
                                                         <span class="text-muted small ms-2">
                                                             ({% for set in match.sets_data %}{{ set.p1 }}-{{ set.p2 }}{% if not forloop.last %}, {% endif %}{% endfor %})
