@@ -171,7 +171,7 @@
                         {% if not item.attendance_taken %}
                             <div class="alert alert-warning">
                                 <i class="bi bi-exclamation-triangle-fill me-2"></i> 
-                                <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="alert-link">Take Attendance</a> first to assess players.
+                                <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="alert-link">Click here to take attendance</a> first to assess players.
                             </div>
                         {% else %}
                              <!-- Quick Link to Attendance -->
@@ -230,7 +230,7 @@
 
                     <!-- Group Tab -->
                     <div id="tab-content-group-{{ item.session.id }}" class="tab-content-pane" style="display:none;">
-                        <div class="card card-body bg-light border-0">
+                        <div class="card card-body border-0"> <!-- Removed bg-light for dark mode compatibility -->
                              {% load crispy_forms_tags %}
                              <form id="group-form-{{ item.session.id }}">
                                  {{ item.group_form|crispy }}
@@ -255,19 +255,39 @@
                              <div class="alert alert-secondary">Need at least 2 players attending to log matches.</div>
                         {% else %}
                              <div class="match-form-horizontal mb-4">
-                                <h6 class="mb-2 text-muted">Quick Add Result</h6>
+                                <h6 class="mb-3 text-muted">Quick Add Result</h6>
                                 <form action="{% url 'assessments:add_match_result' item.session.id %}" method="post">
                                     {% csrf_token %}
-                                    <div class="input-group mb-2">
-                                        {{ item.match_form.player }}
-                                        <span class="input-group-text bg-white border-end-0">vs</span>
-                                        {{ item.match_form.opponent }}
+                                    
+                                    <div class="row g-2 align-items-end">
+                                        <!-- Winner Section -->
+                                        <div class="col-5">
+                                            <label class="form-label small text-success fw-bold mb-1">WINNER</label>
+                                            {{ item.match_form.player }}
+                                        </div>
+                                        
+                                        <div class="col-2 text-center pb-2">
+                                            <span class="text-muted fw-bold">def.</span>
+                                        </div>
+
+                                        <!-- Loser Section -->
+                                        <div class="col-5">
+                                            <label class="form-label small text-muted fw-bold mb-1">LOSER</label>
+                                            {{ item.match_form.opponent }}
+                                        </div>
                                     </div>
-                                    <div class="input-group">
-                                        {{ item.match_form.player_score_str }}
-                                        <span class="input-group-text">-</span>
-                                        {{ item.match_form.opponent_score_str }}
-                                        <button class="btn btn-primary" type="submit">Save</button>
+
+                                    <div class="row g-2 align-items-center mt-2">
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted mb-1">Score</label>
+                                            <div class="input-group">
+                                                {{ item.match_form.player_score_str }}
+                                                <span class="input-group-text">-</span>
+                                                {{ item.match_form.opponent_score_str }}
+                                                <button class="btn btn-primary" type="submit">Save Result</button>
+                                            </div>
+                                            <div class="form-text small">e.g. 11-9, 11-8, 11-5</div>
+                                        </div>
                                     </div>
                                 </form>
                              </div>

@@ -22,10 +22,20 @@
     </div>
     <p class="helptext"><small>Tap a block to cycle availability. Tap the <i class="bi bi-info-circle-fill"></i> icon for group info. A reason is required if declining an assigned session.</small></p>
 
-    <div class="week-navigation">
-        <a href="?week={{ prev_week_offset }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Previous Week</a>
-        <h4>{{ week_start|date:"d M Y" }} to {{ week_end|date:"d M Y" }}</h4>
-        <a href="?week={{ next_week_offset }}" class="btn btn-sm btn-secondary">Next Week <i class="bi bi-arrow-right"></i></a>
+    <div class="week-navigation d-flex justify-content-between align-items-center mb-3">
+        <div style="flex: 1;">
+            <a href="?week={{ prev_week_offset }}" class="btn btn-sm btn-secondary w-100">
+                <i class="bi bi-arrow-left"></i> <span class="d-none d-sm-inline">Previous Week</span><span class="d-inline d-sm-none">Prev</span>
+            </a>
+        </div>
+        <div class="px-2 text-center" style="flex: 2;">
+            <h4 class="m-0 fs-5">{{ week_start|date:"d M Y" }} to {{ week_end|date:"d M Y" }}</h4>
+        </div>
+        <div style="flex: 1;">
+            <a href="?week={{ next_week_offset }}" class="btn btn-sm btn-secondary w-100">
+                <span class="d-none d-sm-inline">Next Week</span><span class="d-inline d-sm-none">Next</span> <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
     </div>
 
     <form method="POST" id="my-availability-form">

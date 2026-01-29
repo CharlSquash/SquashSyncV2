@@ -305,7 +305,7 @@ def players_list(request):
     player_list = Player.objects.filter(is_active=True).select_related().prefetch_related(
         Prefetch('school_groups', queryset=SchoolGroup.objects.filter(is_active=True), to_attr='_active_groups_cache'),
         Prefetch('school_groups', queryset=SchoolGroup.objects.filter(is_active=False).order_by('-year'), to_attr='_past_groups_cache')
-    )
+    ).order_by('first_name', 'last_name')
 
     # Get filter parameters from the URL
     school_group_id = request.GET.get('school_group')
@@ -342,6 +342,10 @@ def players_list(request):
         'selected_group_id': int(school_group_id) if school_group_id else None,
         'search_query': search_query,
     }
+    
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'players/partials/player_list_results.html', context)
+
     return render(request, 'players/players_list.html', context)
 
 

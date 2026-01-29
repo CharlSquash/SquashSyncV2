@@ -1,0 +1,13 @@
+{% for player in players %}
+<tr>
+    <td>{{ player.full_name }}</td>
+    <td>{{ player.active_groups|join:", " }}</td>
+    <td>
+        <a href="{% url 'players:player_profile' player.id %}" class="btn btn-sm btn-outline-primary">View Profile</a>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="4" class="text-center">No players found matching your criteria.</td>
+</tr>
+{% endfor %}
