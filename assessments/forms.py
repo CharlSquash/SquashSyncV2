@@ -51,16 +51,19 @@ class GroupAssessmentForm(forms.ModelForm):
     """
     class Meta:
         model = GroupAssessment
-        fields = ['general_notes', 'is_hidden_from_other_coaches']
+        fields = ['general_notes']
         widgets = {
             'general_notes': forms.Textarea(attrs={
-                'rows': 6,
-                'placeholder': 'e.g., The group worked well together today, but we need to focus on court positioning. Parents were supportive. The venue was clean.'
+                'rows': 4,
+                'placeholder': "Log specific operational or venue issues (e.g. Bus late, Lights flickering). Leave blank if none."
             }),
         }
         labels = {
-            'general_notes': 'Overall Notes on the Session, Group, Venue, Parents etc.',
-            'is_hidden_from_other_coaches': 'Hide my notes from other coaches on this session'}
+            'general_notes': 'Session Logistics & Incident Report',
+        }
+        help_texts = {
+            'general_notes': 'Log specific operational issues. Leave blank if the session ran smoothly.'
+        }
 
 class AssessmentCommentForm(forms.ModelForm):
     """

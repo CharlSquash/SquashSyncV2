@@ -12,7 +12,7 @@ from django.contrib.auth.models import User
 from django.db import IntegrityError
 
 from django.db.models import Exists, OuterRef, Count
-import json
+import json # Make sure json is imported
 
 from accounts.models import Coach
 from scheduling.models import Session, AttendanceTracking
@@ -101,6 +101,15 @@ def pending_assessments(request):
     for session_id, player_pk in session_attendees:
         if player_pk in players_by_pk:
             attendees_by_session[session_id].append(players_by_pk[player_pk])
+
+    # NEW: Fetch existing group assessments to pre-fill forms
+    group_assessments_by_session = {
+        ga.session_id: ga 
+        for ga in GroupAssessment.objects.filter(
+            assessing_coach=request.user, 
+            session_id__in=session_ids
+        )
+    }
 
     assessments_by_coach = SessionAssessment.objects.filter(
         submitted_by=request.user, session_id__in=session_ids
@@ -205,9 +214,12 @@ def pending_assessments(request):
             'match_form': match_form,
             'session_matches': matches_by_session.get(session.id, []),
             'attendance_taken': attendance_has_been_taken,
-            'attendance_taken': attendance_has_been_taken,
             'current_assessments': current_assessments_dict,
             'all_players_in_session': players_in_session, # The sorted list of all attendees
+            'group_form': GroupAssessmentForm(
+                instance=group_assessments_by_session.get(session.id), 
+                prefix='group_%s' % session.id
+            ),
         })
 
     context = {
@@ -273,6 +285,70 @@ def update_player_assessment_api(request):
         assessment.save()
         
         return JsonResponse({'status': 'success', 'field': field, 'value': value})
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+
+@require_POST
+@login_required
+@user_passes_test(is_coach)
+def save_group_assessment_api(request):
+    """
+    API endpoint to save/update a GroupAssessment via AJAX.
+    Expects JSON data: { session_id, general_notes, is_hidden_from_other_coaches }
+    """
+    try:
+        data = json.loads(request.body)
+        session_id = data.get('session_id')
+        notes = data.get('general_notes', '')
+
+        if not session_id:
+             return JsonResponse({'status': 'error', 'message': 'Missing session ID'}, status=400)
+
+        session = get_object_or_404(Session, id=session_id)
+        
+        # Get or Create Group Assessment
+        assessment, created = GroupAssessment.objects.get_or_create(
+            session=session,
+            assessing_coach=request.user
+        )
+        
+        assessment.general_notes = notes
+        # We no longer update assessment.is_hidden_from_other_coaches based on user input here
+        assessment.save()
+        
+        # --- Check for Session Completion (Payment Logic) ---
+        coach = request.user.coach_profile
+        
+        # Check existing completion status
+        completion, comp_created = CoachSessionCompletion.objects.get_or_create(
+            coach=coach,
+            session=session
+        )
+        
+        if not completion.assessments_submitted or not completion.confirmed_for_payment:
+            # Check if player assessments are needed/done
+            attended_count = AttendanceTracking.objects.filter(
+                session=session, attended=AttendanceTracking.CoachAttended.YES
+            ).count()
+            
+            if attended_count == 0:
+                all_done = True
+            else:
+                player_assess_count = SessionAssessment.objects.filter(
+                    session=session, submitted_by=request.user
+                ).count()
+                all_done = player_assess_count >= attended_count
+            
+            if all_done:
+                completion.assessments_submitted = True
+                completion.confirmed_for_payment = True
+                completion.save()
+                return JsonResponse({'status': 'success', 'message': 'Saved', 'marked_complete': True})
+
+        return JsonResponse({'status': 'success', 'message': 'Saved', 'marked_complete': False})
         
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

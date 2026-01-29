@@ -133,7 +133,7 @@
     {% if pending_items %}
         {% for item in pending_items %}
             <details class="pending-session-card" id="session-details-{{ item.session.id }}">
-                <summary class="pending-session-header" onclick="saveSessionState('{{ item.session.id }}')">
+                <summary class="pending-session-header">
                     <div class="header-content">
                         <h3>
                             {% if item.is_marked_complete %}
@@ -221,22 +221,20 @@
 
                     <!-- Group Tab -->
                     <div id="tab-content-group-{{ item.session.id }}" class="tab-content-pane" style="display:none;">
-                         {% if item.group_assessment_pending %}
-                            <div class="text-center py-4">
-                                <p class="mb-3">Group assessment pending.</p>
-                                <a href="{% url 'assessments:add_edit_group_assessment' session_id=item.session.id %}" class="btn btn-primary touch-target-min w-100">
-                                    Assess Session
-                                </a>
-                            </div>
-                         {% else %}
-                             <div class="text-center py-4">
-                                <span class="d-block text-success mb-3"><i class="bi bi-check-circle-fill display-4"></i></span>
-                                <h5 class="text-success">Submitted</h5>
-                                <a href="{% url 'assessments:add_edit_group_assessment' session_id=item.session.id %}" class="btn btn-outline-secondary mt-2">
-                                    View / Edit
-                                </a>
-                             </div>
-                         {% endif %}
+                        <div class="card card-body bg-light border-0">
+                             {% load crispy_forms_tags %}
+                             <form id="group-form-{{ item.session.id }}">
+                                 {{ item.group_form|crispy }}
+                                 <div class="d-flex align-items-center mt-3">
+                                     <button type="button" class="btn btn-primary" onclick="saveGroupAssessment('{{ item.session.id }}')">
+                                         Save Report
+                                     </button>
+                                     <span class="save-status-indicator" id="group-save-indicator-{{ item.session.id }}">
+                                        <i class="bi bi-check-lg"></i> Saved
+                                     </span>
+                                 </div>
+                             </form>
+                         </div>
                     </div>
 
                     <!-- Matches Tab -->
@@ -301,16 +299,30 @@
         const lastSessionId = localStorage.getItem('assesments_last_session_id');
         const lastTab = localStorage.getItem('assessments_last_tab') || 'players';
 
+        // Initialize Sticky State
         if (lastSessionId) {
             const detailsEl = document.getElementById(`session-details-${lastSessionId}`);
             if (detailsEl) {
                 detailsEl.open = true;
-                // Scroll into view
                 setTimeout(() => detailsEl.scrollIntoView({behavior: 'smooth', block: 'start'}), 100);
             }
-            // Switch to the correct tab for that session
             switchTab(lastSessionId, lastTab);
         }
+
+        // Add Toggle Listeners to all details elements
+        document.querySelectorAll('details.pending-session-card').forEach(detail => {
+            detail.addEventListener('toggle', function() {
+                const sessionId = this.id.replace('session-details-', '');
+                if (this.open) {
+                    saveSessionState(sessionId);
+                } else {
+                    // Only clear if this is the currently stored one
+                    if (localStorage.getItem('assesments_last_session_id') === sessionId) {
+                        localStorage.removeItem('assesments_last_session_id');
+                    }
+                }
+            });
+        });
     });
 
     function saveSessionState(sessionId) {
@@ -342,6 +354,51 @@
     }
 
     // --- Auto-Save AJAX Logic ---
+    function saveGroupAssessment(sessionId) {
+        const url = "{% url 'assessments:save_group_assessment_api' %}";
+        const form = document.getElementById(`group-form-${sessionId}`);
+        const indicator = document.getElementById(`group-save-indicator-${sessionId}`);
+        
+        // Form fields have a prefix 'group_{sessionId}-', so generic name won't work directly.
+        // We can just grab the textarea since it's the only one, or valid by ID/Class if needed.
+        const generalNotes = form.querySelector('textarea').value;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'session_id': sessionId,
+                'general_notes': generalNotes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                if (indicator) {
+                    indicator.classList.add('show');
+                    setTimeout(() => {
+                        indicator.classList.remove('show');
+                    }, 2000);
+                }
+                
+                // If payment status changed, could reload, but let's keep it streamlined.
+                if (data.marked_complete) {
+                    // Update header icon if visual completeness matters immediately
+                    // But maybe fine to leave as is until refresh.
+                }
+            } else {
+                alert('Failed to save group report: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving.');
+        });
+    }
+
     function saveAssessment(sessionId, playerId, field, value) {
         const url = "{% url 'assessments:update_player_assessment_api' %}";
         const indicator = document.getElementById(`save-indicator-${sessionId}-${playerId}`);
