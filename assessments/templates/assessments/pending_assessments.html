@@ -256,7 +256,7 @@
                         {% else %}
                              <div class="match-form-horizontal mb-4">
                                 <h6 class="mb-3 text-muted">Quick Add Result</h6>
-                                <form action="{% url 'assessments:add_match_result' item.session.id %}" method="post">
+                                <form id="match-form-{{ item.session.id }}" action="{% url 'assessments:add_match_result' item.session.id %}" method="post" onsubmit="submitMatchResult(event, '{{ item.session.id }}')">
                                     {% csrf_token %}
                                     
                                     <div class="row g-2 align-items-end">
@@ -286,7 +286,12 @@
                                                 {{ item.match_form.opponent_score_str }}
                                                 <button class="btn btn-primary" type="submit">Save Result</button>
                                             </div>
-                                            <div class="form-text small">e.g. 11-9, 11-8, 11-5</div>
+                                            <div class="form-text small d-flex justify-content-between">
+                                                <span>e.g. 11-9, 11-8, 11-5</span>
+                                                <span class="save-status-indicator" id="match-save-indicator-{{ item.session.id }}">
+                                                    <i class="bi bi-check-lg"></i> Saved
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </form>
@@ -294,7 +299,7 @@
                         {% endif %}
 
                          <h6 class="mb-2">Session Results</h6>
-                         <ul class="list-group list-group-flush">
+                         <ul class="list-group list-group-flush" id="match-list-{{ item.session.id }}">
                             {% for match in item.session_matches %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                                     <span>
@@ -466,6 +471,73 @@
             } else {
                 console.error('Error saving assessment:', data.message);
                 alert('Failed to save. Please check your connection.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving.');
+        });
+    }
+
+    // --- Match Result AJAX Logic ---
+    function submitMatchResult(event, sessionId) {
+        event.preventDefault(); // Prevent default form submission
+        
+        const form = document.getElementById(`match-form-${sessionId}`);
+        const url = form.action;
+        const indicator = document.getElementById(`match-save-indicator-${sessionId}`);
+        const formData = new FormData(form);
+        
+        // Add CSRF token manually (if not in FormData, though normally it is)
+        
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // 1. Show success indicator
+                if (indicator) {
+                    indicator.classList.add('show');
+                    setTimeout(() => { indicator.classList.remove('show'); }, 2000);
+                }
+                
+                // 2. Clear Score fields AND Dropdowns
+                if(form.querySelector('[name="player_score_str"]')) form.querySelector('[name="player_score_str"]').value = '';
+                if(form.querySelector('[name="opponent_score_str"]')) form.querySelector('[name="opponent_score_str"]').value = '';
+                if(form.querySelector('[name="player"]')) form.querySelector('[name="player"]').value = '';
+                if(form.querySelector('[name="opponent"]')) form.querySelector('[name="opponent"]').value = '';
+                
+                // 3. Append new match to list
+                const list = document.getElementById(`match-list-${sessionId}`);
+                // Remove "No matches recorded" if present
+                const emptyItem = list.querySelector('.text-muted.ps-0');
+                if (emptyItem && list.children.length === 1) {
+                    emptyItem.remove();
+                }
+
+                const newItem = document.createElement('li');
+                newItem.className = 'list-group-item d-flex justify-content-between align-items-center px-0';
+                newItem.innerHTML = `
+                    <span>
+                        <strong>${data.match.winner_name}</strong> def. ${data.match.opponent_name}
+                        <span class="badge bg-light text-dark border ms-1">${data.match.score_str}</span>
+                    </span>
+                    <form action="${data.match.delete_url}" method="post" onsubmit="return confirm('Delete?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-link text-danger p-0 ms-2"><i class="bi bi-x-circle-fill"></i></button>
+                    </form>
+                `;
+                // Add as first item (or append, but usually new on top is better for immediate feedback, though backend sort is -id so top is correct)
+                list.prepend(newItem);
+
+                // 4. Focus back on input (optional, e.g. winner or score)
+            } else {
+                alert('Error: ' + data.message);
             }
         })
         .catch(error => {

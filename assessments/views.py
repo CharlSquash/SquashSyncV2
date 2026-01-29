@@ -498,13 +498,37 @@ def add_match_result(request, session_id):
             
         try:
             match.save()
-            messages.success(request, f"Match result for {match.player.full_name} vs {match.opponent.full_name} saved.")
+            msg = f"Match result for {match.player.full_name} vs {match.opponent.full_name} saved."
+            messages.success(request, msg)
+            
+            # Check for AJAX request
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('CONTENT_TYPE') == 'application/json':
+                from django.urls import reverse
+                delete_url = reverse('assessments:delete_match_result', args=[match.id])
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': msg,
+                    'match': {
+                        'id': match.id,
+                        'winner_name': match.player.last_name,
+                        'opponent_name': match.opponent.last_name if match.opponent else match.opponent_name,
+                        'score_str': f"{match.player_score_str}-{match.opponent_score_str}",
+                        'delete_url': delete_url
+                    }
+                })
+
         except IntegrityError:
-            messages.error(request, "A similar match result may already exist.")
+            msg = "A similar match result may already exist."
+            messages.error(request, msg)
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('CONTENT_TYPE') == 'application/json':
+                 return JsonResponse({'status': 'error', 'message': msg}, status=400)
             
     else:
         error_message = "Could not save match. " + " ".join([f"{field}: {error[0]}" for field, error in form.errors.items()])
         messages.error(request, error_message)
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('CONTENT_TYPE') == 'application/json':
+             return JsonResponse({'status': 'error', 'message': error_message}, status=400)
 
     return redirect('assessments:pending_assessments')
 
