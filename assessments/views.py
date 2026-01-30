@@ -222,6 +222,10 @@ def pending_assessments(request):
             ),
         })
 
+    # NEW: Sort the list so that UNCOMPLETED (False) items come first, COMPLETED (True) items come second.
+    # Since Python's sort is stable, the existing date ordering (from the initial query) is preserved within each group.
+    pending_items_for_template.sort(key=lambda x: x['is_marked_complete'])
+
     context = {
         'pending_items': pending_items_for_template,
         'page_title': "My Pending Assessments"
