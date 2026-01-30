@@ -51,6 +51,8 @@ def _get_updated_finance_context(coach_id, year, month):
         }
     )
     
+    print(f"DEBUG: Payment Summary HTML len: {len(payment_summary_html)}")
+    
     return {
         'payment_summary_html': payment_summary_html,
         'adjustments_list_html': adjustments_list_html,
@@ -131,6 +133,7 @@ def manage_adjustment_ajax(request, adj_id=None):
     month = int(request.POST.get('month'))
     
     if not coach_id:
+        print("manage_adjustment_ajax: Coach ID is missing.")
         return JsonResponse({'status': 'error', 'message': 'Coach ID is missing.'}, status=400)
 
     instance = None
@@ -153,6 +156,7 @@ def manage_adjustment_ajax(request, adj_id=None):
             'adjustments_list_html': context_html['adjustments_list_html']
         })
     else:
+        print(f"manage_adjustment_ajax: Invalid form data. Errors: {form.errors}")
         return JsonResponse({'status': 'error', 'message': 'Invalid form data.', 'errors': form.errors}, status=400)
 
 # --- NEW AJAX VIEW ---

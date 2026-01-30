@@ -67,7 +67,7 @@
                             <input type="text" name="description" class="form-control form-control-sm edit-adj-desc" value="{{ adj.description }}">
                         </div>
                         <div class="col-md-3">
-                            <input type="number" name="amount" class="form-control form-control-sm edit-adj-amount" value="{{ adj.amount|stringformat:'f' }}" step="0.01">
+                            <input type="number" name="amount" class="form-control form-control-sm edit-adj-amount" value="{{ adj.amount|stringformat:'.2f' }}" step="0.01">
                         </div>
                         <div class="col-md-3 text-end">
                             <button type="button" class="btn btn-sm btn-secondary btn-cancel-edit">Cancel</button>

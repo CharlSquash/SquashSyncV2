@@ -157,6 +157,8 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 </div>
 {% endblock %}
 
@@ -184,12 +186,48 @@ document.addEventListener('DOMContentLoaded', function() {
     const paymentSummaryContainer = document.getElementById('payment-summary-container');
     const adjustmentsContainer = document.getElementById('recurring-adjustments-container');
 
+    // --- Toast Helper ---
+    function showToast(message, type = 'success') {
+        const toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            console.warn('Toast container not found');
+            return;
+        }
+
+        const toastId = 'toast-' + Date.now();
+        const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill';
+        const colorClass = type === 'success' ? 'text-success' : 'text-danger';
+
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi ${icon} ${colorClass} me-2"></i> ${message}
+                    </div>
+                    <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastEl = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+        toast.show();
+
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            toastEl.remove();
+        });
+    }
+
     // --- Helper to update all finance partials ---
     function updateFinancePartials(htmlData) {
-        if (htmlData.payment_summary_html && paymentSummaryContainer) {
+        console.log('updateFinancePartials called with:', htmlData);
+        if (typeof htmlData.payment_summary_html !== 'undefined' && paymentSummaryContainer) {
+            console.log('Updating payment summary container');
             paymentSummaryContainer.innerHTML = htmlData.payment_summary_html;
         }
-        if (htmlData.adjustments_list_html && adjustmentsContainer) {
+        if (typeof htmlData.adjustments_list_html !== 'undefined' && adjustmentsContainer) {
+            console.log('Updating adjustments container');
             adjustmentsContainer.innerHTML = htmlData.adjustments_list_html;
         }
     }
@@ -215,6 +253,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const url = `/finance/completion/${completionId}/toggle-confirmation/`;
             
             button.disabled = true;
+            const originalContent = button.innerHTML;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
 
             fetch(url, {
                 method: 'POST',
@@ -223,30 +263,34 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
+                    // Update the row specifically for immediate feedback before partial update
                     const row = document.getElementById(`completion-row-${completionId}`);
-                    if (!row) return;
-
-                    const confirmedCell = row.querySelector('[data-col="payment-confirmed"]');
-                    const actionsCell = row.querySelector('[data-col="actions"]');
-
-                    if (data.new_state === true) {
-                        confirmedCell.innerHTML = '<i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>';
-                        actionsCell.innerHTML = `<button class="btn btn-unconfirm btn-sm confirmation-btn" data-action="unconfirm" data-id="${completionId}">Un-confirm</button>`;
-                    } else {
-                        confirmedCell.innerHTML = '<i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>';
-                        actionsCell.innerHTML = `<button class="btn btn-confirm btn-sm confirmation-btn" data-action="confirm" data-id="${completionId}">Confirm</button>`;
+                    if (row) {
+                        const confirmedCell = row.querySelector('[data-col="payment-confirmed"]');
+                        const actionsCell = row.querySelector('[data-col="actions"]');
+                        if (data.new_state === true) {
+                            confirmedCell.innerHTML = '<i class="bi bi-check-circle-fill status-icon status-yes" title="Yes"></i>';
+                            actionsCell.innerHTML = `<button class="btn btn-unconfirm btn-sm confirmation-btn" data-action="unconfirm" data-id="${completionId}">Un-confirm</button>`;
+                        } else {
+                            confirmedCell.innerHTML = '<i class="bi bi-x-circle-fill status-icon status-no" title="No"></i>';
+                            actionsCell.innerHTML = `<button class="btn btn-confirm btn-sm confirmation-btn" data-action="confirm" data-id="${completionId}">Confirm</button>`;
+                        }
                     }
                     
-                    updateFinancePartials(data); // Update both partials
+                    updateFinancePartials(data); 
+                    if (typeof showToast === 'function') showToast(data.new_state ? 'Payment Confirmed' : 'Payment Un-confirmed');
                 } else {
-                    alert('Error: ' + data.message);
+                    if (typeof showToast === 'function') showToast('Error: ' + data.message, 'error');
+                    else alert('Error: ' + data.message);
                     button.disabled = false;
+                    button.innerHTML = originalContent;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An unexpected error occurred.');
+                if (typeof showToast === 'function') showToast('An unexpected error occurred.', 'error');
                 button.disabled = false;
+                button.innerHTML = originalContent;
             });
         });
 
@@ -257,8 +301,24 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!input) return;
             
             input.classList.remove('is-valid', 'is-invalid');
+            
+            // Add a temporary spinner if not already present
+            let spinner = input.parentNode.querySelector('.duration-spinner');
+            if (!spinner) {
+                spinner = document.createElement('span');
+                spinner.className = 'spinner-border spinner-border-sm text-primary duration-spinner ms-1';
+                spinner.setAttribute('role', 'status');
+                spinner.style.display = 'none'; // Hidden initially
+                input.parentNode.appendChild(spinner);
+            }
 
             clearTimeout(durationTimeout);
+            
+            // Show spinner indicating "waiting to save" - UX improvement
+            // We only show it after a short delay to avoid flickering on fast typing? 
+            // Better to show it when the timeout is set to indicate "pending".
+            spinner.style.display = 'inline-block';
+
             durationTimeout = setTimeout(() => {
                 const sessionCoachId = input.dataset.sessionCoachId;
                 const duration = input.value;
@@ -271,7 +331,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                     body: JSON.stringify({ 
                         duration: duration,
-                        // Pass context for re-calculation
                         coach_id: financeContext.coach_id,
                         year: financeContext.year,
                         month: financeContext.month
@@ -279,20 +338,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .then(response => response.json())
                 .then(data => {
+                    spinner.style.display = 'none';
                     if (data.status === 'success') {
-                        updateFinancePartials(data); // Update both partials
+                        updateFinancePartials(data); 
                         input.classList.add('is-valid');
+                        if (typeof showToast === 'function') showToast('Duration updated');
                         setTimeout(() => input.classList.remove('is-valid'), 2000);
                     } else {
                         console.error('Error updating duration:', data.message);
                         input.classList.add('is-invalid');
+                        if (typeof showToast === 'function') showToast('Error updating duration', 'error');
                     }
                 })
                 .catch(error => {
+                    spinner.style.display = 'none';
                     console.error('Error:', error);
                     input.classList.add('is-invalid');
+                    if (typeof showToast === 'function') showToast('Connection error', 'error');
                 });
-            }, 1000); // Wait 1 second after user stops typing
+            }, 800); // Wait 0.8 second after user stops typing
         });
     }
 
@@ -311,23 +375,29 @@ document.addEventListener('DOMContentLoaded', function() {
         adjustmentsContainer.addEventListener('click', function(event) {
             
             // --- Handle Add/Edit Form Submissions ---
-            if (event.target.closest('#add-adjustment-form button[type="submit"]') || event.target.closest('.btn-save-adj')) {
+            const saveBtn = event.target.closest('#add-adjustment-form button[type="submit"]') || event.target.closest('.btn-save-adj');
+            if (saveBtn) {
                 event.preventDefault();
-                resetDeleteButtons(); // Reset on save
-                const form = event.target.closest('form');
+                resetDeleteButtons(); 
+                const form = saveBtn.closest('form');
+                
+                // UX: Loading state
+                const originalBtnText = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+
                 const financeContext = getFinanceContext();
-                
-                // new FormData(form) will now work for BOTH add and edit forms
                 const formData = new FormData(form); 
-                
-                // Add context to form data
                 formData.append('coach_id', financeContext.coach_id);
                 formData.append('year', financeContext.year);
                 formData.append('month', financeContext.month);
                 
                 let url;
                 const adjId = form.closest('.list-group-item')?.dataset.adjId;
+                let isUpdate = false;
+
                 if (adjId) {
+                    isUpdate = true;
                     // This is an UPDATE
                     const updateUrlBase = document.getElementById('adjustments-card').dataset.updateUrlBase;
                     url = updateUrlBase.replace('0', adjId);
@@ -345,23 +415,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.status === 'success') {
                         updateFinancePartials(data);
+                        if (typeof showToast === 'function') showToast(isUpdate ? 'Adjustment updated' : 'Adjustment added');
                     } else {
                         console.error('Error saving adjustment:', data.errors || data.message);
-                        // alert('Error saving adjustment. Check console for details.');
+                        if (typeof showToast === 'function') showToast('Error saving adjustment', 'error');
+                        else alert('Error saving adjustment');
+                        
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalBtnText;
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (typeof showToast === 'function') showToast('Connection error', 'error');
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnText;
+                });
             }
 
             // --- Handle Toggle Button ---
             else if (event.target.closest('.btn-toggle-adj')) {
                 event.preventDefault();
-                resetDeleteButtons(); // Reset on toggle
+                resetDeleteButtons();
                 const button = event.target.closest('.btn-toggle-adj');
                 const adjId = button.closest('.list-group-item').dataset.adjId;
                 const financeContext = getFinanceContext();
                 const toggleUrlBase = document.getElementById('adjustments-card').dataset.toggleUrlBase;
                 const url = toggleUrlBase.replace('0', adjId);
+
+                button.disabled = true; // Prevent double clicks
 
                 const formData = new FormData();
                 formData.append('year', financeContext.year);
@@ -376,12 +458,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.status === 'success') {
                         updateFinancePartials(data);
+                        if (typeof showToast === 'function') showToast('Adjustment status updated');
                     } else {
-                        // alert('Error toggling adjustment.');
-                        console.error('Error toggling adjustment.');
+                        if (typeof showToast === 'function') showToast('Error updating status', 'error');
+                        button.disabled = false;
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                   console.error('Error:', error);
+                   if (typeof showToast === 'function') showToast('Connection error', 'error');
+                   button.disabled = false;
+                });
             }
 
             // --- Handle Delete Button ---
@@ -389,12 +476,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 event.preventDefault();
                 const deleteButton = event.target.closest('.btn-delete-adj');
                 
-                // Check if this is the second click (confirmation)
                 if (deleteButton.classList.contains('btn-danger-confirm')) {
+                    // CONFIRMED DELETE
                     const adjId = deleteButton.closest('.list-group-item').dataset.adjId;
                     const financeContext = getFinanceContext();
                     const deleteUrlBase = document.getElementById('adjustments-card').dataset.deleteUrlBase;
                     const url = deleteUrlBase.replace('0', adjId);
+                    
+                    deleteButton.disabled = true;
+                    deleteButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
 
                     fetch(url, {
                         method: 'DELETE',
@@ -402,7 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             'Content-Type': 'application/json',
                             'X-CSRFToken': csrfToken
                         },
-                        body: JSON.stringify({ // Send year/month in the body
+                        body: JSON.stringify({
                             year: financeContext.year,
                             month: financeContext.month
                         })
@@ -411,18 +501,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     .then(data => {
                         if (data.status === 'success') {
                             updateFinancePartials(data);
+                            if (typeof showToast === 'function') showToast('Adjustment deleted');
                         } else {
+                            if (typeof showToast === 'function') showToast('Error deleting adjustment', 'error');
                             console.error('Error deleting adjustment.');
-                            resetDeleteButtons(); // Revert button on error
+                            resetDeleteButtons(); 
+                            deleteButton.disabled = false; 
                         }
                     })
-                    .catch(error => console.error('Error:', error));
+                    .catch(error => {
+                        console.error('Error:', error);
+                        if (typeof showToast === 'function') showToast('Connection error', 'error');
+                        resetDeleteButtons();
+                        deleteButton.disabled = false;
+                    });
                 
                 } else {
-                    // This is the first click
-                    resetDeleteButtons(); // Reset any other "confirm-delete" buttons
-                    
-                    // Activate this button for confirmation
+                    // FIRST CLICK
+                    resetDeleteButtons(); 
                     deleteButton.classList.remove('btn-outline-danger');
                     deleteButton.classList.add('btn-danger', 'btn-danger-confirm');
                     deleteButton.innerHTML = 'Confirm?';
@@ -432,28 +528,30 @@ document.addEventListener('DOMContentLoaded', function() {
             // --- Handle Edit Button (Toggles UI) ---
             else if (event.target.closest('.btn-edit-adj')) {
                 event.preventDefault();
-                resetDeleteButtons(); // Reset on edit
+                resetDeleteButtons(); 
                 const row = event.target.closest('.list-group-item');
                 row.querySelector('.adjustment-display-row').style.display = 'none';
                 row.querySelector('.adjustment-edit-row').style.display = 'block';
+                
+                // Focus the description input
+                const descInput = row.querySelector('.edit-adj-desc');
+                if (descInput) descInput.focus();
             }
 
             // --- Handle Cancel Edit Button (Toggles UI) ---
             else if (event.target.closest('.btn-cancel-edit')) {
                 event.preventDefault();
-                resetDeleteButtons(); // Reset on cancel
+                resetDeleteButtons(); 
                 const row = event.target.closest('.list-group-item');
                 row.querySelector('.adjustment-display-row').style.display = '';
                 row.querySelector('.adjustment-edit-row').style.display = 'none';
             }
             
-            // --- Reset delete button if clicking elsewhere *within* the container ---
             else {
                 resetDeleteButtons();
             }
         });
         
-        // This listener will catch clicks *outside* the adjustments container
         document.addEventListener('click', function(event) {
             if (!adjustmentsContainer.contains(event.target)) {
                  resetDeleteButtons();
