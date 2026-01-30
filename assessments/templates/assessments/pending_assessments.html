@@ -187,9 +187,96 @@
         color: #ffc107;
         font-size: 0.9rem;
     }
+
+    /* Player Photo */
+    .player-photo-thumbnail {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 12px;
+        border: 2px solid var(--border-color);
+        flex-shrink: 0;
+        background-color: var(--subtle-bg);
+        cursor: pointer; /* Clickable */
+        transition: transform 0.1s;
+    }
+    .player-photo-thumbnail:active {
+        transform: scale(0.95);
+    }
+
+    /* Modal for zoomed image */
+    .image-modal {
+        display: none; 
+        position: fixed; 
+        z-index: 1050; 
+        left: 0;
+        top: 0;
+        width: 100%; 
+        height: 100%; 
+        overflow: auto; 
+        background-color: rgba(0,0,0,0.9); 
+        animation: fadeIn 0.3s;
+    }
+
+    .image-modal-content {
+        margin: auto;
+        display: block;
+        width: auto;
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 0 20px rgba(255,255,255,0.1);
+        animation: zoomIn 0.3s;
+    }
+
+    .close-modal {
+        position: absolute;
+        top: 20px;
+        right: 30px;
+        color: #f1f1f1;
+        font-size: 40px;
+        font-weight: bold;
+        transition: 0.3s;
+        cursor: pointer;
+        z-index: 1060;
+        background: rgba(0,0,0,0.5);
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        padding-bottom: 4px; /* visual adjustment */
+    }
+
+    .close-modal:hover,
+    .close-modal:focus {
+        color: #bbb;
+        text-decoration: none;
+        cursor: pointer;
+        background: rgba(0,0,0,0.8);
+    }
+
+    @keyframes zoomIn {
+        from {transform:scale(0.8); opacity: 0;} 
+        to {transform:scale(1); opacity: 1;}
+    }
+    @keyframes fadeIn {
+        from {opacity: 0;} 
+        to {opacity: 1;}
+    }
 </style>
 
 <div class="container mt-4 mb-5">
+    <!-- Image Modal -->
+    <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+        <span class="close-modal">&times;</span>
+        <img class="image-modal-content" id="img01">
+    </div>
+
     <div class="page-header mb-4">
         <h1><i class="bi bi-list-check me-2"></i>{{ page_title }}</h1>
     </div>
@@ -255,7 +342,14 @@
                                     {% with assessment_data=item.current_assessments|get_item:player.pk %}
                                     <div class="player-assessment-row {% if assessment_data.effort_enthusiasm %}assessed{% endif %}" id="player-row-{{ player.pk }}">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h5 class="mb-0 fw-bold">{{ player.full_name }}</h5>
+                                            <div class="d-flex align-items-center">
+                                                {% if player.photo %}
+                                                    <img src="{{ player.photo.url }}" class="player-photo-thumbnail" alt="{{ player.first_name }}" onclick="openImageModal(this.src)">
+                                                {% else %}
+                                                    <img src="{% static 'images/default_avatar.png' %}" class="player-photo-thumbnail" alt="Default" onclick="openImageModal(this.src)">
+                                                {% endif %}
+                                                <h5 class="mb-0 fw-bold">{{ player.full_name }}</h5>
+                                            </div>
                                             <span class="save-status-indicator" id="save-indicator-{{ item.session.id }}-{{ player.pk }}">
                                                 <i class="bi bi-check-lg"></i> Saved
                                             </span>
@@ -613,6 +707,22 @@
             console.error('Error:', error);
             alert('An error occurred while saving.');
         });
+    }
+
+    // --- Image Zoom Logic ---
+    function openImageModal(src) {
+        const modal = document.getElementById("imageModal");
+        const modalImg = document.getElementById("img01");
+        modal.style.display = "flex"; // Use flex to center
+        modal.style.alignItems = "center";
+        modal.style.justifyContent = "center";
+        modalImg.src = src;
+        document.body.style.overflow = "hidden"; // Prevent scrolling
+    }
+
+    function closeImageModal() {
+        document.getElementById("imageModal").style.display = "none";
+        document.body.style.overflow = "auto"; // Restore scrolling
     }
 </script>
 {% endblock %}
