@@ -15,6 +15,10 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
+
+    if len(sys.argv) == 2 and sys.argv[1] == 'runserver':
+        sys.argv.append('192.168.3.6:8000')
+
     execute_from_command_line(sys.argv)
 
 

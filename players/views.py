@@ -213,10 +213,19 @@ def player_profile(request, player_id):
     solo_session_logs = SoloSessionLog.objects.filter(player=player).select_related('routine').order_by('-completed_at')
 
     # --- NEW: Calculate Average Performance Ratings ---
-    rating_fields = ['effort_rating', 'focus_rating', 'resilience_rating', 'composure_rating', 'decision_making_rating']
+    rating_fields = [
+        'effort_enthusiasm_rating', 
+        'skill_technique_rating', 
+        'sportsmanship_attitude_rating', 
+        'tactical_mental_rating', 
+        'fitness_perseverance_rating'
+    ]
     rating_labels = {
-        'effort_rating': 'Effort', 'focus_rating': 'Focus', 'resilience_rating': 'Resilience',
-        'composure_rating': 'Composure', 'decision_making_rating': 'Decision Making'
+        'effort_enthusiasm_rating': 'Effort / Enthusiasm',
+        'skill_technique_rating': 'Skill / Technique',
+        'sportsmanship_attitude_rating': 'Sportsmanship / Attitude',
+        'tactical_mental_rating': 'Tactical / Mental',
+        'fitness_perseverance_rating': 'Fitness / Perseverance'
     }
     
     totals = {field: 0 for field in rating_fields}

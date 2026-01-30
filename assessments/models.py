@@ -19,11 +19,11 @@ class SessionAssessment(models.Model):
     player = models.ForeignKey('players.Player', on_delete=models.CASCADE, related_name='session_assessments_by_player')
     
     date_recorded = models.DateField(default=timezone.now)
-    effort_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True)
-    focus_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True)
-    resilience_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True)
-    composure_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True)
-    decision_making_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True)
+    effort_enthusiasm_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True, verbose_name="Effort / Enthusiasm")
+    skill_technique_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True, verbose_name="Skill / Technique")
+    sportsmanship_attitude_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True, verbose_name="Sportsmanship / Attitude")
+    tactical_mental_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True, verbose_name="Tactical / Mental")
+    fitness_perseverance_rating = models.IntegerField(choices=Rating.choices, null=True, blank=True, verbose_name="Fitness / Perseverance")
     coach_notes = models.TextField(blank=True)
     
     submitted_by = models.ForeignKey(

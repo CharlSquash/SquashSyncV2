@@ -175,33 +175,33 @@
                                     <small class="text-muted">Assessed by: {{ assessment.submitted_by.coach_profile|default:assessment.submitted_by.username }}</small>
                                     <hr class="my-2">
                                     <div class="rating-row">
-                                        <span>Effort</span>
+                                        <span>Effort / Enthusiasm</span>
                                         <span class="rating-stars">
-                                            {% for i in "12345" %}<i class="bi {% if assessment.effort_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                            {% for i in "12345" %}<i class="bi {% if assessment.effort_enthusiasm_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
                                         </span>
                                     </div>
                                     <div class="rating-row">
-                                        <span>Focus</span>
+                                        <span>Skill / Technique</span>
                                         <span class="rating-stars">
-                                            {% for i in "12345" %}<i class="bi {% if assessment.focus_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                            {% for i in "12345" %}<i class="bi {% if assessment.skill_technique_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
                                         </span>
                                     </div>
                                     <div class="rating-row">
-                                        <span>Resilience</span>
+                                        <span>Sportsmanship ...</span>
                                         <span class="rating-stars">
-                                            {% for i in "12345" %}<i class="bi {% if assessment.resilience_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                            {% for i in "12345" %}<i class="bi {% if assessment.sportsmanship_attitude_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
                                         </span>
                                     </div>
                                     <div class="rating-row">
-                                        <span>Composure</span>
+                                        <span>Tactical / Mental</span>
                                         <span class="rating-stars">
-                                            {% for i in "12345" %}<i class="bi {% if assessment.composure_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                            {% for i in "12345" %}<i class="bi {% if assessment.tactical_mental_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
                                         </span>
                                     </div>
                                     <div class="rating-row">
-                                        <span>Decision Making</span>
+                                        <span>Fitness / Perseverance</span>
                                         <span class="rating-stars">
-                                            {% for i in "12345" %}<i class="bi {% if assessment.decision_making_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
+                                            {% for i in "12345" %}<i class="bi {% if assessment.fitness_perseverance_rating >= i|add:0 %}bi-star-fill{% else %}bi-star{% endif %}"></i>{% endfor %}
                                         </span>
                                     </div>
                                 </div>

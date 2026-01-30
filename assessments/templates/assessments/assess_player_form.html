@@ -61,7 +61,7 @@
                     <h5 class="form-section-title">Rate player performance (1=Poor, 5=Excellent)</h5>
                     
                     {% for field in form %}
-                        {% if field.name in "effort_rating focus_rating resilience_rating composure_rating decision_making_rating" %}
+                        {% if field.name in "effort_enthusiasm_rating skill_technique_rating sportsmanship_attitude_rating tactical_mental_rating fitness_perseverance_rating" %}
                             <div class="mb-3">
                                 <label class="form-label">{{ field.label }}</label>
                                 <div class="star-rating-widget" id="{{ field.id_for_label }}_stars">

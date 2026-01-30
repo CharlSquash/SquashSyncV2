@@ -8,28 +8,28 @@ class SessionAssessmentForm(forms.ModelForm):
     class Meta:
         model = SessionAssessment
         fields = [
-            'effort_rating',
-            'focus_rating',
-            'resilience_rating',
-            'composure_rating',
-            'decision_making_rating',
+            'effort_enthusiasm_rating',
+            'skill_technique_rating',
+            'sportsmanship_attitude_rating',
+            'tactical_mental_rating',
+            'fitness_perseverance_rating',
             'coach_notes'
         ]
         widgets = {
             # Using radio selects for a better user experience than a simple number input.
-            'effort_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
-            'focus_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
-            'resilience_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
-            'composure_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
-            'decision_making_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
+            'effort_enthusiasm_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
+            'skill_technique_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
+            'sportsmanship_attitude_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
+            'tactical_mental_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
+            'fitness_perseverance_rating': forms.RadioSelect(choices=[(i, str(i)) for i in range(1, 6)]),
             'coach_notes': forms.Textarea(attrs={'rows': 4}),
         }
         labels = {
-            'effort_rating': 'Effort / Work Rate',
-            'focus_rating': 'Focus / Engagement',
-            'resilience_rating': 'Resilience (handling pressure/setbacks)',
-            'composure_rating': 'Composure (emotional control)',
-            'decision_making_rating': 'Decision Making (shot selection, positioning)',
+            'effort_enthusiasm_rating': 'Effort / Enthusiasm',
+            'skill_technique_rating': 'Skill / Technique',
+            'sportsmanship_attitude_rating': 'Sportsmanship / Attitude',
+            'tactical_mental_rating': 'Tactical / Mental',
+            'fitness_perseverance_rating': 'Fitness / Perseverance',
             'coach_notes': 'General Notes / Comments',
         }
         help_texts = {

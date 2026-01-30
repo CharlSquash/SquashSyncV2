@@ -172,11 +172,11 @@ def pending_assessments(request):
         current_assessments_dict = {}
         for assessment in assessments_for_this_session:
             current_assessments_dict[assessment.player_id] = {
-                'effort': assessment.effort_rating,
-                'focus': assessment.focus_rating,
-                'resilience': assessment.resilience_rating,
-                'composure': assessment.composure_rating,
-                'decision': assessment.decision_making_rating,
+                'effort_enthusiasm': assessment.effort_enthusiasm_rating,
+                'skill_technique': assessment.skill_technique_rating,
+                'sportsmanship_attitude': assessment.sportsmanship_attitude_rating,
+                'tactical_mental': assessment.tactical_mental_rating,
+                'fitness_perseverance': assessment.fitness_perseverance_rating,
                 'notes': assessment.coach_notes,
             }
 
@@ -260,11 +260,11 @@ def update_player_assessment_api(request):
         # Field Mapping
         # Frontend field names -> Model field names
         field_map = {
-            'effort': 'effort_rating',
-            'focus': 'focus_rating',
-            'resilience': 'resilience_rating',
-            'composure': 'composure_rating',
-            'decision': 'decision_making_rating',
+            'effort_enthusiasm': 'effort_enthusiasm_rating',
+            'skill_technique': 'skill_technique_rating',
+            'sportsmanship_attitude': 'sportsmanship_attitude_rating',
+            'tactical_mental': 'tactical_mental_rating',
+            'fitness_perseverance': 'fitness_perseverance_rating',
             'notes': 'coach_notes'
         }
         

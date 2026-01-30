@@ -4,7 +4,7 @@ from .models import SessionAssessment, GroupAssessment, CoachFeedback, Assessmen
 
 @admin.register(SessionAssessment)
 class SessionAssessmentAdmin(admin.ModelAdmin):
-    list_display = ('player', 'session', 'submitted_by', 'effort_rating', 'focus_rating', 'is_hidden')
+    list_display = ('player', 'session', 'submitted_by', 'effort_enthusiasm_rating', 'skill_technique_rating', 'is_hidden')
     list_filter = ('session__session_date', 'player', 'submitted_by', 'is_hidden')
     search_fields = ('player__first_name', 'player__last_name', 'coach_notes')
     raw_id_fields = ('player', 'session', 'submitted_by')

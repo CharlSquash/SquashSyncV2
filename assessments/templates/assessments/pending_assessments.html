@@ -51,14 +51,15 @@
     }
     .star-rating-widget label {
         color: var(--border-color); /* Empty star color */
-        font-size: 1.5rem; /* Large stars */
+        font-size: 2rem; /* Large stars for mobile */
         padding: 0 5px; /* Spacing */
         cursor: pointer;
         transition: color 0.2s;
-        min-width: 30px; /* Touch target width */ 
+        min-width: 44px; /* Touch target width */ 
         height: 44px;    /* Touch target height */
         display: inline-flex;
         align-items: center;
+        justify-content: center;
     }
     .star-rating-widget input:checked ~ label,
     .star-rating-widget label:hover,
@@ -84,14 +85,43 @@
 
     .rating-group {
         display: flex;
-        justify-content: space-between;
+        justify-content: space-between; /* Default for desktop */
         align-items: center;
-        margin-bottom: 5px;
+        margin-bottom: 12px; /* Increased spacing */
+        flex-wrap: wrap; /* Allow wrapping */
     }
+    
     .rating-label {
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         color: var(--subheading-color);
         font-weight: 500;
+        line-height: 1.2;
+        margin-bottom: 0;
+    }
+
+    /* Mobile adjustments for rating group */
+    @media (max-width: 500px) {
+        .rating-group {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+        }
+        .rating-label {
+            max-width: 100%;
+            margin-bottom: 2px;
+        }
+        .star-rating-widget {
+            width: 100%;
+            justify-content: space-between; /* Spread stars out slightly or keep right? */
+            /* Actually, keeping them right or left? Let's try filling width or just large targets */
+            justify-content: flex-start; /* Align left under text */
+        }
+        /* Make stars easier to hit */
+        .star-rating-widget label {
+            padding: 0 8px; 
+            flex-grow: 1; /* evenly distribute touch targets */
+            max-width: 60px; /* but don't get too wide */
+        }
     }
     
     /* Notes Input */
@@ -131,6 +161,31 @@
         background: var(--container-light-bg);
         padding: 15px;
         border-radius: 8px;
+    }
+    
+    /* Star Key Legend */
+    .star-key-legend {
+        background-color: var(--subtle-bg);
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 15px;
+        font-size: 0.8rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        border: 1px solid var(--border-color);
+    }
+    .star-key-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+    .star-key-item i {
+        color: #ffc107;
+        font-size: 0.9rem;
     }
 </style>
 
@@ -174,17 +229,31 @@
                                 <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="alert-link">Click here to take attendance</a> first to assess players.
                             </div>
                         {% else %}
-                             <!-- Quick Link to Attendance -->
-                             <div class="text-end mb-3">
+                             <!-- Quick Link to Attendance and Legend Toggle -->
+                             <div class="d-flex justify-content-between align-items-center mb-3">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#starKeyLegend-{{ item.session.id }}" aria-expanded="false" aria-controls="starKeyLegend-{{ item.session.id }}">
+                                    <i class="bi bi-info-circle me-1"></i> Rating Key
+                                </button>
                                 <a href="{% url 'scheduling:visual_attendance' item.session.id %}?next=pending_assessments" class="text-decoration-none small">
                                     <i class="bi bi-pencil-square"></i> Edit Attendance
                                 </a>
                             </div>
 
+                            <!-- Star Key Legend (Collapsed by default) -->
+                            <div class="collapse" id="starKeyLegend-{{ item.session.id }}">
+                                <div class="star-key-legend">
+                                    <span class="star-key-item"><i class="bi bi-star-fill"></i> 1: Needs Imp.</span>
+                                    <span class="star-key-item"><i class="bi bi-star-fill"></i> 2: Below Avg</span>
+                                    <span class="star-key-item"><i class="bi bi-star-fill"></i> 3: Adequate</span>
+                                    <span class="star-key-item"><i class="bi bi-star-fill"></i> 4: Good</span>
+                                    <span class="star-key-item"><i class="bi bi-star-fill"></i> 5: Excellent</span>
+                                </div>
+                            </div>
+
                             <div class="player-list-container" id="player-list-{{ item.session.id }}">
                                 {% for player in item.all_players_in_session %}
                                     {% with assessment_data=item.current_assessments|get_item:player.pk %}
-                                    <div class="player-assessment-row {% if assessment_data.effort %}assessed{% endif %}" id="player-row-{{ player.pk }}">
+                                    <div class="player-assessment-row {% if assessment_data.effort_enthusiasm %}assessed{% endif %}" id="player-row-{{ player.pk }}">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                             <h5 class="mb-0 fw-bold">{{ player.full_name }}</h5>
                                             <span class="save-status-indicator" id="save-indicator-{{ item.session.id }}-{{ player.pk }}">
@@ -193,7 +262,7 @@
                                         </div>
 
                                         <!-- 5 Metrics -->
-                                        {% for metric_key, metric_label in "effort:Effort,focus:Focus,resilience:Resilience,composure:Composure,decision:Decision Making"|split_metrics %}
+                                        {% for metric_key, metric_label in "effort_enthusiasm:Effort / Enthusiasm,skill_technique:Skill / Technique,sportsmanship_attitude:Sportsmanship / Attitude,tactical_mental:Tactical / Mental,fitness_perseverance:Fitness / Perseverance"|split_metrics %}
                                         <div class="rating-group">
                                             <span class="rating-label">{{ metric_label }}</span>
                                             <div class="star-rating-widget">
