@@ -85,7 +85,7 @@ class ScheduledClass(models.Model):
         venue_name_str = f" at {self.default_venue.name}" if self.default_venue else ""
         return f"{self.school_group.name} - {day_name}s @ {self.start_time.strftime('%H:%M')}{venue_name_str}"
     class Meta:
-        ordering = ['school_group__name', 'day_of_week', 'start_time']
+        ordering = ['day_of_week', 'default_venue__name', 'start_time']
         verbose_name = "Scheduled Class Rule"
         verbose_name_plural = "Scheduled Class Rules"
         unique_together = ('school_group', 'day_of_week', 'start_time')

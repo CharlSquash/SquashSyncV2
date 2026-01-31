@@ -86,8 +86,8 @@ admin.site.register(CoachAvailability)
 
 @admin.register(ScheduledClass)
 class ScheduledClassAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'day_of_week', 'start_time', 'is_active')
-    list_filter = ('school_group', 'day_of_week', 'is_active')
+    list_display = ('__str__', 'day_of_week', 'default_venue', 'start_time', 'is_active')
+    list_filter = ('day_of_week', 'default_venue', 'school_group', 'is_active')
     filter_horizontal = ('default_coaches',)
     actions = ['generate_sessions_action']
 
