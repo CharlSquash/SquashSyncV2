@@ -100,7 +100,7 @@ class QuickMatchResultForm(forms.ModelForm):
 
     class Meta:
         model = MatchResult
-        fields = ['opponent', 'opponent_name', 'match_notes'] # Reduced fields
+        fields = ['player', 'opponent', 'opponent_name', 'match_notes'] # Added player
         widgets = {
             'match_notes': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Optional notes...'}),
         }
@@ -112,11 +112,14 @@ class QuickMatchResultForm(forms.ModelForm):
 
         if attendees_queryset is not None:
             self.fields['opponent'].queryset = attendees_queryset
+            self.fields['player'].queryset = attendees_queryset # Also set for player
         elif self.player:
             self.fields['opponent'].queryset = Player.objects.filter(is_active=True).exclude(id=self.player.id).order_by('first_name')
+            self.fields['player'].queryset = Player.objects.filter(is_active=True).order_by('first_name') # Fallback
         
         self.fields['opponent'].required = False
         self.fields['opponent_name'].required = False
+        self.fields['player'].label = "Winner" # Explicit label
     
     def clean(self):
         cleaned_data = super().clean()
