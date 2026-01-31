@@ -45,12 +45,12 @@
             {% for column in schedule_columns %}
             <div class="col">
                 <div class="card h-100 shadow-sm">
-                    <div class="card-header text-center fw-bold bg-light">
+                    <div class="card-header text-center fw-bold">
                         {{ column.day_name }}
                     </div>
                     <div class="list-group list-group-flush">
                         {% for group in column.groups %}
-                        <a href="{% url 'players:school_group_profile' group.id %}" class="list-group-item list-group-item-action border-0 list-group-item-light">
+                        <a href="{% url 'players:school_group_profile' group.id %}" class="list-group-item list-group-item-action border-0">
                             {{ group.name }}
                         </a>
                         {% empty %}
@@ -65,7 +65,7 @@
 
         {% if unscheduled_groups %}
         <div class="card mb-4">
-            <div class="card-header bg-light fw-bold text-muted small text-uppercase">
+            <div class="card-header fw-bold text-muted small text-uppercase">
                 Other / Unscheduled
             </div>
             <div class="list-group list-group-flush">
