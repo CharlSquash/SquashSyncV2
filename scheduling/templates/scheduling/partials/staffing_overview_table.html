@@ -38,7 +38,7 @@
                     {% endif %}
                 {% else %}
                     {% for session_data in day.sessions %}
-                        <tr>
+                        <tr class="{% if forloop.last %}day-separator{% endif %}">
                             {# Day Column - Only displayed on the first row for the day #}
                             {% if forloop.first %}
                                 <td rowspan="{{ day.sessions|length }}" class="fw-bold table-active align-middle">

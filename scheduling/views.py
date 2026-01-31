@@ -2209,6 +2209,8 @@ def staffing_overview_modal(request):
                 if avail:
                     if avail.status == CoachAvailability.Status.UNAVAILABLE:
                         status = "Declined"
+                        # SKIP DECLINED COACHES
+                        continue 
                     elif avail.last_action == 'CONFIRM':
                         status = "Confirmed"
                 
