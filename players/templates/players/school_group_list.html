@@ -39,17 +39,51 @@
         </div>
     </div>
 
-    <div class="card">
-        <div class="list-group list-group-flush">
-            {% for group in groups %}
-            <a href="{% url 'players:school_group_profile' group.id %}" class="list-group-item list-group-item-action fs-5">
-                {{ group.name }}
-            </a>
-            {% empty %}
-            <div class="list-group-item">No school groups found.</div>
+    {% if schedule_columns or unscheduled_groups %}
+        {% if schedule_columns %}
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 g-3 mb-4">
+            {% for column in schedule_columns %}
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header text-center fw-bold bg-light">
+                        {{ column.day_name }}
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for group in column.groups %}
+                        <a href="{% url 'players:school_group_profile' group.id %}" class="list-group-item list-group-item-action border-0 list-group-item-light">
+                            {{ group.name }}
+                        </a>
+                        {% empty %}
+                        <div class="p-3 text-center text-muted fst-italic small">No groups</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
             {% endfor %}
         </div>
-    </div>
+        {% endif %}
+
+        {% if unscheduled_groups %}
+        <div class="card mb-4">
+            <div class="card-header bg-light fw-bold text-muted small text-uppercase">
+                Other / Unscheduled
+            </div>
+            <div class="list-group list-group-flush">
+                {% for group in unscheduled_groups %}
+                <a href="{% url 'players:school_group_profile' group.id %}" class="list-group-item list-group-item-action">
+                    {{ group.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="card">
+            <div class="list-group list-group-flush">
+                <div class="list-group-item">No school groups found.</div>
+            </div>
+        </div>
+    {% endif %}
 </div>
 
 <div class="modal fade" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true">

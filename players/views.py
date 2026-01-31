@@ -14,7 +14,7 @@ from .forms import (
     SchoolGroupForm, AttendancePeriodFilterForm, PlayerAttendanceFilterForm,
     CourtSprintRecordForm, VolleyRecordForm, BackwallDriveRecordForm, MatchResultForm
 )
-from scheduling.models import Session, AttendanceTracking
+from scheduling.models import Session, AttendanceTracking, ScheduledClass
 from assessments.models import SessionAssessment, GroupAssessment
 from django.db.models import Count, Q, Value, Prefetch
 from django.db.models.functions import Concat
@@ -382,15 +382,36 @@ def school_group_list(request):
     if selected_year:
         groups = SchoolGroup.objects.filter(year=selected_year, is_active=False)
     elif show_archive:
-         # Generic "show all archives" if needed, or default to most recent? 
-         # User asked for "?year=2024 or ?archive=true". 
-         # If archive=true is passed without year, maybe show all inactive?
-         # Let's show all inactive if archive=true is passed.
          groups = SchoolGroup.objects.filter(is_active=False)
+
+    # --- REORGANIZATION FOR COLUMNS ---
+    groups = groups.prefetch_related('scheduled_classes')
+
+    # 0=Mon, 4=Fri
+    days_mapping = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday'}
+    schedule_columns = [{'day_code': k, 'day_name': v, 'groups': []} for k, v in days_mapping.items()]
+    unscheduled_groups = []
+
+    for group in groups:
+        # Find active valid Mon-Fri days for this group
+        # We rely on "scheduled_classes" related_name from ScheduledClass model
+        active_rules = [r for r in group.scheduled_classes.all() if r.is_active]
+        
+        # Get unique Mon-Fri days (0-4)
+        group_days = {r.day_of_week for r in active_rules if 0 <= r.day_of_week <= 4}
+        
+        if group_days:
+            for day_idx in group_days:
+                # Add to the corresponding column
+                # schedule_columns list is ordered 0 to 4
+                schedule_columns[day_idx]['groups'].append(group)
+        else:
+            unscheduled_groups.append(group)
 
     context = {
         'page_title': 'School Groups',
-        'groups': groups,
+        'schedule_columns': schedule_columns,
+        'unscheduled_groups': unscheduled_groups,
         'form': form,
         'available_years': available_years,
         'selected_year': int(selected_year) if selected_year and selected_year.isdigit() else None,
