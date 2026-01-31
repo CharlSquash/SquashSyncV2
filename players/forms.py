@@ -92,17 +92,17 @@ class QuickMatchResultForm(forms.ModelForm):
     """
     Simplified match result form for quick entry during assessment sessions.
     """
-    winner = forms.ChoiceField(
-        choices=[('me', 'Me'), ('opponent', 'Opponent')],
-        widget=forms.RadioSelect,
-        initial='me'
-    )
+    """
+    Simplified match result form for quick entry during assessment sessions.
+    """
 
     class Meta:
         model = MatchResult
-        fields = ['player', 'opponent', 'opponent_name', 'match_notes'] # Added player
+        fields = ['player', 'opponent', 'opponent_name', 'player_score_str', 'opponent_score_str', 'match_notes'] # Added player
         widgets = {
             'match_notes': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Optional notes...'}),
+            'player_score_str': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '3-0'}),
+            'opponent_score_str': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '0-3'}),
         }
 
     def __init__(self, *args, **kwargs):

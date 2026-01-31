@@ -444,11 +444,16 @@
                                 <div class="row g-2 align-items-center mt-3">
                                     <div class="col-12">
                                         <label class="form-label small text-muted mb-1">Score</label>
-                                        <div class="input-group">
-                                            {{ item.match_form.player_score_str }}
-                                            <span class="input-group-text">-</span>
-                                            {{ item.match_form.opponent_score_str }}
-                                            <button class="btn btn-primary" type="submit">Save Result</button>
+                                        <div class="row g-2">
+                                            <div class="col-6 col-md-4">
+                                                {{ item.match_form.player_score_str }}
+                                            </div>
+                                            <div class="col-6 col-md-4">
+                                                {{ item.match_form.opponent_score_str }}
+                                            </div>
+                                            <div class="col-12 col-md-4 d-grid">
+                                                <button class="btn btn-primary" type="submit">Save Result</button>
+                                            </div>
                                         </div>
                                         <div class="form-text small d-flex justify-content-between">
                                             <span>e.g. 11-9, 11-8, 11-5</span>
