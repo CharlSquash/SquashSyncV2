@@ -42,8 +42,8 @@ class SchoolGroupAdmin(admin.ModelAdmin):
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
     # Add 'gender' to list_display, list_editable, list_filter
-    list_display = ('get_full_name', 'grade', 'gender', 'school', 'is_active')
-    list_editable = ('grade', 'gender', 'school', 'is_active') # Add gender here
+    list_display = ('get_full_name', 'grade', 'gender', 'school', 'is_active', 'notification_email')
+    list_editable = ('grade', 'gender', 'school', 'is_active', 'notification_email') # Add gender here
     list_filter = ('is_active', 'school_groups', 'grade', 'gender') # Add gender here
     search_fields = ('first_name', 'last_name', 'school') # Add school here
     filter_horizontal = ('school_groups',)

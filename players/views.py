@@ -774,3 +774,44 @@ def notification_verify_email(request, token):
     except (BadSignature, SignatureExpired):
         return render(request, 'players/notification_success.html', {'error': 'Invalid or expired verification link.'})
 
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def update_player_notification_email(request, player_id):
+    """
+    API endpoint for coaches to trigger a verification email for a player.
+    Does NOT set the email directly, but sends a link to the entered address.
+    """
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip()
+        
+        # Simple validation
+        if not email:
+            return JsonResponse({'status': 'error', 'message': 'Email address is required.'}, status=400)
+            
+        player = get_object_or_404(Player, pk=player_id)
+        
+        # Generate verification link (Reusing logic from notification_register_view)
+        signer = TimestampSigner()
+        token = signer.sign_object({'player_id': player.id, 'email': email})
+        verify_url = request.build_absolute_uri(reverse('players:notification_verify_email', args=[token]))
+        
+        # Debug: Print to console to ensure user can see it
+        print(f"\n\n{'='*50}\nVERIFICATION URL FOR {email}:\n{verify_url}\n{'='*50}\n\n")
+        
+        # Send Email
+        send_mail(
+            'Confirm your SquashSync Notification Email',
+            f'Hi {player.first_name},\n\nA coach has added this email address for session reminders.\n\nPlease click the link below to verify it starts receiving notifications:\n\n{verify_url}\n\nThis link expires in 48 hours.',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        
+        return JsonResponse({'status': 'success', 'message': f'Verification email sent to {email}.'})
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+

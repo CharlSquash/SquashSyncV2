@@ -28,4 +28,5 @@ urlpatterns = [
     #SoloSync path
     path('notifications/register/', views.notification_register_view, name='notification_register'),
     path('notifications/verify/<str:token>/', views.notification_verify_email, name='notification_verify_email'),
+    path('api/update-notification-email/<int:player_id>/', views.update_player_notification_email, name='update_player_notification_email'),
 ]

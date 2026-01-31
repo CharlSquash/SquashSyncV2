@@ -63,7 +63,8 @@ class SessionService:
                 all_players_for_display.append({
                     'id': player.id,
                     'name': player.full_name,
-                    'status': record.parent_response if record else 'PENDING'
+                    'status': record.parent_response if record else 'PENDING',
+                    'has_notification_email': bool(player.notification_email)
                 })
 
                 # 2. This list is for the "Form Player Groups" section

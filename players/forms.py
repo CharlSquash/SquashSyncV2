@@ -1,169 +1,137 @@
-# players/forms.py
 from django import forms
-from .models import SchoolGroup, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, MatchResult, Player
-from django.db.models import Prefetch
-from django.utils import timezone
+from .models import SchoolGroup, Player, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, MatchResult
+from django.forms import DateInput
 
 class SchoolGroupForm(forms.ModelForm):
     class Meta:
         model = SchoolGroup
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'year', 'attendance_form_url', 'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'description': forms.Textarea(attrs={'rows': 3}),
         }
 
 class AttendancePeriodFilterForm(forms.Form):
-    start_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
-    end_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), required=False)
-
-class PlayerAttendanceFilterForm(forms.Form):
-    school_group = forms.ModelChoiceField(
-        queryset=SchoolGroup.objects.none(),
-        required=False,
-        label="Filter by Group",
-        empty_label="All Groups",
-        widget=forms.Select(attrs={'class': 'form-select'})
+    start_date = forms.DateField(
+        widget=DateInput(attrs={'type': 'date'}),
+        required=False
     )
-    start_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}), required=False)
-    end_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}), required=False)
+    end_date = forms.DateField(
+        widget=DateInput(attrs={'type': 'date'}),
+        required=False
+    )
 
+class PlayerAttendanceFilterForm(AttendancePeriodFilterForm):
+    # Inherits start/end date
     def __init__(self, *args, **kwargs):
-        player = kwargs.pop('player', None)
+        self.player = kwargs.pop('player', None)
         super().__init__(*args, **kwargs)
-        if player:
-            self.fields['school_group'].queryset = player.school_groups.all()
-
-# --- NEW METRIC FORMS ---
 
 class CourtSprintRecordForm(forms.ModelForm):
-    date_recorded = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), initial=timezone.now)
     class Meta:
         model = CourtSprintRecord
-        fields = ['date_recorded', 'duration_choice', 'score']
-        labels = { 'score': 'Number of Lengths' }
-
+        fields = ['date_recorded', 'duration_choice', 'score', 'session']
+        widgets = {
+            'date_recorded': DateInput(attrs={'type': 'date'}),
+        }
 
 class VolleyRecordForm(forms.ModelForm):
-    date_recorded = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), initial=timezone.now)
     class Meta:
         model = VolleyRecord
-        fields = ['date_recorded', 'shot_type', 'consecutive_count']
-        labels = { 'consecutive_count': 'Consecutive Volleys' }
+        fields = ['date_recorded', 'shot_type', 'consecutive_count', 'session']
+        widgets = {
+            'date_recorded': DateInput(attrs={'type': 'date'}),
+        }
 
 class BackwallDriveRecordForm(forms.ModelForm):
-    date_recorded = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), initial=timezone.now)
     class Meta:
         model = BackwallDriveRecord
-        fields = ['date_recorded', 'shot_type', 'consecutive_count']
-        labels = { 'consecutive_count': 'Consecutive Drives' }
-
-class PlayerGroupLabelChoiceField(forms.ModelChoiceField):
-    def label_from_instance(self, obj):
-        group_names = ", ".join([g.name for g in obj.active_groups])
-        if group_names:
-            return f"{obj.full_name} ({group_names})"
-        return obj.full_name
+        fields = ['date_recorded', 'shot_type', 'consecutive_count', 'session']
+        widgets = {
+            'date_recorded': DateInput(attrs={'type': 'date'}),
+        }
 
 class MatchResultForm(forms.ModelForm):
-    WINNER_CHOICES = [
-        ('me', 'Me (Profile Player)'),
-        ('opponent', 'Opponent'),
-    ]
-
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), initial=timezone.now)
-    winner = forms.ChoiceField(choices=WINNER_CHOICES, widget=forms.RadioSelect, initial='me', label="Who Won?")
-    opponent = PlayerGroupLabelChoiceField(
-        queryset=Player.objects.none(),
-        required=False,
-        label="Select Opponent (Database)",
-        widget=forms.Select(attrs={'class': 'form-select'})
+    # Extra fields for the logic in views.py
+    winner = forms.ChoiceField(
+        choices=[('me', 'Me'), ('opponent', 'Opponent')],
+        widget=forms.RadioSelect,
+        initial='me'
     )
-    sets_data = forms.CharField(widget=forms.HiddenInput(), required=False) # JSON data from JS
+    
+    # We'll use a hidden field for the JSON sets data, populated by JS
+    sets_data = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
         model = MatchResult
-        fields = ['date', 'opponent', 'opponent_name', 'player_score_str', 'is_competitive', 'match_notes', 'sets_data'] # added sets_data
-        labels = {
-            'opponent_name': "Opponent's Name (if not in list)",
-            'player_score_str': "Score Summary (Auto-calculated)",
-            'is_competitive': 'Competitive Match',
-            'match_notes': 'Notes'
-        }
+        fields = [
+            'date', 
+            'opponent', 
+            'opponent_name', 
+            'is_competitive', 
+            'match_notes',
+            # 'sets_data', # We handle this manually via the extra field
+            # 'player_score_str', # Calculated
+            # 'opponent_score_str', # Calculated
+        ]
         widgets = {
-            'player_score_str': forms.TextInput(attrs={'readonly': 'readonly', 'class': 'form-control-plaintext'}),
+            'date': DateInput(attrs={'type': 'date'}),
+            'match_notes': forms.Textarea(attrs={'rows': 3}),
         }
 
     def __init__(self, *args, **kwargs):
-        player = kwargs.pop('player', None)
+        self.player = kwargs.pop('player', None)
         super().__init__(*args, **kwargs)
         
-        # Default queryset if no player context (though view should provide it)
-        queries = Player.objects.filter(is_active=True).prefetch_related(
-            Prefetch('school_groups', queryset=SchoolGroup.objects.filter(is_active=True), to_attr='_active_groups_cache')
-        )
-        self.fields['opponent'].queryset = queries
+        # Filter opponents to exclude self
+        if self.player:
+            self.fields['opponent'].queryset = Player.objects.filter(is_active=True).exclude(id=self.player.id).order_by('first_name')
 
-        if player:
-            self.fields['opponent'].queryset = queries.exclude(id=player.id)
 
-        # Make player_score_str not required as it receives value from JS or calc
-        self.fields['player_score_str'].required = False
 
+class QuickMatchResultForm(forms.ModelForm):
+    """
+    Simplified match result form for quick entry during assessment sessions.
+    """
+    winner = forms.ChoiceField(
+        choices=[('me', 'Me'), ('opponent', 'Opponent')],
+        widget=forms.RadioSelect,
+        initial='me'
+    )
+
+    class Meta:
+        model = MatchResult
+        fields = ['opponent', 'opponent_name', 'match_notes'] # Reduced fields
+        widgets = {
+            'match_notes': forms.Textarea(attrs={'rows': 2, 'placeholder': 'Optional notes...'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.player = kwargs.pop('player', None)
+        super().__init__(*args, **kwargs)
+        if self.player:
+            self.fields['opponent'].queryset = Player.objects.filter(is_active=True).exclude(id=self.player.id).order_by('first_name')
+        
+        self.fields['opponent'].required = False
+        self.fields['opponent_name'].required = False
+    
     def clean(self):
         cleaned_data = super().clean()
         opponent = cleaned_data.get('opponent')
         opponent_name = cleaned_data.get('opponent_name')
-        winner = cleaned_data.get('winner')
-
+        
         if not opponent and not opponent_name:
-            raise forms.ValidationError("Please select an opponent from the list OR enter a name manually.")
-        
-        if winner == 'opponent' and not opponent:
-             raise forms.ValidationError("To mark the opponent as the winner, they must be selected from the database list (not just a typed name).")
-
+            raise forms.ValidationError("You must specify either an existing opponent or an opponent name.")
         return cleaned_data
-
-class QuickMatchResultForm(forms.ModelForm):
-    player_score_str = forms.CharField(label="Score", widget=forms.TextInput(attrs={'placeholder': '', 'class': 'form-control'}))
-    opponent_score_str = forms.CharField(label="Score", widget=forms.TextInput(attrs={'placeholder': '', 'class': 'form-control'}))
-
-    class Meta:
-        model = MatchResult
-        fields = ['player', 'player_score_str', 'opponent', 'opponent_score_str']
-        labels = {
-            'player': 'Winner',
-            'opponent': 'Loser',
-        }
-
-    def __init__(self, *args, **kwargs):
-        attendees = kwargs.pop('attendees_queryset', None)
-        super().__init__(*args, **kwargs)
-        
-        if attendees is not None:
-            self.fields['player'].queryset = attendees
-            self.fields['opponent'].queryset = attendees
-        
-        self.fields['player'].widget.attrs.update({'class': 'form-select'})
-        self.fields['opponent'].widget.attrs.update({'class': 'form-select'})
-
-    def clean(self):
-        cleaned_data = super().clean()
-        winner = cleaned_data.get("player")
-        loser = cleaned_data.get("opponent")
-
-        if winner and loser and winner == loser:
-            raise forms.ValidationError("The winner and loser cannot be the same player.")
-
-        return cleaned_data
-
 
 class PlayerSearchForm(forms.Form):
     name_search = forms.CharField(
-        label="Player Name",
-        min_length=3,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter first or last name...'})
+        label="Search by Name",
+        max_length=100,
+        widget=forms.TextInput(attrs={'placeholder': 'Enter first or last name', 'class': 'form-control'})
     )
 
 class PlayerEmailForm(forms.Form):
-    email = forms.EmailField(label="Notification Email", widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter your email address'}))
+    email = forms.EmailField(
+        label="Notification Email",
+        widget=forms.EmailInput(attrs={'placeholder': 'parent@example.com', 'class': 'form-control'})
+    )
