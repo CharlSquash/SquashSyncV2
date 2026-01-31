@@ -169,7 +169,7 @@
                         {% endif %}
 
                         <div id="assessments-list">
-                            {% for assessment in assessments %}
+                            {% for assessment in performance_assessments %}
                                 <div class="performance-card {% if forloop.counter > 5 %}hidden-assessment{% endif %}">
                                     <h6 class="mb-1">Session on {{ assessment.session.session_date|date:"d M Y" }}</h6>
                                     <small class="text-muted">Assessed by: {{ assessment.submitted_by.coach_profile|default:assessment.submitted_by.username }}</small>
@@ -210,7 +210,7 @@
                             {% endfor %}
                         </div>
 
-                        {% if assessments|length > 5 %}
+                        {% if performance_assessments|length > 5 %}
                             <div class="text-center mt-3">
                                 <button id="show-more-assessments" class="btn btn-sm btn-outline-secondary">Show More</button>
                                 <button id="show-less-assessments" class="btn btn-sm btn-outline-secondary" style="display: none;">Show Less</button>

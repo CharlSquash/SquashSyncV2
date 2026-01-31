@@ -209,6 +209,10 @@ def player_profile(request, player_id):
 
     # Get related data for tabs
     assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date')
+    
+    # Filter for performance tab (only show if ratings exist)
+    performance_assessments = assessments.exclude(effort_enthusiasm_rating__isnull=True)
+    
     match_history = MatchResult.objects.filter(
         Q(player=player) | Q(opponent=player)
     ).select_related('player', 'opponent').order_by('-date')
@@ -290,6 +294,7 @@ def player_profile(request, player_id):
         'page_title': f"Profile: {player.full_name}",
         'player': player,
         'assessments': assessments,
+        'performance_assessments': performance_assessments,
         'average_ratings': average_ratings,
         'match_history': match_history,
         'discrepancy_history': discrepancy_history,
