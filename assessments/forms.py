@@ -55,14 +55,14 @@ class GroupAssessmentForm(forms.ModelForm):
         widgets = {
             'general_notes': forms.Textarea(attrs={
                 'rows': 4,
-                'placeholder': "Log specific operational or venue issues (e.g. Bus late, Lights flickering). Leave blank if none."
+                'placeholder': "General feedback about the group, session dynamics, or any operational notes."
             }),
         }
         labels = {
-            'general_notes': 'Session Logistics & Incident Report',
+            'general_notes': 'Group Feedback & Session Notes',
         }
         help_texts = {
-            'general_notes': 'Log specific operational issues. Leave blank if the session ran smoothly.'
+            'general_notes': 'Provide feedback on the group as a whole and any other relevant session details.'
         }
 
 class AssessmentCommentForm(forms.ModelForm):
