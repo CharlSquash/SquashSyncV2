@@ -20,7 +20,9 @@
     </p>
 
     <div class="month-selector-form">
-        <a href="?month={{ this_month_str }}" class="btn {% if selected_month_str == this_month_str %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ this_month_name }} {{ this_month_year }}</a>
+        {% if show_this_month_button %}
+            <a href="?month={{ this_month_str }}" class="btn {% if selected_month_str == this_month_str %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ this_month_name }} {{ this_month_year }}</a>
+        {% endif %}
         <a href="?month={{ next_month_str }}" class="btn {% if selected_month_str == next_month_str %}btn-primary{% else %}btn-outline-primary{% endif %}">{{ next_month_name }} {{ next_month_year }}</a>
     </div>
     <hr>

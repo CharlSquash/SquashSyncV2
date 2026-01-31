@@ -1036,7 +1036,37 @@ def set_bulk_availability_view(request):
     this_month_str = this_month.strftime('%Y-%m')
     next_month_str = next_month_date.strftime('%Y-%m')
 
-    selected_month_str = request.GET.get('month', this_month_str)
+    selected_month_str = request.GET.get('month')
+
+    # --- NEW LOGIC: Check if "This Month" has any future sessions ---
+    scheduled_classes_qs_ids = ScheduledClass.objects.filter(is_active=True).values_list('id', flat=True)
+    
+    # Calculate "Tomorrow" to ensure we only look for actionable sessions
+    tomorrow = now.date() + timedelta(days=1)
+    
+    # Check if there are any sessions in "This Month" that are in the future
+    # We use start_date=tomorrow because past sessions in 'this month' aren't editable for bulk actions
+    this_month_end_date = get_month_start_end(this_month.year, this_month.month)[1]
+    
+    sessions_remaining_this_month = Session.objects.filter(
+        generated_from_rule_id__in=scheduled_classes_qs_ids,
+        session_date__gte=tomorrow,
+        session_date__lte=this_month_end_date,
+        is_cancelled=False
+    ).exists()
+
+    show_this_month_button = sessions_remaining_this_month
+
+    # Defaults:
+    # If no month selected:
+    #   - If this month has sessions -> Select This Month
+    #   - Else -> Select Next Month
+    if not selected_month_str:
+        if show_this_month_button:
+            selected_month_str = this_month_str
+        else:
+            selected_month_str = next_month_str
+    
     try:
         selected_year, selected_month = map(int, selected_month_str.split('-'))
     except ValueError:
@@ -1118,6 +1148,7 @@ def set_bulk_availability_view(request):
         'this_month_year': this_month.year,
         'next_month_year': next_month_date.year,
         'selected_month_str': selected_month_str,
+        'show_this_month_button': show_this_month_button,
     }
     return render(request, 'scheduling/set_bulk_availability.html', context)
 
