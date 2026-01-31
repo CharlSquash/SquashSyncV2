@@ -26,7 +26,7 @@ DEBUG = os.environ.get('DEV_MODE') == 'True'
 # Smart ALLOWED_HOSTS and URL settings
 if DEBUG:
     ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.3.6'] # Add any other local IPs you use
-    APP_SITE_URL = 'http://127.0.0.1:8000'
+    APP_SITE_URL = 'http://192.168.3.6:8000'
     CSRF_TRUSTED_ORIGINS = [] # Not usually needed for local dev
 else:
     ALLOWED_HOSTS = ['www.squashsync.com', 'CharlSquash.pythonanywhere.com']

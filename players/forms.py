@@ -157,3 +157,13 @@ class QuickMatchResultForm(forms.ModelForm):
 
         return cleaned_data
 
+
+class PlayerSearchForm(forms.Form):
+    name_search = forms.CharField(
+        label="Player Name",
+        min_length=3,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter first or last name...'})
+    )
+
+class PlayerEmailForm(forms.Form):
+    email = forms.EmailField(label="Notification Email", widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter your email address'}))

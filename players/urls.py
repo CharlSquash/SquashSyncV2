@@ -26,5 +26,6 @@ urlpatterns = [
     path('assign-group/<int:player_id>/', views.quick_assign_group, name='quick_assign_group'),
 
     #SoloSync path
-    
+    path('notifications/register/', views.notification_register_view, name='notification_register'),
+    path('notifications/verify/<str:token>/', views.notification_verify_email, name='notification_verify_email'),
 ]

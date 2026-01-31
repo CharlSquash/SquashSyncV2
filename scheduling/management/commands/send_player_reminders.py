@@ -42,7 +42,10 @@ class Command(BaseCommand):
 
             self.stdout.write(f"Processing session: {session} for group '{session.school_group.name}'...")
             
-            players_to_notify = session.school_group.players.filter(is_active=True)
+            players_to_notify = session.school_group.players.filter(
+                is_active=True,
+                notification_email__isnull=False
+            ).exclude(notification_email='')
 
             for player in players_to_notify:
                 total_players += 1

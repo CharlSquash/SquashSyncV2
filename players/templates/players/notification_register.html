@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Notification Email - SquashSync{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Session Reminders Registration</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Register your notification email to receive direct session reminders. 
+                    
+                </p>
+
+                {% if players %}
+                    <h5 class="mb-3">Select your name:</h5>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="email_submit" value="1">
+                        
+                        <div class="list-group mb-3">
+                            {% for player in players %}
+                            <label class="list-group-item d-flex align-items-center cursor-pointer">
+                                <input class="form-check-input me-3" type="radio" name="player_id" value="{{ player.id }}" required>
+                                <div>
+                                    <div class="fw-bold">{{ player.first_name }} {{ player.last_name }}</div>
+                                    <small class="text-muted">{{ player.school_groups.first.name|default:"No Group" }}</small>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ email_form.as_p }}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Send Verification Link</button>
+                            <a href="{% url 'players:notification_register' %}" class="btn btn-outline-secondary">Back to Search</a>
+                        </div>
+                    </form>
+
+                {% else %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="search_submit" value="1">
+                        
+                        <div class="mb-3">
+                            <label for="{{ search_form.name_search.id_for_label }}" class="form-label">Player Name</label>
+                            {{ search_form.name_search }}
+                            <div class="form-text">Type your first or last name to find your profile.</div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Find Player</button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

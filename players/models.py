@@ -98,6 +98,13 @@ class Player(models.Model):
         verbose_name="Primary Guardian Email",
         help_text="The primary email for parent communication and session reminders."
     )
+    notification_email = models.EmailField(
+        max_length=254,
+        blank=True,
+        null=True,
+        verbose_name="Player Notification Email",
+        help_text="Verified email address for session reminders."
+    )
 
     # Secondary Guardian
     guardian_2_name = models.CharField(max_length=100, blank=True, verbose_name="Secondary Guardian Name")

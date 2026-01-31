@@ -1,9 +1,11 @@
-# players/views.py
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.views.decorators.http import require_POST, require_http_methods
 from django.http import JsonResponse, HttpResponseForbidden
-from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
+from django.core.mail import send_mail
+from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
+from django.conf import settings
+from django.urls import reverse
 from .models import Player, SchoolGroup, MatchResult, CourtSprintRecord, VolleyRecord, BackwallDriveRecord, AttendanceDiscrepancy
 from scheduling.stats import calculate_player_attendance_stats, calculate_group_attendance_stats
 from solosync2.models import SoloSessionLog
@@ -12,7 +14,8 @@ from datetime import timedelta, date
 from django.contrib import messages
 from .forms import (
     SchoolGroupForm, AttendancePeriodFilterForm, PlayerAttendanceFilterForm,
-    CourtSprintRecordForm, VolleyRecordForm, BackwallDriveRecordForm, MatchResultForm
+    CourtSprintRecordForm, VolleyRecordForm, BackwallDriveRecordForm, MatchResultForm,
+    PlayerSearchForm, PlayerEmailForm
 )
 from scheduling.models import Session, AttendanceTracking, ScheduledClass
 from assessments.models import SessionAssessment, GroupAssessment
@@ -682,3 +685,92 @@ def edit_match_result(request, player_id, match_id):
         'match': match
     }
     return render(request, 'players/edit_match_result.html', context)
+
+
+# --- Public Notification Registration Views ---
+
+def notification_register_view(request):
+    """
+    Public view for players to find themselves and register a notification email.
+    """
+    search_form = PlayerSearchForm(request.POST or None)
+    email_form = None
+    players = None
+    
+    if request.method == 'POST':
+        # 1. Search Logic
+        if 'search_submit' in request.POST:
+            if search_form.is_valid():
+                query = search_form.cleaned_data['name_search']
+                
+                players = Player.objects.filter(
+                    Q(first_name__icontains=query) | Q(last_name__icontains=query),
+                    is_active=True
+                ).distinct()
+                
+                if players.count() > 0:
+                    email_form = PlayerEmailForm()
+                else:
+                    messages.info(request, "No ACTIVE players found with that name.")
+        
+        # 2. Email Submission Logic
+        elif 'email_submit' in request.POST:
+            player_id = request.POST.get('player_id')
+            email_form = PlayerEmailForm(request.POST)
+            
+            # We need to re-run search or handle state if we want to show list again on error
+            # But simpler flow: if error, redirect or show error.
+            
+            if email_form.is_valid() and player_id:
+                player = get_object_or_404(Player, id=player_id)
+                email = email_form.cleaned_data['email']
+                
+                # Generate signed token
+                signer = TimestampSigner()
+                token = signer.sign_object({'player_id': player.id, 'email': email})
+                verify_url = request.build_absolute_uri(reverse('players:notification_verify_email', args=[token]))
+                
+                # Debug: Print to console to ensure user can see it
+                print(f"\n\n{'='*50}\nVERIFICATION URL FOR {email}:\n{verify_url}\n{'='*50}\n\n")
+
+                try:
+                    send_mail(
+                        'Confirm your SquashSync Notification Email',
+                        f'Hi {player.first_name},\n\nPlease click the link below to verify your email address for session reminders:\n\n{verify_url}\n\nThis link expires in 48 hours.',
+                        settings.DEFAULT_FROM_EMAIL,
+                        [email],
+                        fail_silently=False,
+                    )
+                    messages.success(request, f"Verification email sent to {email}. Please check your inbox.")
+                    return redirect('players:notification_register')
+                except Exception as e:
+                    messages.error(request, f"Error sending email: {e}")
+            else:
+                 messages.error(request, "Invalid email address.")
+
+    return render(request, 'players/notification_register.html', {
+        'search_form': search_form,
+        'email_form': email_form,
+        'players': players,
+    })
+
+
+def notification_verify_email(request, token):
+    """
+    Verify the token and update the player's notification email.
+    """
+    signer = TimestampSigner()
+    try:
+        # 48 hours = 172800 seconds
+        data = signer.unsign_object(token, max_age=172800)
+        player = get_object_or_404(Player, id=data['player_id'])
+        
+        # Update email
+        player.notification_email = data['email']
+        player.save()
+        
+        return render(request, 'players/notification_success.html', {'player': player})
+        
+    except (BadSignature, SignatureExpired):
+        return render(request, 'players/notification_success.html', {'error': 'Invalid or expired verification link.'})
+

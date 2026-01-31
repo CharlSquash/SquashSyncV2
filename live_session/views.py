@@ -210,9 +210,9 @@ def experimental_planner(request, session_id):
     
     # If no tracking data, fall back to the session's many-to-many attendees
     if not attendee_pks:
-        players = session.attendees.all().values('id', 'first_name', 'last_name')
+        players = session.attendees.all().values('id', 'first_name', 'last_name', 'notification_email')
     else:
-        players = Player.objects.filter(pk__in=attendee_pks).values('id', 'first_name', 'last_name')
+        players = Player.objects.filter(pk__in=attendee_pks).values('id', 'first_name', 'last_name', 'notification_email')
 
     # Determine current coach
     try:
@@ -253,7 +253,8 @@ def experimental_planner(request, session_id):
         players_list.append({
             'id': p['id'],
             'first_name': str(p['first_name']),
-            'last_name': str(p['last_name'])
+            'last_name': str(p['last_name']),
+            'has_notification_email': bool(p.get('notification_email'))
         })
     
     # Prepare session plan if exists
