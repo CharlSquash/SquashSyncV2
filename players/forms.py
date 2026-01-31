@@ -107,8 +107,12 @@ class QuickMatchResultForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.player = kwargs.pop('player', None)
+        attendees_queryset = kwargs.pop('attendees_queryset', None)
         super().__init__(*args, **kwargs)
-        if self.player:
+
+        if attendees_queryset is not None:
+            self.fields['opponent'].queryset = attendees_queryset
+        elif self.player:
             self.fields['opponent'].queryset = Player.objects.filter(is_active=True).exclude(id=self.player.id).order_by('first_name')
         
         self.fields['opponent'].required = False
