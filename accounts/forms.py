@@ -75,7 +75,7 @@ class CoachProfileUpdateForm(forms.ModelForm):
             'highest_ranking', 'league_participation',
             'qualification_wsf_level', 'qualification_ssa_level', 'experience_notes',
             'accepts_private_coaching', 'private_coaching_preferences', 'private_coaching_area',
-            'bank_name', 'account_number', 'branch_code', 'account_type'
+            'bank_name', 'account_holder_name', 'account_number', 'branch_code', 'account_type'
         ]
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
@@ -151,8 +151,13 @@ class CoachProfileUpdateForm(forms.ModelForm):
                 "Banking Details",
                 HTML('<div class="alert alert-info py-2"><i class="fas fa-lock me-2"></i><strong>Security Note:</strong> Your banking details are encrypted at rest. This information is only accessible by you and the administration for payment purposes.</div>'),
                 Row(
+                    Column('account_holder_name', css_class='form-group col-md-6 mb-0'),
                     Column('bank_name', css_class='form-group col-md-6 mb-0'),
+                    css_class='form-row'
+                ),
+                Row(
                     Column('account_number', css_class='form-group col-md-6 mb-0'),
+                    Column('branch_code', css_class='form-group col-md-6 mb-0'),
                     css_class='form-row'
                 ),
                 Row(

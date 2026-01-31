@@ -157,6 +157,7 @@ class Coach(models.Model):
     private_coaching_area = models.TextField(blank=True, verbose_name="Private Coaching Area", help_text="Preferred area or club.")
 
     # --- Banking Details (Encrypted) ---
+    account_holder_name = models.CharField(max_length=100, blank=True, verbose_name="Account Holder Name", help_text="e.g. Mr J Smith or Company Name")
     bank_name = models.CharField(max_length=100, blank=True, verbose_name="Bank Name")
     account_number = SecureEncryptedCharField(max_length=255, blank=True, verbose_name="Account Number")
     branch_code = SecureEncryptedCharField(max_length=255, blank=True, verbose_name="Branch Code")
