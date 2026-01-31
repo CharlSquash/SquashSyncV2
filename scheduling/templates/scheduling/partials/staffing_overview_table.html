@@ -61,9 +61,7 @@
                                 {% else %}
                                     <span class="fst-italic text-muted">General Session</span>
                                 {% endif %}
-                                {% if session_data.session_obj.notes %}
-                                    <i class="bi bi-info-circle text-info ms-1" data-bs-toggle="tooltip" title="{{ session_data.session_obj.notes }}"></i>
-                                {% endif %}
+
                                 <div class="d-md-none text-muted small mt-1">
                                     <i class="bi bi-geo-alt-fill me-1"></i>{{ session_data.session_obj.venue.name|default:"No Venue" }}
                                 </div>
