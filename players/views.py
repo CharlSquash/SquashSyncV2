@@ -19,7 +19,7 @@ from .forms import (
 )
 from scheduling.models import Session, AttendanceTracking, ScheduledClass
 from assessments.models import SessionAssessment, GroupAssessment
-from django.db.models import Count, Q, Value, Prefetch
+from django.db.models import Count, Q, Value, Prefetch, Avg
 from django.db.models.functions import Concat
 import json
 
@@ -208,10 +208,11 @@ def player_profile(request, player_id):
     match_form = MatchResultForm(player=player)
 
     # Get related data for tabs
-    assessments = SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date')
+    # OPTIMIZATION: Evaluate queryset immediately to list to prevent multiple DB hits when iterating in template
+    assessments_list = list(SessionAssessment.objects.filter(player=player).select_related('session', 'submitted_by__coach_profile').order_by('-session__session_date'))
     
-    # Filter for performance tab (only show if ratings exist)
-    performance_assessments = assessments.exclude(effort_enthusiasm_rating__isnull=True)
+    # Filter for performance tab (only show if ratings exist) - In Memory
+    performance_assessments = [a for a in assessments_list if a.effort_enthusiasm_rating is not None]
     
     match_history = MatchResult.objects.filter(
         Q(player=player) | Q(opponent=player)
@@ -219,7 +220,7 @@ def player_profile(request, player_id):
     discrepancy_history = AttendanceDiscrepancy.objects.filter(player=player).select_related('session', 'session__school_group')
     solo_session_logs = SoloSessionLog.objects.filter(player=player).select_related('routine').order_by('-completed_at')
 
-    # --- NEW: Calculate Average Performance Ratings ---
+    # --- Calculate Average Performance Ratings (In Memory from fetched list) ---
     rating_fields = [
         'effort_enthusiasm_rating', 
         'skill_technique_rating', 
@@ -238,7 +239,8 @@ def player_profile(request, player_id):
     totals = {field: 0 for field in rating_fields}
     counts = {field: 0 for field in rating_fields}
     
-    for assessment in assessments:
+    # Iterate over the ALREADY FETCHED list (fast in memory)
+    for assessment in assessments_list:
         for field in rating_fields:
             value = getattr(assessment, field)
             if value is not None:
@@ -293,7 +295,7 @@ def player_profile(request, player_id):
     context = {
         'page_title': f"Profile: {player.full_name}",
         'player': player,
-        'assessments': assessments,
+        'assessments': assessments_list, # Refreshed to ensure update
         'performance_assessments': performance_assessments,
         'average_ratings': average_ratings,
         'match_history': match_history,
