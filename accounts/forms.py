@@ -161,7 +161,6 @@ class CoachProfileUpdateForm(forms.ModelForm):
                     css_class='form-row'
                 ),
                 Row(
-                    Column('branch_code', css_class='form-group col-md-6 mb-0'),
                     Column('account_type', css_class='form-group col-md-6 mb-0'),
                     css_class='form-row'
                 ),
