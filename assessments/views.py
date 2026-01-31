@@ -502,7 +502,8 @@ def add_match_result(request, session_id):
             
         try:
             match.save()
-            msg = f"Match result for {match.player.full_name} vs {match.opponent.full_name} saved."
+            opponent_display = match.opponent.full_name if match.opponent else match.opponent_name
+            msg = f"Match result for {match.player.full_name} vs {opponent_display} saved."
             messages.success(request, msg)
             
             # Check for AJAX request
