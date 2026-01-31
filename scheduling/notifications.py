@@ -330,7 +330,6 @@ def build_player_attendance_email(player, session):
     html_message = render_to_string('scheduling/emails/player_attendance_reminder.html', context)
     
     email = EmailMultiAlternatives(
-        title=subject, # Title is used as subject in some backends/wrappers, but standard is subject
         subject=subject,
         body='', # Plain text body if you had one
         from_email=settings.DEFAULT_FROM_EMAIL,
