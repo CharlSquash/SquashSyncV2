@@ -299,17 +299,17 @@ def decline_attendance(request, session_id, token):
 
 player_attendance_signer = TimestampSigner(salt='scheduling.player_attendance')
 
-def send_player_attendance_email(player, session):
-    """Sends an attendance reminder email to a player's verified notification email."""
+def build_player_attendance_email(player, session):
+    """
+    Builds the player attendance email object but does not send it.
+    Returns an EmailMultiAlternatives object or None if no notification email.
+    """
     if not player.notification_email:
-        print(f"Cannot send email: Player {player.full_name} has no notification email.")
-        return False
+        print(f"Cannot build email: Player {player.full_name} has no notification email.")
+        return None
 
     tracking_record, _ = AttendanceTracking.objects.get_or_create(session=session, player=player)
 
-    # Use a different salt or keep the same validation logic? 
-    # The existing views responding to this (scheduling:player_attendance_response) likely don't care about which email it went to, 
-    # as long as the token is valid for the tracking_record.
     token_attend = player_attendance_signer.sign(f"{tracking_record.id}:ATTENDING")
     token_decline = player_attendance_signer.sign(f"{tracking_record.id}:NOT_ATTENDING")
 
@@ -329,8 +329,26 @@ def send_player_attendance_email(player, session):
     
     html_message = render_to_string('scheduling/emails/player_attendance_reminder.html', context)
     
+    email = EmailMultiAlternatives(
+        title=subject, # Title is used as subject in some backends/wrappers, but standard is subject
+        subject=subject,
+        body='', # Plain text body if you had one
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[player.notification_email]
+    )
+    email.attach_alternative(html_message, "text/html")
+    
+    return email
+
+def send_player_attendance_email(player, session):
+    """Sends an attendance reminder email to a player's verified notification email."""
+    email = build_player_attendance_email(player, session)
+    
+    if not email:
+        return False
+        
     try:
-        send_mail(subject, '', settings.DEFAULT_FROM_EMAIL, [player.notification_email], html_message=html_message)
+        email.send()
         print(f"Sent player attendance reminder to {player.full_name} ({player.notification_email}).")
         return True
     except Exception as e:

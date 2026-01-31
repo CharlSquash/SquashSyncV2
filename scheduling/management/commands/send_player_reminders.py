@@ -1,11 +1,11 @@
-# In squashsync_v2/scheduling/management/commands/send_player_reminders.py
-
 import datetime
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from scheduling.models import Session
-from scheduling.notifications import send_player_attendance_email
+from scheduling.notifications import build_player_attendance_email
 from django.db.models import Q
+from django.core.mail import get_connection
+import time
 
 class Command(BaseCommand):
     help = 'Sends attendance reminder emails to parents for sessions occurring today and tomorrow.'
@@ -44,28 +44,47 @@ class Command(BaseCommand):
 
         sent_count = 0
         total_players = 0
+        messages = []
 
-        for session in sessions_to_notify:
-            if not session.school_group:
-                continue
+        # Open a single persistent connection
+        with get_connection() as connection:
+            for session in sessions_to_notify:
+                if not session.school_group:
+                    continue
 
-            self.stdout.write(f"Processing session: {session} for group '{session.school_group.name}'...")
-            
-            # STRICTLY filter only players with a set notification_email
-            players_to_notify = session.school_group.players.filter(
-                is_active=True,
-                notification_email__isnull=False
-            ).exclude(notification_email='')
+                self.stdout.write(f"Processing session: {session} for group '{session.school_group.name}'...")
+                
+                # STRICTLY filter only players with a set notification_email
+                players_to_notify = session.school_group.players.filter(
+                    is_active=True,
+                    notification_email__isnull=False
+                ).exclude(notification_email='')
 
-            for player in players_to_notify:
-                total_players += 1
-                if dry_run:
-                    self.stdout.write(f"  [DRY RUN] Would send to: {player.full_name} <{player.notification_email}>")
-                    sent_count += 1
-                else:
-                    if send_player_attendance_email(player, session):
+                for player in players_to_notify:
+                    total_players += 1
+                    
+                    if dry_run:
+                        self.stdout.write(f"  [DRY RUN] Would send to: {player.full_name} <{player.notification_email}>")
                         sent_count += 1
-        
+                    else:
+                        email_msg = build_player_attendance_email(player, session)
+                        if email_msg:
+                            messages.append(email_msg)
+                            
+                            # Batch send if we have enough messages
+                            if len(messages) >= 20:
+                                count = connection.send_messages(messages)
+                                sent_count += count
+                                messages = [] # Clear the list
+                                self.stdout.write(f"  Sent batch of {count} emails. Sleeping...")
+                                time.sleep(1) # Rate limiting
+            
+            # Send any remaining messages
+            if messages and not dry_run:
+                count = connection.send_messages(messages)
+                sent_count += count
+                self.stdout.write(f"  Sent final batch of {count} emails.")
+                
         self.stdout.write(self.style.SUCCESS(f"--- {mode_str}Process Complete ---"))
         action_verb = "would be sent" if dry_run else "sent"
         self.stdout.write(f"Processed {total_players} verified players. Emails {action_verb}: {sent_count}.")
