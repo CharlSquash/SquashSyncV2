@@ -10,6 +10,29 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils import timezone
 from core.utils import process_profile_image
+from fernet_fields import EncryptedCharField
+
+class SecureEncryptedCharField(EncryptedCharField):
+    """
+    Subclass to ensure value is always returned as a string,
+    fixing issues where it might be returned as bytes or stringified bytes.
+    """
+    def from_db_value(self, value, expression, connection):
+        val = super().from_db_value(value, expression, connection)
+        if isinstance(val, bytes):
+            return val.decode('utf-8')
+        # Fix artifacts where str(bytes) was saved or returned
+        if isinstance(val, str) and val.startswith("b'") and val.endswith("'"):
+            val = val[2:-1]
+        elif isinstance(val, str) and val.startswith('b"') and val.endswith('"'):
+            val = val[2:-1]
+        return val
+
+    def to_python(self, value):
+        val = super().to_python(value)
+        if isinstance(val, bytes):
+            return val.decode('utf-8')
+        return val
 
 class Coach(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='coach_profile', null=True, blank=True )
@@ -132,6 +155,18 @@ class Coach(models.Model):
     accepts_private_coaching = models.BooleanField(default=False, verbose_name="Available for One-on-One Coaching?")
     private_coaching_preferences = models.TextField(blank=True, verbose_name="Private Coaching Preferences", help_text="Preferred age group or skill level.")
     private_coaching_area = models.TextField(blank=True, verbose_name="Private Coaching Area", help_text="Preferred area or club.")
+
+    # --- Banking Details (Encrypted) ---
+    bank_name = models.CharField(max_length=100, blank=True, verbose_name="Bank Name")
+    account_number = SecureEncryptedCharField(max_length=255, blank=True, verbose_name="Account Number")
+    branch_code = SecureEncryptedCharField(max_length=255, blank=True, verbose_name="Branch Code")
+    
+    class AccountType(models.TextChoices):
+        CURRENT = 'Current', 'Current / Cheque'
+        SAVINGS = 'Savings', 'Savings'
+        
+    account_type = models.CharField(max_length=20, choices=AccountType.choices, default=AccountType.CURRENT, blank=True, verbose_name="Account Type")
+    xero_contact_id = models.CharField(max_length=100, blank=True, verbose_name="Xero Contact ID", help_text="Linked Xero contact for payments.")
 
 
     def __str__(self):

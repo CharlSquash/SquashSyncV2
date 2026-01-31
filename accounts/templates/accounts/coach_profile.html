@@ -323,6 +323,25 @@
                                             </dd>
                                         </dl>
                                     {% endif %}
+
+                                    <!-- Sub-Group: Banking Details -->
+                                    {% if viewing_own_profile or request.user.is_superuser %}
+                                        <h5 class="text-secondary border-bottom pb-2 mb-3 mt-4"><i class="bi bi-bank"></i> Banking Details <small class="text-muted fst-italic ms-2" style="font-size: 0.7em;">(Private)</small></h5>
+                                        <dl class="row mb-0">
+                                            <dt class="col-sm-4 text-muted">Bank</dt>
+                                            <dd class="col-sm-8">{{ coach.bank_name|default:"-" }}</dd>
+
+                                            <dt class="col-sm-4 text-muted">Account No</dt>
+                                            <dd class="col-sm-8">{{ coach.account_number|default:"-" }}</dd>
+
+                                            <dt class="col-sm-4 text-muted">Branch Code</dt>
+                                            <dd class="col-sm-8">{{ coach.branch_code|default:"-" }}</dd>
+
+                                            <dt class="col-sm-4 text-muted">Type</dt>
+                                            <dd class="col-sm-8">{{ coach.get_account_type_display|default:"-" }}</dd>
+                                        </dl>
+                                        <p class="text-muted small mt-2"><i class="fas fa-shield-alt me-1"></i> These details are securely encrypted and are not visible to other coaches or staff.</p>
+                                    {% endif %}
                                 </div>
 
                                 <!-- Col 2: Professional & Logistics -->

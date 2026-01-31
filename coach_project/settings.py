@@ -5,6 +5,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 import datetime
 from datetime import timedelta
+import django.utils.encoding
+# Patch force_text for django-fernet-fields compatibility with Django 4+
+django.utils.encoding.force_text = django.utils.encoding.force_str
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -59,6 +62,7 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'todo',
     'tasks',
+    'fernet_fields',
 ]
 
 MIDDLEWARE = [

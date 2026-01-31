@@ -12,6 +12,7 @@ Django==5.2
 django-cors-headers==4.7.0
 django-crispy-forms==2.4
 django-eventstream==5.3.2
+django-fernet-fields
 django-filter==25.1
 django-grip==3.5.2
 djangorestframework==3.16.0

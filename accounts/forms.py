@@ -52,6 +52,7 @@ from .models import Coach
 class CoachProfileUpdateForm(forms.ModelForm):
     phone = forms.CharField(
         label="Phone Number",
+        required=False,  # Allow saving without validation if empty
         validators=[
             RegexValidator(
                 regex=r'^0\d{9}$',
@@ -73,7 +74,8 @@ class CoachProfileUpdateForm(forms.ModelForm):
             'occupation', 'academic_credentials', 'currently_studying',
             'highest_ranking', 'league_participation',
             'qualification_wsf_level', 'qualification_ssa_level', 'experience_notes',
-            'accepts_private_coaching', 'private_coaching_preferences', 'private_coaching_area'
+            'accepts_private_coaching', 'private_coaching_preferences', 'private_coaching_area',
+            'bank_name', 'account_number', 'branch_code', 'account_type'
         ]
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
@@ -142,6 +144,22 @@ class CoachProfileUpdateForm(forms.ModelForm):
                     css_class='form-row'
                 ),
 
+            ),
+            
+            # Group 4 (Banking Details - Secure)
+            Fieldset(
+                "Banking Details",
+                HTML('<div class="alert alert-info py-2"><i class="fas fa-lock me-2"></i><strong>Security Note:</strong> Your banking details are encrypted at rest. This information is only accessible by you and the administration for payment purposes.</div>'),
+                Row(
+                    Column('bank_name', css_class='form-group col-md-6 mb-0'),
+                    Column('account_number', css_class='form-group col-md-6 mb-0'),
+                    css_class='form-row'
+                ),
+                Row(
+                    Column('branch_code', css_class='form-group col-md-6 mb-0'),
+                    Column('account_type', css_class='form-group col-md-6 mb-0'),
+                    css_class='form-row'
+                ),
             ),
 
             # Group 4 (Logistics)
